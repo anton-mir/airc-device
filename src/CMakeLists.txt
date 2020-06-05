@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.0)
 set(CMAKE_SHARED_LIBRARY_LINK_C_FLAGS "")
 set(CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS "")
-project(stm32eth.elf NONE)
+project(airc_dev.elf NONE)
 
 set(LOCAL_SRCS "")
 set(LOCAL_HDRS "")
@@ -51,6 +51,6 @@ set (CMAKE_EXE_LINKER_FLAGS "-T${LINKER_SCRIPT} -Wl,-Map=${PROJECT_NAME}.map -Wl
 
 add_executable(${PROJECT_NAME} ${LOCAL_SRCS} ${LOCAL_HDRS})
 
-target_include_directories(stm32eth.elf PRIVATE ${LWIP_INCLUDE_DIRS})
+target_include_directories(airc_dev.elf PRIVATE ${LWIP_INCLUDE_DIRS})
 target_link_libraries(${PROJECT_NAME} stm32f407hal freertos ksz8081rnd wh1602 lwipcore startup)
 
