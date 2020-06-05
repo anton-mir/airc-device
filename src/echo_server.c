@@ -57,38 +57,39 @@ void echo_server(void * const arg)
         if (err < 0)
             continue;
 
-        for (int fd = 0; fd < maxfd; ++fd) 
+        for (int fd = 0; fd <= maxfd; ++fd)
         {
-            if (FD_ISSET(fd, &readfds)) 
+            if (FD_ISSET(fd, &readfds))
             {
-                if (fd == listenfd) 
+                if (fd == listenfd)
                 {
                     int clientfd = lwip_accept(
-                                        listenfd, 
+                                        listenfd,
                                         (struct sockaddr *)&client_addr,
                                         &client_len);
-                    if (clientfd >= 0) 
+                    if (clientfd >= 0)
                     {
                         FD_SET(clientfd, &readfds);
-                        if (clientfd > maxfd) 
+                        if (clientfd > maxfd)
                         {
                             maxfd = clientfd;
                         }
                     }
-                } 
-                else 
+                }
+                else
                 {
                     memset(buf, 0, BUF_LEN);
 
                     read_len = lwip_read(fd, buf, BUF_LEN);
-                    if (read_len > 0) 
-                    {
-                        lwip_write(fd, buf, read_len);
-                    } 
-                    else if (read_len <= 0) 
+                    if (read_len <= 0)
                     {
                         lwip_close(fd);
                         FD_CLR(fd, &readfds);
+                    }
+                    else
+                    {
+                        /* send echo */
+                        lwip_write(fd, buf, read_len);
                     }
                 }
             }
