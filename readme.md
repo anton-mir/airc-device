@@ -43,6 +43,6 @@ Flash **stm32eth.elf** file to your STM32F4DISCOVERY as described earlier.
 Connect GL Starter Kit with ethernet cable to router or directly to your host PC (use linux OS).
 ```
 $ sudo apt-get install nc
-$ nc [IP_ADDRESS_FROM_DISPLAY] 1133
+$ nc [IP_ADDRESS_FROM_DISPLAY] 11333
 ```
 Type something and you should see Starter Kit reply back same message to you.
