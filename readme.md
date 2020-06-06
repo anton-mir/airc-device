@@ -46,3 +46,17 @@ $ sudo apt-get install nc
 $ nc [IP_ADDRESS_FROM_DISPLAY] 11333
 ```
 Type something and you should see Starter Kit reply back same message to you.
+
+### How to setup Clion IDE to build project
+
+Goto **Settings->Build, execution, deployment->CMake**
+
+CMake options:
+
+`-DCMAKE_TOOLCHAIN_FILE=/home/[USERNAME]/src/GL-SMARTCITY/sbc-platform/src/airc-device/toolchain.cmake`
+
+Environment: 
+
+`CROSS_COMPILE=/home/[USERNAME]/toolchain/gcc-arm-none-eabi-9-2020-q2-update/bin/arm-none-eabi-`
+
+
