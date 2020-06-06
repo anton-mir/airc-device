@@ -27,16 +27,16 @@ Also you might install cubeprogrammer from stm website and use STM32_Programmer_
 ```
 $ cd ~/src/GL-SMARTCITY/sbc-platform/src/airc-device
 $ scp -P 5025 ./build/src/airc_dev.elf airc@[IP_ADDRESS]:/home/airc/firmware 
-$ ssh airc@[IP_ADDRESS]:5025 
+$ ssh airc@[IP_ADDRESS] -p 5025 
 $ cd firmware 
-$ openocd
+$ sudo openocd
 ```
 ### How to build test app "stm32eth echo"
 
 ```
 $ git checkout dev_test_sockets
 $ source env.src
-$ source README 
+$ ./build.sh 
 ```
 Flash **stm32eth.elf** file to your STM32F4DISCOVERY as described earlier.
 
