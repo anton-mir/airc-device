@@ -49,6 +49,10 @@ Type something and you should see Starter Kit reply back same message to you.
 
 ### How to setup Clion IDE to build project
 
+```
+$ echo 'export PATH=~/toolchain/gcc-arm-none-eabi-9-2020-q2-update/bin:$PATH' >> ~/.bashrc
+```
+
 Goto **Settings->Build, execution, deployment->CMake**
 
 CMake options:
