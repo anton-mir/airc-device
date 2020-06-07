@@ -49,6 +49,7 @@
                                      x, __LINE__, __FILE__); } while(0)
 
 /* Define random number generator function */
-#define LWIP_RAND() ((u32_t)rand())
+#define LWIP_RAND() ((u32_t)rand_wrapper())
+//
 
 #endif /* CC_H */

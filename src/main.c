@@ -59,12 +59,23 @@ TaskHandle_t echo_server_handle = NULL;
 
 EventGroupHandle_t eg_task_started = NULL;
 
+static RNG_HandleTypeDef rng_handle;
+
 struct netif gnetif;
 
 static void SystemClock_Config(void);
 static void Error_Handler(void);
 static void netif_setup();
 void init_task(void *arg);
+
+uint32_t rand_wrapper()
+{
+    uint32_t random = 0;
+    
+   (void)HAL_RNG_GenerateRandomNumber(&rng_handle, &random);
+
+   return random;
+}
 
 void init_task(void *arg)
 {
@@ -73,6 +84,8 @@ void init_task(void *arg)
     struct netif *netif = (struct netif *)arg;
 
     __HAL_RCC_GPIOD_CLK_ENABLE();
+
+    (void)HAL_RNG_Init(&rng_handle);
 
     eg_task_started = xEventGroupCreate();
     configASSERT(eg_task_started);

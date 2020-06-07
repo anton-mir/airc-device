@@ -39,7 +39,8 @@ set(LOCAL_SRCS
     "stm32f4xx_hal_rcc_ex.c"
     "stm32f4xx_hal_sram.c"
     "stm32f4xx_hal_tim.c"
-    "stm32f4xx_hal_tim_ex.c")
+    "stm32f4xx_hal_tim_ex.c"
+    "stm32f4xx_hal_rng.c")
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR} "../../CMSIS/core/inc")
 include_directories(${CMAKE_CURRENT_SOURCE_DIR} "../../dev/inc")
