@@ -69,6 +69,7 @@
 #define EG_LINK_STATE_STARTED       (0x04)
 #define EG_DHCP_FSM_STARTED         (0x08)
 #define EG_ECHO_SERVER_STARTED      (0x10)
+#define EG_WIFI_TSK_STARTED         (0x20)
 
 
 /* Exported types ------------------------------------------------------------*/
@@ -81,6 +82,7 @@ extern TaskHandle_t ethif_in_handle;
 extern TaskHandle_t link_state_handle;
 extern TaskHandle_t dhcp_fsm_handle;
 extern TaskHandle_t echo_server_handle;
+extern TaskHandle_t wifi_tsk_handle;
 
 extern EventGroupHandle_t eg_task_started;
 

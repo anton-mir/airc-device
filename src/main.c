@@ -42,6 +42,7 @@
 #include "lwip/tcpip.h"
 #include "netif/etharp.h"
 #include "ethernetif.h"
+#include "esp8266_wifi.h"
 #include "echo_server.h"
 #include "ksz8081rnd.h"
 #include "wh1602.h"
@@ -51,11 +52,13 @@
 #include "tasks_def.h"
 #include "hw_delay.h"
 
+
 TaskHandle_t init_handle = NULL;
 TaskHandle_t ethif_in_handle = NULL;
 TaskHandle_t link_state_handle = NULL;
 TaskHandle_t dhcp_fsm_handle = NULL;
 TaskHandle_t echo_server_handle = NULL;
+TaskHandle_t wifi_tsk_handle = NULL;
 
 EventGroupHandle_t eg_task_started = NULL;
 
@@ -84,6 +87,8 @@ void init_task(void *arg)
     struct netif *netif = (struct netif *)arg;
 
     __HAL_RCC_GPIOD_CLK_ENABLE();
+    __HAL_RCC_GPIOA_CLK_ENABLE();
+    __HAL_RCC_USART2_CLK_ENABLE();
 
     (void)HAL_RNG_Init(&rng_handle);
 
@@ -143,11 +148,20 @@ void init_task(void *arg)
 
     configASSERT(status);
 
+    status = xTaskCreate(
+                wifi_task,
+                "wifi_tsk",
+                ESP8266_WIFI_TASK_STACK_SIZE,
+                (void *)netif,
+                ESP8266_WIFI_TASK_PRIO,
+                &wifi_tsk_handle);
+    configASSERT(status);
+    
     /* Wait for all tasks initialization */
     xEventGroupWaitBits(
             eg_task_started,
             (EG_INIT_STARTED | EG_ETHERIF_IN_STARTED | EG_LINK_STATE_STARTED | 
-                EG_DHCP_FSM_STARTED | EG_ECHO_SERVER_STARTED),
+                EG_DHCP_FSM_STARTED | EG_ECHO_SERVER_STARTED | EG_WIFI_TSK_STARTED),
             pdFALSE,
             pdTRUE,
             portMAX_DELAY);
@@ -157,6 +171,8 @@ void init_task(void *arg)
         /* Start DHCP address request */
         ethernetif_dhcp_start();
     }
+
+    esp_module_init();
 
     gpio.Mode = GPIO_MODE_OUTPUT_PP;
     gpio.Pull = GPIO_NOPULL;
