@@ -33,6 +33,7 @@ set(LOCAL_SRCS
     "syscalls.c"
     "sysmem.c"
     "${CMAKE_CURRENT_SOURCE_DIR}/arch/sys_arch.c"
+	"lm335z.c"
     "main.c"
 )
 
@@ -43,6 +44,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR} "../lib/FreeRTOS-Kernel/include"
 include_directories(${CMAKE_CURRENT_SOURCE_DIR} "../lib/FreeRTOS-Kernel/portable/GCC/ARM_CM4F")
 include_directories(${CMAKE_CURRENT_SOURCE_DIR} "../drivers/ksz8081rnd/inc")
 include_directories(${CMAKE_CURRENT_SOURCE_DIR} "../drivers/wh1602/inc")
+include_directories(${CMAKE_CURRENT_SOURCE_DIR} "../lib/lwip/src/include")
 include_directories(${CMAKE_CURRENT_SOURCE_DIR} "../lib/lwip/src/include")
 # include_directories(${CMAKE_CURRENT_SOURCE_DIR} "../inc/arch")
 include_directories(${CMAKE_CURRENT_SOURCE_DIR} "../inc")
