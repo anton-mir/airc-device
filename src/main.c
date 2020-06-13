@@ -55,6 +55,7 @@ TaskHandle_t init_handle = NULL;
 TaskHandle_t ethif_in_handle = NULL;
 TaskHandle_t link_state_handle = NULL;
 TaskHandle_t dhcp_fsm_handle = NULL;
+TaskHandle_t analog_temp_handle = NULL;
 
 EventGroupHandle_t eg_task_started = NULL;
 
@@ -122,10 +123,10 @@ void init_task(void *arg)
     status = xTaskCreate(
                 analog_temp,
                 "analog_temp",
-                ETHIF_IN_TASK_STACK_SIZE,
+                ANALOG_TEMP_TASK_STACK_SIZE,
                 (void *)netif,
-                ETHIF_IN_TASK_PRIO,
-                &ethif_in_handle);
+                ANALOG_TEMP_TASK_PRIO,
+                &analog_temp_handle);
 
     configASSERT(status);	
 
