@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.0)
 set(CMAKE_SHARED_LIBRARY_LINK_C_FLAGS "")
 set(CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS "")
-project(stm32eth.elf NONE)
+project(airc_dev.elf NONE)
 
 set(LOCAL_SRCS "")
 set(LOCAL_HDRS "")
@@ -30,10 +30,10 @@ set(LOCAL_SRCS
     "stm32f4xx_it.c"
     "system_stm32f4xx.c"
     "ethernetif.c"
-    "echo_server.c"
     "syscalls.c"
     "sysmem.c"
     "${CMAKE_CURRENT_SOURCE_DIR}/arch/sys_arch.c"
+	"lm335z.c"
     "main.c"
 )
 
@@ -45,6 +45,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR} "../lib/FreeRTOS-Kernel/portable
 include_directories(${CMAKE_CURRENT_SOURCE_DIR} "../drivers/ksz8081rnd/inc")
 include_directories(${CMAKE_CURRENT_SOURCE_DIR} "../drivers/wh1602/inc")
 include_directories(${CMAKE_CURRENT_SOURCE_DIR} "../lib/lwip/src/include")
+include_directories(${CMAKE_CURRENT_SOURCE_DIR} "../lib/lwip/src/include")
 # include_directories(${CMAKE_CURRENT_SOURCE_DIR} "../inc/arch")
 include_directories(${CMAKE_CURRENT_SOURCE_DIR} "../inc")
 
@@ -52,6 +53,6 @@ set (CMAKE_EXE_LINKER_FLAGS "-T${LINKER_SCRIPT} -Wl,-Map=${PROJECT_NAME}.map -Wl
 
 add_executable(${PROJECT_NAME} ${LOCAL_SRCS} ${LOCAL_HDRS})
 
-target_include_directories(stm32eth.elf PRIVATE ${LWIP_INCLUDE_DIRS})
+target_include_directories(airc_dev.elf PRIVATE ${LWIP_INCLUDE_DIRS})
 target_link_libraries(${PROJECT_NAME} stm32f407hal freertos ksz8081rnd wh1602 lwipcore startup)
 

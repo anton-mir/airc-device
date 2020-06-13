@@ -42,7 +42,6 @@
 #include "lwip/tcpip.h"
 #include "netif/etharp.h"
 #include "ethernetif.h"
-#include "echo_server.h"
 #include "ksz8081rnd.h"
 #include "wh1602.h"
 #include "FreeRTOS.h"
@@ -50,19 +49,19 @@
 #include "task.h"
 #include "tasks_def.h"
 #include "hw_delay.h"
+#include "lm335z.h"
 
 TaskHandle_t init_handle = NULL;
 TaskHandle_t ethif_in_handle = NULL;
 TaskHandle_t link_state_handle = NULL;
 TaskHandle_t dhcp_fsm_handle = NULL;
-TaskHandle_t echo_server_handle = NULL;
 
 EventGroupHandle_t eg_task_started = NULL;
 
 struct netif gnetif;
 
 static void SystemClock_Config(void);
-static void Error_Handler(void);
+void Error_Handler(void);
 static void netif_setup();
 void init_task(void *arg);
 
@@ -119,22 +118,21 @@ void init_task(void *arg)
                 &ethif_in_handle);
 
     configASSERT(status);
-
+	
     status = xTaskCreate(
-                echo_server,
-                "echo_srv",
-                ECHO_SERVER_TASK_STACK_SIZE,
+                analog_temp,
+                "analog_temp",
+                ETHIF_IN_TASK_STACK_SIZE,
                 (void *)netif,
-                ECHO_SERVER_TASK_PRIO,
-                &echo_server_handle);
+                ETHIF_IN_TASK_PRIO,
+                &ethif_in_handle);
 
-    configASSERT(status);
+    configASSERT(status);	
 
     /* Wait for all tasks initialization */
     xEventGroupWaitBits(
             eg_task_started,
-            (EG_INIT_STARTED | EG_ETHERIF_IN_STARTED | EG_LINK_STATE_STARTED | 
-                EG_DHCP_FSM_STARTED | EG_ECHO_SERVER_STARTED),
+            (EG_INIT_STARTED | EG_ETHERIF_IN_STARTED | EG_LINK_STATE_STARTED | EG_DHCP_FSM_STARTED),
             pdFALSE,
             pdTRUE,
             portMAX_DELAY);
@@ -318,12 +316,14 @@ static void netif_setup()
   * @param  None
   * @retval None
   */
-static void Error_Handler(void)
+void Error_Handler(void)
 {
     /* User may add here some code to deal with this error */
     while(1)
     {
     }
 }
+
+
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
