@@ -6,3 +6,5 @@
 tags
 *.swp
 *.swo
+.idea/
+cmake-build-*/
