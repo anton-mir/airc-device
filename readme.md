@@ -63,4 +63,32 @@ Environment:
 
 `CROSS_COMPILE=/home/[USERNAME]/toolchain/gcc-arm-none-eabi-9-2020-q2-update/bin/arm-none-eabi-`
 
+### How to debug at remote
 
+#### Run openocd server
+
+Run in separate tmux session:
+```
+$ cd firmware
+$ openocd -f openocd_commands.cfg -d
+```
+"d" key needed for debugging information, you can skip it
+
+#### Run gdb
+
+In other tmux window run:
+```
+$ gdb --command=gdb_commands.cfg
+```
+
+Note: You may need to restart openocd session after quitting from gdb
+
+```
+$ cat openocd_commands.cfg 
+source [find board/stm32f4discovery.cfg]
+$_TARGETNAME configure -rtos auto
+
+$ cat gdb_commands.cfg 
+file airc_dev.elf
+target extended-remote localhost:3333
+```
