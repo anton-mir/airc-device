@@ -18,14 +18,14 @@ $ ./build.sh
 If you have installed CubeIDE, then:
 ```
 $ cd ~/src/GL-SMARTCITY/sbc-platform/src/airc-device/build/src
-$ /opt/st/stm32cubeide_1.2.0/plugins/com.st.stm32cube.ide.mcu.externaltools.cubeprogrammer.linux64_1.1.0.201910081157/tools/bin/STM32_Programmer_CLI -c port=SWD -d airc_dev.elf
+$ /opt/st/stm32cubeide_1.2.0/plugins/com.st.stm32cube.ide.mcu.externaltools.cubeprogrammer.linux64_1.1.0.201910081157/tools/bin/STM32_Programmer_CLI -c port=SWD -d [firmware_name].elf
 ```
 Also you might install cubeprogrammer from stm website and use STM32_Programmer_CLI from installed path.
 
 ### How to flash and test at remote
 ```
 $ cd ~/src/GL-SMARTCITY/sbc-platform/src/airc-device
-$ scp -P 5025 ./build/src/airc_dev.elf airc@[IP_ADDRESS]:/home/airc/firmware 
+$ scp -P 5025 ./build/src/[firmware_name].elf airc@[IP_ADDRESS]:/home/airc/firmware 
 $ ssh airc@[IP_ADDRESS] -p 5025 
 $ cd firmware 
 $ sudo openocd
@@ -37,7 +37,7 @@ $ git checkout dev_test_sockets
 $ source env.src
 $ ./build.sh 
 ```
-Flash **stm32eth.elf** file to your STM32F4DISCOVERY as described earlier.
+Flash **[firmware_name].elf** file to your STM32F4DISCOVERY as described earlier.
 
 Connect GL Starter Kit with ethernet cable to router or directly to your host PC (use linux OS).
 ```
@@ -65,11 +65,11 @@ Environment:
 
 #### Upload firmware
 ```
-$ scp ~/src/GL-SMARTCITY/sbc-platform/src/airc-device/build/src/stm32eth.elf airc@176.37.42.185:firmware
+$ scp ~/src/GL-SMARTCITY/sbc-platform/src/airc-device/build/src/[firmware_name].elf airc@176.37.42.185:firmware
 ```
 #### Flash firmware
 ```
-$ ssh airc@176.37.42.185 "cd firmware && ./flash.sh stm32eth.elf"
+$ ssh airc@176.37.42.185 "cd firmware && ./flash.sh [firmware_name].elf"
 ```
 #### Run openocd at remote
 ```
@@ -79,7 +79,7 @@ $ ssh airc@176.37.42.185 -L 3333:localhost:3333 openocd -f firmware/openocd_comm
 ```
 $ sudo apt-get insatll gdb-multiarch
 $ gdb-multiarch
-(gdb) file airc_dev.elf
+(gdb) file [firmware_name].elf
 (gdb) target extended-remote localhost:3333
 ```
 
