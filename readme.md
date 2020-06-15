@@ -13,7 +13,6 @@ $ git submodule update --init
 $ source env.src
 $ ./build.sh
 ```
-
 ### How to flash locally
 
 If you have installed CubeIDE, then:
@@ -48,7 +47,6 @@ $ nc [IP_ADDRESS_FROM_DISPLAY] 11333
 Type something and you should see Starter Kit reply back same message to you.
 
 ### How to setup Clion IDE to build project
-
 ```
 $ echo 'export PATH=~/toolchain/gcc-arm-none-eabi-9-2020-q2-update/bin:$PATH' >> ~/.bashrc
 ```
@@ -63,32 +61,27 @@ Environment:
 
 `CROSS_COMPILE=/home/[USERNAME]/toolchain/gcc-arm-none-eabi-9-2020-q2-update/bin/arm-none-eabi-`
 
-### How to debug at remote
+### Debug remotelly with ssh port-forwarding
 
-#### Run openocd server
-
-Run in separate tmux session:
+#### Upload firmware
 ```
-$ cd firmware
-$ openocd -f openocd_commands.cfg -d
+$ scp ~/src/GL-SMARTCITY/sbc-platform/src/airc-device/build/src/stm32eth.elf airc@176.37.42.185:firmware
 ```
-"d" key needed for debugging information, you can skip it
-
-#### Run gdb
-
-In other tmux window run:
+#### Flash firmware
 ```
-$ gdb --command=gdb_commands.cfg
+$ ssh airc@176.37.42.185 "cd firmware && ./flash.sh stm32eth.elf"
+```
+#### Run openocd at remote
+```
+$ ssh airc@176.37.42.185 -L 3333:localhost:3333 openocd -f firmware/openocd_commands.cfg
+```
+#### Run gdb locally
+```
+$ sudo apt-get insatll gdb-multiarch
+$ gdb-multiarch
+(gdb) file airc_dev.elf
+(gdb) target extended-remote localhost:3333
 ```
 
-Note: You may need to restart openocd session after quitting from gdb
+If needed, kill openocd process with "ssh airc@176.37.42.185 ./firmware/stop_debug.sh"
 
-```
-$ cat openocd_commands.cfg 
-source [find board/stm32f4discovery.cfg]
-$_TARGETNAME configure -rtos auto
-
-$ cat gdb_commands.cfg 
-file airc_dev.elf
-target extended-remote localhost:3333
-```
