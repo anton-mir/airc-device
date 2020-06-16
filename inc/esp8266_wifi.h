@@ -3,6 +3,14 @@
 
 #include "stm32f4xx_hal.h"
 
+typedef struct ESP8266
+{
+    int initialized;
+    uint8_t mode;
+
+} ESP8266;
+
+
 UART_HandleTypeDef esp_uart;
 
 void wifi_task(void * const arg);

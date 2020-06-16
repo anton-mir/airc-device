@@ -3,14 +3,29 @@
 #include "hw_delay.h"
 #include "main.h"
 
+static ESP8266 esp_module = { 0 };
+
+static void send_command(const char *command, size_t command_size, size_t answer_size)
+{
+    HAL_UART_Transmit_IT(&esp_uart, (uint8_t *)command, command_size);
+}
+
 void wifi_task(void * const arg)
 {
     xEventGroupSetBits(eg_task_started, EG_WIFI_TSK_STARTED);
 
     for (;;)
     {
-        HAL_UART_Transmit(&esp_uart, (uint8_t*)"AT+RST\r\n", 8, HAL_MAX_DELAY);
-        vTaskDelay(10000);
+        if (esp_module.initialized)
+        {
+            send_command("AT+CIPSTATUS\r\n", 14, 0);
+            delay_s(2);
+            send_command("AT+CIPSEND=0,101\r\n", 18, 0);
+            delay_s(2);
+            send_command("HTTP/1.1 200 OK\nContent-Type: text/html\nContent-Length: 41\n\n<h1>Hello from AirC device via wifi!</h1>", 101, 0);
+            delay_s(2);        
+        }
+        vTaskDelay(500);
     }
 }
 
@@ -38,6 +53,26 @@ HAL_StatusTypeDef esp_module_init(void)
     esp_uart.Init.OverSampling = UART_OVERSAMPLING_16;
 
     HAL_StatusTypeDef status = HAL_UART_Init(&esp_uart);
-    
+
+    HAL_NVIC_SetPriority(USART2_IRQn, 0, 0);
+    HAL_NVIC_EnableIRQ(USART2_IRQn);
+
+    send_command("AT\r\n", 4, 0);
+    delay_s(2);
+    send_command("AT+CWMODE_CUR=3\r\n", 17, 0);
+    delay_s(2);
+    send_command("AT+CWJAP_CUR=\"Orion XXX\",\"61638498\"\r\n", 37, 0);
+    delay_s(2);
+    send_command("AT+CWSAP_CUR=\"AirC Device\",\"314159265\",5,3\r\n", 44, 0);
+    delay_s(2);
+    send_command("AT+CIPMODE=0\r\n", 14, 0);
+    delay_s(2);
+    send_command("AT+CIPMUX=1\r\n", 13, 0);
+    delay_s(2);
+    send_command("AT+CIPSERVER=1,1001\r\n", 21, 0);
+    delay_s(2);
+
+    esp_module.initialized = 1;
+
     return status;
 }

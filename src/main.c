@@ -152,7 +152,7 @@ void init_task(void *arg)
                 wifi_task,
                 "wifi_tsk",
                 ESP8266_WIFI_TASK_STACK_SIZE,
-                (void *)netif,
+                NULL,
                 ESP8266_WIFI_TASK_PRIO,
                 &wifi_tsk_handle);
     configASSERT(status);
@@ -166,13 +166,14 @@ void init_task(void *arg)
             pdTRUE,
             portMAX_DELAY);
 
+    /* ESP8266 Initialize */
+    esp_module_init();
+
     if (netif_is_up(netif))
     {
         /* Start DHCP address request */
         ethernetif_dhcp_start();
     }
-
-    esp_module_init();
 
     gpio.Mode = GPIO_MODE_OUTPUT_PP;
     gpio.Pull = GPIO_NOPULL;
