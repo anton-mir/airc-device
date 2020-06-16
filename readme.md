@@ -65,7 +65,7 @@ Environment:
 
 #### Upload firmware
 ```
-$ scp ~/src/GL-SMARTCITY/sbc-platform/src/airc-device/build/src/[firmware_name].elf airc@176.37.42.185:firmware -P 5025
+$ scp -P 5025 ~/src/GL-SMARTCITY/sbc-platform/src/airc-device/build/src/[firmware_name].elf airc@176.37.42.185:firmware 
 ```
 #### Flash firmware
 ```
