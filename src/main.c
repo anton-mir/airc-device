@@ -49,18 +49,20 @@
 #include "task.h"
 #include "tasks_def.h"
 #include "hw_delay.h"
+#include "lm335z.h"
 
 TaskHandle_t init_handle = NULL;
 TaskHandle_t ethif_in_handle = NULL;
 TaskHandle_t link_state_handle = NULL;
 TaskHandle_t dhcp_fsm_handle = NULL;
+TaskHandle_t analog_temp_handle = NULL;
 
 EventGroupHandle_t eg_task_started = NULL;
 
 struct netif gnetif;
 
 static void SystemClock_Config(void);
-static void Error_Handler(void);
+void Error_Handler(void);
 static void netif_setup();
 void init_task(void *arg);
 
@@ -117,6 +119,16 @@ void init_task(void *arg)
                 &ethif_in_handle);
 
     configASSERT(status);
+	
+    status = xTaskCreate(
+                analog_temp,
+                "analog_temp",
+                ANALOG_TEMP_TASK_STACK_SIZE,
+                (void *)netif,
+                ANALOG_TEMP_TASK_PRIO,
+                &analog_temp_handle);
+
+    configASSERT(status);	
 
     /* Wait for all tasks initialization */
     xEventGroupWaitBits(
@@ -305,12 +317,14 @@ static void netif_setup()
   * @param  None
   * @retval None
   */
-static void Error_Handler(void)
+void Error_Handler(void)
 {
     /* User may add here some code to deal with this error */
     while(1)
     {
     }
 }
+
+
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

@@ -13,5 +13,8 @@
 #define DHCP_FSM_TASK_PRIO          (tskIDLE_PRIORITY + 1)
 #define DHCP_FSM_TASK_STACK_SIZE    (configMINIMAL_STACK_SIZE * 2)
 
+#define ANALOG_TEMP_TASK_PRIO          (tskIDLE_PRIORITY + 1)
+#define ANALOG_TEMP_TASK_STACK_SIZE    (configMINIMAL_STACK_SIZE)
+
 #endif /* TASKS_DEF_H */
 
