@@ -65,15 +65,15 @@ Environment:
 
 #### Upload firmware
 ```
-$ scp ~/src/GL-SMARTCITY/sbc-platform/src/airc-device/build/src/[firmware_name].elf airc@176.37.42.185:firmware
+$ scp ~/src/GL-SMARTCITY/sbc-platform/src/airc-device/build/src/[firmware_name].elf airc@176.37.42.185:firmware -P 5025
 ```
 #### Flash firmware
 ```
-$ ssh airc@176.37.42.185 "cd firmware && ./flash.sh [firmware_name].elf"
+$ ssh airc@176.37.42.185 -p 5025 "cd firmware && ./flash.sh [firmware_name].elf"
 ```
 #### Run openocd at remote
 ```
-$ ssh airc@176.37.42.185 -L 3333:localhost:3333 openocd -f firmware/openocd_commands.cfg
+$ ssh airc@176.37.42.185 -p 5025 -L 3333:localhost:3333 openocd -f firmware/openocd_commands.cfg
 ```
 #### Run gdb locally
 ```
@@ -83,5 +83,5 @@ $ gdb-multiarch
 (gdb) target extended-remote localhost:3333
 ```
 
-If needed, kill openocd process with "ssh airc@176.37.42.185 ./firmware/stop_debug.sh"
+If needed, kill openocd process with "ssh airc@176.37.42.185 -p 5025 ./firmware/stop_debug.sh"
 
