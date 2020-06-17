@@ -56,6 +56,7 @@
 /* Private functions ---------------------------------------------------------*/
 
 extern volatile ETH_HandleTypeDef h_eth;
+extern UART_HandleTypeDef huart3;
 /******************************************************************************/
 /*            Cortex-M4 Processor Exceptions Handlers                         */
 /******************************************************************************/
@@ -189,6 +190,11 @@ void ETH_IRQHandler(void)
 /*void PPP_IRQHandler(void)
 {
 }*/
+
+void USART3_IRQHandler(void)
+{
+    HAL_UART_IRQHandler(&huart3);
+}
 
 
 /**
