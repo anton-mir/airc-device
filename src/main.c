@@ -42,6 +42,7 @@
 #include "lwip/tcpip.h"
 #include "netif/etharp.h"
 #include "ethernetif.h"
+#include "echo_server.h"
 #include "ksz8081rnd.h"
 #include "wh1602.h"
 #include "FreeRTOS.h"
@@ -54,8 +55,11 @@ TaskHandle_t init_handle = NULL;
 TaskHandle_t ethif_in_handle = NULL;
 TaskHandle_t link_state_handle = NULL;
 TaskHandle_t dhcp_fsm_handle = NULL;
+TaskHandle_t echo_server_handle = NULL;
 
 EventGroupHandle_t eg_task_started = NULL;
+
+static RNG_HandleTypeDef rng_handle;
 
 struct netif gnetif;
 
@@ -64,6 +68,15 @@ static void Error_Handler(void);
 static void netif_setup();
 void init_task(void *arg);
 
+uint32_t rand_wrapper()
+{
+    uint32_t random = 0;
+    
+   (void)HAL_RNG_GenerateRandomNumber(&rng_handle, &random);
+
+   return random;
+}
+
 void init_task(void *arg)
 {
     GPIO_InitTypeDef gpio;
@@ -71,6 +84,8 @@ void init_task(void *arg)
     struct netif *netif = (struct netif *)arg;
 
     __HAL_RCC_GPIOD_CLK_ENABLE();
+
+    (void)HAL_RNG_Init(&rng_handle);
 
     eg_task_started = xEventGroupCreate();
     configASSERT(eg_task_started);
@@ -118,10 +133,21 @@ void init_task(void *arg)
 
     configASSERT(status);
 
+    status = xTaskCreate(
+                echo_server,
+                "echo_srv",
+                ECHO_SERVER_TASK_STACK_SIZE,
+                (void *)netif,
+                ECHO_SERVER_TASK_PRIO,
+                &echo_server_handle);
+
+    configASSERT(status);
+
     /* Wait for all tasks initialization */
     xEventGroupWaitBits(
             eg_task_started,
-            (EG_INIT_STARTED | EG_ETHERIF_IN_STARTED | EG_LINK_STATE_STARTED | EG_DHCP_FSM_STARTED),
+            (EG_INIT_STARTED | EG_ETHERIF_IN_STARTED | EG_LINK_STATE_STARTED | 
+                EG_DHCP_FSM_STARTED | EG_ECHO_SERVER_STARTED),
             pdFALSE,
             pdTRUE,
             portMAX_DELAY);

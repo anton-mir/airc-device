@@ -7,4 +7,4 @@ tags
 *.swp
 *.swo
 .idea/
-cmake-build-debug/
+cmake-build-*/

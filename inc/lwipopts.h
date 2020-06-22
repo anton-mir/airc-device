@@ -171,6 +171,10 @@ The STM32F7xxallows computing and verifying the IP, UDP, TCP and ICMP checksums 
  */
 #define LWIP_SOCKET                     1
 
+/**
+ * TCP_LISTEN_BACKLOG: Enable the backlog option for tcp listen pcb.
+ */
+#define TCP_LISTEN_BACKLOG              1
 /*
    ---------------------------------
    ---------- OS options ----------

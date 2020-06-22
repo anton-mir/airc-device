@@ -30,6 +30,7 @@ set(LOCAL_SRCS
     "stm32f4xx_it.c"
     "system_stm32f4xx.c"
     "ethernetif.c"
+    "echo_server.c"
     "syscalls.c"
     "sysmem.c"
     "${CMAKE_CURRENT_SOURCE_DIR}/arch/sys_arch.c"
@@ -47,10 +48,9 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR} "../lib/lwip/src/include")
 # include_directories(${CMAKE_CURRENT_SOURCE_DIR} "../inc/arch")
 include_directories(${CMAKE_CURRENT_SOURCE_DIR} "../inc")
 
-set (CMAKE_EXE_LINKER_FLAGS "-T${LINKER_SCRIPT} -Wl,-Map=${PROJECT_NAME}.map -Wl,--gc-sections -Wl,--start-group -Wl,-lc -Wl,-lm -Wl,--end-group")
+set (CMAKE_EXE_LINKER_FLAGS "-T${LINKER_SCRIPT} -Wl,-Map=${PROJECT_NAME}.map -Wl,--gc-sections -Wl,--start-group -Wl,-lc -Wl,-lm -Wl,--end-group -Wl,--undefined=uxTopUsedPriority")
 
 add_executable(${PROJECT_NAME} ${LOCAL_SRCS} ${LOCAL_HDRS})
 
 target_include_directories(airc_dev.elf PRIVATE ${LWIP_INCLUDE_DIRS})
 target_link_libraries(${PROJECT_NAME} stm32f407hal freertos ksz8081rnd wh1602 lwipcore startup)
-
