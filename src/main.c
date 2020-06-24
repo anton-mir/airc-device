@@ -42,7 +42,6 @@
 #include "lwip/tcpip.h"
 #include "netif/etharp.h"
 #include "ethernetif.h"
-#include "echo_server.h"
 #include "uart_sensors.h"
 #include "ksz8081rnd.h"
 #include "wh1602.h"
