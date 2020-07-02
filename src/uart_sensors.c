@@ -25,7 +25,7 @@ static uint8_t buf[BUF_LEN];
 static void USART3_UART_Init(void)
 {
     huart3.Instance = USART3;
-    huart3.Init.BaudRate = 115200;
+    huart3.Init.BaudRate = 9600;
     huart3.Init.WordLength = UART_WORDLENGTH_8B;
     huart3.Init.StopBits = UART_STOPBITS_1;
     huart3.Init.Parity = UART_PARITY_NONE;
@@ -182,15 +182,11 @@ void CO_sensor(void * const arg) {
 
     Set_CO_RX();
     uint8_t command = 'c';
-    HAL_UART_Transmit(&huart3, (uint8_t *) command, 1, 0xFFFF);
-    //while (HAL_UART_GetState(&huart3) == HAL_UART_STATE_BUSY_TX);
-    HAL_Delay(100);
-    HAL_UART_Transmit(&huart3, (uint8_t *) command, 1, 0xFFFF);
-    //while (HAL_UART_GetState(&huart3) == HAL_UART_STATE_BUSY_TX);
-    HAL_Delay(100);
-    command = '5';
-    HAL_UART_Transmit(&huart3, (uint8_t *) command, 1, 0xFFFF);
-    //while (HAL_UART_GetState(&huart3) == HAL_UART_STATE_BUSY_TX);
+    HAL_UART_Transmit_IT(&huart3, &command, 1);
+    while (HAL_UART_GetState(&huart3) == HAL_UART_STATE_BUSY_TX);
+    HAL_Delay(10000);
+    HAL_UART_Transmit_IT(&huart3, &command, 1);
+    while (HAL_UART_GetState(&huart3) == HAL_UART_STATE_BUSY_TX);
 
     Set_CO_TX();
     uint8_t co_data[512] = {0};
@@ -198,14 +194,13 @@ void CO_sensor(void * const arg) {
     HAL_UART_Receive_IT(&huart3, (uint8_t*) co_data, 511);
     for(;;) {
         if (huart3.RxXferCount == 0) {
-            co_data[511] = '\0';
             HAL_UART_Receive_IT(&huart3, (uint8_t*) co_data, 511);
             strcpy(buf, co_data);//TODO: change to strncpy
-            co_data[511] = '\0';
         }
         vTaskDelay(500);
     }
 }
+
 
 
 
