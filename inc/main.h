@@ -79,6 +79,7 @@ extern TaskHandle_t init_handle;
 extern TaskHandle_t ethif_in_handle;
 extern TaskHandle_t link_state_handle;
 extern TaskHandle_t dhcp_fsm_handle;
+extern TaskHandle_t eth_server_handle;
 
 extern EventGroupHandle_t eg_task_started;
 
