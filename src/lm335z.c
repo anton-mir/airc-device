@@ -1,5 +1,6 @@
 #include "lm335z.h"
 #include "main.h"
+#include "task.h"
 
 /* Private variables ---------------------------------------------------------*/
 ADC_HandleTypeDef hadc2;
@@ -138,6 +139,7 @@ void analog_temp(void *pvParameters)
 	 MX_ADC2_Init();
 	 ADC_Init();
      HAL_ADC_MspInit(&hadc2);
+     xEventGroupSetBits(eg_task_started, EG_ANALOG_TEMP_STARTED);
 	 double temp=0;
         for (;;) 
         {
