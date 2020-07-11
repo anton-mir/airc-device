@@ -50,14 +50,14 @@
 #include "tasks_def.h"
 #include "hw_delay.h"
 #include "lm335z.h"
+#include "eth_server.h"
 
 TaskHandle_t init_handle = NULL;
 TaskHandle_t ethif_in_handle = NULL;
 TaskHandle_t link_state_handle = NULL;
 TaskHandle_t dhcp_fsm_handle = NULL;
 TaskHandle_t analog_temp_handle = NULL;
-TaskHandle_t analog_temp_handle = NULL;
-TaskHandle_t eth_server = NULL;
+TaskHandle_t eth_server_handle = NULL;
 
 EventGroupHandle_t eg_task_started = NULL;
 
@@ -138,7 +138,7 @@ void init_task(void *arg)
             ETH_SERVER_TASK_STACK_SIZE,
             (void *)netif,
             ETH_SERVER_TASK_PRIO,
-            &eth_client_handle);
+            &eth_server_handle);
 
     configASSERT(status);
 
