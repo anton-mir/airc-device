@@ -16,5 +16,8 @@
 #define ANALOG_TEMP_TASK_PRIO          (tskIDLE_PRIORITY + 1)
 #define ANALOG_TEMP_TASK_STACK_SIZE    (configMINIMAL_STACK_SIZE)
 
+#define CO_SENSOR_TASK_PRIO         (tskIDLE_PRIORITY)
+#define CO_SENSOR_TASK_STACK_SIZE   (configMINIMAL_STACK_SIZE * 2)
+
 #endif /* TASKS_DEF_H */
 
