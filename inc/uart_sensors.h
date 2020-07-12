@@ -2,6 +2,7 @@
 #define AIRC_DEVICE_UART_SENSORS_H
 
 #include "stm32f4xx_hal.h"
+//#include "stm32f4xx_hal_uart.h"
 
 UART_HandleTypeDef huart3;
 

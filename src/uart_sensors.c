@@ -20,6 +20,7 @@
 #define MAX_CLIENTS                     (4)
 static uint8_t buf[BUF_LEN];
 
+//static void usart3_rx_complete_cb(ETH_HandleTypeDef *huar3);
 
 
 static void USART3_UART_Init(void)
@@ -173,6 +174,10 @@ void echo_server(void * const arg)
     }
 }
 
+volatile uint8_t rx;
+volatile uint8_t sensor_data_string[64];
+volatile uint8_t got_sensor_data = 0;
+
 void CO_sensor(void * const arg) {
     /* Notify init task that CO sensor task has been started */
     xEventGroupSetBits(eg_task_started, EG_CO_SENSOR_STARTED);
@@ -180,51 +185,59 @@ void CO_sensor(void * const arg) {
     GPIO_Init();
     USART3_UART_Init();
 
-    /*Set_CO_RX();
-    uint8_t command = 'c';
-    HAL_UART_Transmit_IT(&huart3, &command, 1);
-    while (HAL_UART_GetState(&huart3) == HAL_UART_STATE_BUSY_TX);
-    HAL_Delay(10000);
-    HAL_UART_Transmit_IT(&huart3, &command, 1);
-    while (HAL_UART_GetState(&huart3) == HAL_UART_STATE_BUSY_TX);
+    /* Register user RX completion callback
+     * just to check how it works
+     * need to enable USE_HAL_UART_REGISTER_CALLBACKS to use it*/
+//    HAL_UART_RegisterCallback(
+//            (UART_HandleTypeDef *)&huart3,
+//            HAL_UART_RX_HALFCOMPLETE_CB_ID,
+//            usart3_rx_complete_cb);
 
-    Set_CO_TX();*/
-
-    volatile uint8_t rx;
-    volatile uint8_t command[64];
-    volatile uint8_t command_ready = 0;
+    HAL_NVIC_SetPriority(USART3_IRQn, 8, 0);
+    HAL_NVIC_EnableIRQ(USART3_IRQn);
 
     /* Start reception once, rest is done in interrupt handler */
     HAL_UART_Receive_IT(&huart3, &rx, 1);
+
     while (1) {
-      if (command_ready) {
-        command_ready = 0;
-      }
+        if (got_sensor_data) {
+            // TODO: Send sensor_data_string to main task later
+            got_sensor_data = 0;
+        }
       vTaskDelay(500);
     }
-
-    void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
-              static uint8_t cmd[64];
-              static uint8_t icmd;
-              cmd[icmd] = rx;
-              /* Parse received byte for EOL */
-              if (rx == '\n') { /* If \r or \n print text */
-                /* Terminate string with \0 */
-                cmd[icmd] = 0;
-                icmd = 0;
-                strncpy(command, cmd, sizeof (command));
-                command_ready = 1;
-              } else if (rx == '\r') { /* Skip \r character */
-              } else { /* If regular character, put it into cmd[] */
-                cmd[icmd++] = rx;
-              }
-              /* Restart reception */
-              HAL_UART_Receive_IT(&huart3, &rx, 1);
-     }
 }
 
+void HAL_UART_RxHalfCpltCallback(UART_HandleTypeDef *huart) {
+    static uint8_t received_buffer[64];
+    static uint8_t index = 0;
+    received_buffer[index] = rx;
 
+    /* Parse received byte for EOL */
+    if (rx == '\n') { // End of transmission
+        /* Terminate string with \0 */
+        received_buffer[index] = 0;
+        index = 0;
+        strncpy(sensor_data_string, received_buffer, sizeof (sensor_data_string));
+        got_sensor_data = 1;
+    } else if (rx == '\r') { /* Skip \r character */
+    } else { /* If regular character, put it into received_buffer[] */
+        received_buffer[index++] = rx;
+    }
+    /* Restart reception */
+    HAL_UART_Receive_IT(&huart3, &rx, 1);
+}
 
+/**
+ * This function is called from the interrupt context
+ * need to test that it works
+ * maybe it is not needed because HAL_UART_RxHalfCpltCallback
+ * can do all the job
+ */
+//static void usart3_rx_complete_cb(ETH_HandleTypeDef *huar3) {
+//    (void) huar3;
+//    vTaskDelay(1);
+//}
 
 
 
