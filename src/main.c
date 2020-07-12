@@ -57,6 +57,7 @@ TaskHandle_t link_state_handle = NULL;
 TaskHandle_t dhcp_fsm_handle = NULL;
 TaskHandle_t echo_server_handle = NULL;
 TaskHandle_t CO_sensor_handle = NULL;
+TaskHandle_t SDS_sensor_handle = NULL;
 
 EventGroupHandle_t eg_task_started = NULL;
 
@@ -151,6 +152,16 @@ void init_task(void *arg)
             (void *)netif,
             CO_SENSOR_TASK_PRIO,
             &CO_sensor_handle);
+
+    configASSERT(status);
+
+    status = xTaskCreate(
+            SDS_sensor,
+            "SDS011_sensor",
+            SDS_SENSOR_TASK_STACK_SIZE,
+            (void *)netif,
+            SDS_SENSOR_TASK_PRIO,
+            &SDS_sensor_handle);
 
     configASSERT(status);
 

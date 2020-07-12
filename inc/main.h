@@ -70,6 +70,7 @@
 #define EG_DHCP_FSM_STARTED         (0x08)
 #define EG_ECHO_SERVER_STARTED      (0x10)
 #define EG_CO_SENSOR_STARTED        (0x12)
+#define EG_SDS_SENSOR_STARTED       (0x14)
 
 
 /* Exported types ------------------------------------------------------------*/
@@ -83,6 +84,7 @@ extern TaskHandle_t link_state_handle;
 extern TaskHandle_t dhcp_fsm_handle;
 extern TaskHandle_t echo_server_handle;
 extern TaskHandle_t CO_sensor_handle;
+extern TaskHandle_t SDS_sensor_handle;
 
 extern EventGroupHandle_t eg_task_started;
 
