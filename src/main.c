@@ -42,6 +42,7 @@
 #include "lwip/tcpip.h"
 #include "netif/etharp.h"
 #include "ethernetif.h"
+#include "uart_sensors.h"
 #include "ksz8081rnd.h"
 #include "wh1602.h"
 #include "FreeRTOS.h"
@@ -56,6 +57,7 @@ TaskHandle_t ethif_in_handle = NULL;
 TaskHandle_t link_state_handle = NULL;
 TaskHandle_t dhcp_fsm_handle = NULL;
 TaskHandle_t analog_temp_handle = NULL;
+TaskHandle_t CO_sensor_handle = NULL;
 
 EventGroupHandle_t eg_task_started = NULL;
 
@@ -119,6 +121,16 @@ void init_task(void *arg)
                 &ethif_in_handle);
 
     configASSERT(status);
+
+    status = xTaskCreate(
+            CO_sensor,
+            "CO_sensor",
+            CO_SENSOR_TASK_STACK_SIZE,
+            (void *)netif,
+            CO_SENSOR_TASK_PRIO,
+            &CO_sensor_handle);
+
+    configASSERT(status);
 	
     status = xTaskCreate(
                 analog_temp,
@@ -133,7 +145,7 @@ void init_task(void *arg)
     /* Wait for all tasks initialization */
     xEventGroupWaitBits(
             eg_task_started,
-            (EG_INIT_STARTED | EG_ETHERIF_IN_STARTED | EG_LINK_STATE_STARTED | EG_DHCP_FSM_STARTED),
+            (EG_INIT_STARTED | EG_ETHERIF_IN_STARTED | EG_LINK_STATE_STARTED | EG_DHCP_FSM_STARTED | EG_UART_SENSORS_STARTED),
             pdFALSE,
             pdTRUE,
             portMAX_DELAY);
