@@ -37,7 +37,7 @@ static void USART3_UART_Init(void)
     huart3.Init.Mode = UART_MODE_TX_RX;
     huart3.Init.HwFlowCtl = UART_HWCONTROL_NONE;
     huart3.Init.OverSampling = UART_OVERSAMPLING_16;
-
+    HAL_UART_Init(&huart3);
 
     if (HAL_HalfDuplex_Init(&huart3) == HAL_OK)
     {
@@ -54,8 +54,6 @@ static void GPIO_Init(void) {
     __HAL_RCC_GPIOB_CLK_ENABLE();
     __HAL_RCC_GPIOD_CLK_ENABLE();
 
-    HAL_NVIC_SetPriority(USART3_IRQn, 2, 0U);
-    HAL_NVIC_EnableIRQ(USART3_IRQn);
 
     HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);
     HAL_GPIO_WritePin(GPIOE, GPIO_PIN_5|GPIO_PIN_6, GPIO_PIN_RESET);
@@ -269,6 +267,9 @@ void SDS_sensor(void * const arg) {
     GPIO_Init();
     USART3_UART_Init();
     Set_SDS_RX();
+
+    HAL_NVIC_SetPriority(USART3_IRQn, 8, 0);
+    HAL_NVIC_EnableIRQ(USART3_IRQn);
 
     sdsInit(&sds, &huart3);
 

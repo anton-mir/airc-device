@@ -1,6 +1,0 @@
-/st/stm32cubeide_1.3.0/plugins/com.st.stm32cube.ide.mcu.externaltools.cubeprogrammer.linux64_1.3.0.202002181050/tools/bin/STM32_Programmer_CLI -c port=SWD -d airc_dev.elf
-
-
-
--DCMAKE_TOOLCHAIN_FILE=/home/zenero/src/GL-SMARTCITY/sbc-platform/src/airc-device/toolchain.cmake
-CROSS_COMPILE=/home/zenero/toolchain/gcc-arm-none-eabi-9-2019-q4-major/bin/arm-none-eabi-
