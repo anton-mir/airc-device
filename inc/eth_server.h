@@ -4,7 +4,7 @@
 #define SERVER_PORT                     (11333)
 #define MAX_CLIENTS                     (4)
 
-int sender_ethernet (void *ptr_buffer, uint32_t size);
+int sender_ethernet (void *ptr_buffer, int size);
 void eth_server(void * const arg);
 
 

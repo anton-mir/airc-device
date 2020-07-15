@@ -1,7 +1,8 @@
 #ifndef LM335Z_H
 #define LM335Z_H
-
 #include "stm32f4xx_hal.h"
+#include "FreeRTOS.h"
+#include "queue.h"
 
 /* ################### LM335Z configuration ###################### */
 #define VREF 		3000 // in mV
@@ -11,6 +12,8 @@
 #define COEF_TEMP	0.05L
 #define TEMP_ERROR  -273
 #define HAL_TIMEOUT 100
+
+extern xQueueHandle xQueue;
 
 
 void analog_temp(void *pvParameters);

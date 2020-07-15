@@ -54,6 +54,7 @@
 #include "eth_sender.h"
 #include "queue.h"
 
+
 TaskHandle_t init_handle = NULL;
 TaskHandle_t ethif_in_handle = NULL;
 TaskHandle_t link_state_handle = NULL;
@@ -127,6 +128,32 @@ void init_task(void *arg)
 
         configASSERT(status);
 
+
+        status = xTaskCreate(
+                eth_server,
+                "eth_server",
+                ETH_SERVER_TASK_STACK_SIZE * 6,
+                (void *) netif,
+                ETH_SERVER_TASK_PRIO,
+                &eth_server_handle);
+
+        configASSERT(status);
+
+
+        /* Wait for all tasks initialization */
+        xEventGroupWaitBits(
+                eg_task_started,
+                (EG_INIT_STARTED | EG_ETHERIF_IN_STARTED | EG_LINK_STATE_STARTED | EG_DHCP_FSM_STARTED /*|
+                 EG_ANALOG_TEMP_STARTED | ETH_SERVER_STARTED*/),
+                pdFALSE,
+                pdTRUE,
+                portMAX_DELAY);
+
+        if (netif_is_up(netif)) {
+            /* Start DHCP address request */
+            ethernetif_dhcp_start();
+        }
+
         status = xTaskCreate(
                 analog_temp,
                 "analog_temp",
@@ -134,16 +161,6 @@ void init_task(void *arg)
                 (void *) netif,
                 ANALOG_TEMP_TASK_PRIO,
                 &analog_temp_handle);
-
-        configASSERT(status);
-
-        status = xTaskCreate(
-                eth_server,
-                "eth_server",
-                ETH_SERVER_TASK_STACK_SIZE,
-                (void *) netif,
-                ETH_SERVER_TASK_PRIO,
-                &eth_server_handle);
 
         configASSERT(status);
 
@@ -157,19 +174,6 @@ void init_task(void *arg)
 
         configASSERT(status);
 
-        /* Wait for all tasks initialization */
-        xEventGroupWaitBits(
-                eg_task_started,
-                (EG_INIT_STARTED | EG_ETHERIF_IN_STARTED | EG_LINK_STATE_STARTED | EG_DHCP_FSM_STARTED |
-                 EG_ANALOG_TEMP_STARTED | ETH_SERVER_STARTED),
-                pdFALSE,
-                pdTRUE,
-                portMAX_DELAY);
-
-        if (netif_is_up(netif)) {
-            /* Start DHCP address request */
-            ethernetif_dhcp_start();
-        }
 
         gpio.Mode = GPIO_MODE_OUTPUT_PP;
         gpio.Pull = GPIO_NOPULL;

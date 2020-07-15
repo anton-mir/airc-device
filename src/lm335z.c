@@ -1,12 +1,12 @@
 #include "lm335z.h"
 #include "main.h"
 #include "task.h"
-#include "queue.h"
 #include "wh1602.h"
+#include "queue.h"
 
 /* Private variables ---------------------------------------------------------*/
 ADC_HandleTypeDef hadc2;
-
+xQueueHandle xQueue;
 /**
  * @brief PHY GPIO init
  *
@@ -143,18 +143,13 @@ void analog_temp(void *pvParameters)
 	 MX_ADC2_Init();
 	 ADC_Init();
      HAL_ADC_MspInit(&hadc2);
+     xQueue=xQueueCreate(5,sizeof(long));
      xEventGroupSetBits(eg_task_started, EG_ANALOG_TEMP_STARTED);
 	 double temp=0;
         for (;;) 
         {
                 temp=Get_Analog_Temp();
-            xStatus = xQueueSendToBack( xQueue, 100, xTicksToWait );
-            if( xStatus != pdPASS )
-            {
-                lcd_clear();
-                lcd_print_string_at("Error pdPASS", 0, 0);
-                vTaskDelay(1000);
-            }
+                xStatus = xQueueSendToBack( xQueue, 100, xTicksToWait );
                 vTaskDelay(1000);
         }
 }
