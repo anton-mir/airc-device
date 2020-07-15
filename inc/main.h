@@ -71,6 +71,7 @@
 #define EG_ECHO_SERVER_STARTED      (0x10)
 #define EG_ANALOG_TEMP_STARTED      (0x20)
 #define ETH_SERVER_STARTED          (0x40)
+#define ETH_SENDER_STARTED          (0x80)
 
 
 /* Exported types ------------------------------------------------------------*/
@@ -83,6 +84,7 @@ extern TaskHandle_t ethif_in_handle;
 extern TaskHandle_t link_state_handle;
 extern TaskHandle_t dhcp_fsm_handle;
 extern TaskHandle_t eth_server_handle;
+extern TaskHandle_t eth_sender_handle;
 
 extern EventGroupHandle_t eg_task_started;
 

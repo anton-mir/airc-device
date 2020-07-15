@@ -1,6 +1,8 @@
 #include "lm335z.h"
 #include "main.h"
 #include "task.h"
+#include "queue.h"
+#include "wh1602.h"
 
 /* Private variables ---------------------------------------------------------*/
 ADC_HandleTypeDef hadc2;
@@ -135,6 +137,8 @@ double Get_Avg_Analog_Temp(const uint32_t count)
  
 void analog_temp(void *pvParameters) 
 {
+    portBASE_TYPE xStatus;
+    const portTickType xTicksToWait = 100 / portTICK_RATE_MS;
 	 MX_GPIO_Init();
 	 MX_ADC2_Init();
 	 ADC_Init();
@@ -144,6 +148,13 @@ void analog_temp(void *pvParameters)
         for (;;) 
         {
                 temp=Get_Analog_Temp();
+            xStatus = xQueueSendToBack( xQueue, 100, xTicksToWait );
+            if( xStatus != pdPASS )
+            {
+                lcd_clear();
+                lcd_print_string_at("Error pdPASS", 0, 0);
+                vTaskDelay(1000);
+            }
                 vTaskDelay(1000);
         }
 }

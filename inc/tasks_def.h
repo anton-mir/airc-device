@@ -19,5 +19,8 @@
 #define ETH_SERVER_TASK_PRIO          (tskIDLE_PRIORITY + 1)
 #define ETH_SERVER_TASK_STACK_SIZE    (configMINIMAL_STACK_SIZE)
 
+#define ETH_SENDER_TASK_PRIO          (tskIDLE_PRIORITY + 1)
+#define ETH_SENDER_TASK_STACK_SIZE    (configMINIMAL_STACK_SIZE)
+
 #endif /* TASKS_DEF_H */
 
