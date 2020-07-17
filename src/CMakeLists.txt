@@ -34,6 +34,7 @@ set(LOCAL_SRCS
     "system_stm32f4xx.c"
     "ethernetif.c"
     "esp8266_wifi.c"
+    "http_helper.c"
     "echo_server.c"
     "syscalls.c"
     "sysmem.c"

@@ -43,6 +43,7 @@
 #include "netif/etharp.h"
 #include "ethernetif.h"
 #include "esp8266_wifi.h"
+#include "http_helper.h"
 #include "echo_server.h"
 #include "ksz8081rnd.h"
 #include "wh1602.h"
@@ -87,8 +88,8 @@ void init_task(void *arg)
     struct netif *netif = (struct netif *)arg;
 
     __HAL_RCC_GPIOD_CLK_ENABLE();
-    __HAL_RCC_GPIOA_CLK_ENABLE();
     __HAL_RCC_USART2_CLK_ENABLE();
+    __HAL_RCC_DMA1_CLK_ENABLE();
 
     (void)HAL_RNG_Init(&rng_handle);
 
@@ -101,6 +102,14 @@ void init_task(void *arg)
     lcd_init();
     lcd_clear();
     lcd_print_string("Initializing...");
+
+    /* ESP8266 Initialize */
+    if (esp_module_init() == HAL_ERROR)
+    {
+        lcd_clear();
+        lcd_print_string_at("ESP module init", 0, 0);
+        lcd_print_string_at("FAILED!", 4, 1);
+    }
 
     /* Create TCP/IP stack thread */
     tcpip_init(NULL, NULL);
@@ -155,6 +164,7 @@ void init_task(void *arg)
                 NULL,
                 ESP8266_WIFI_TASK_PRIO,
                 &wifi_tsk_handle);
+
     configASSERT(status);
     
     /* Wait for all tasks initialization */
@@ -165,9 +175,6 @@ void init_task(void *arg)
             pdFALSE,
             pdTRUE,
             portMAX_DELAY);
-
-    /* ESP8266 Initialize */
-    esp_module_init();
 
     if (netif_is_up(netif))
     {
@@ -185,9 +192,9 @@ void init_task(void *arg)
     {
         if (!netif_is_link_up(netif))
         {
-            lcd_clear();
-            lcd_print_string_at("Link:", 0, 0);
-            lcd_print_string_at("down", 0, 1);
+            //lcd_clear();
+            //lcd_print_string_at("Link:", 0, 0);
+            //lcd_print_string_at("down", 0, 1);
         }
 
         HAL_GPIO_TogglePin(GPIOD, GPIO_PIN_13);
