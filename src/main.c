@@ -84,10 +84,6 @@ void data_recive(void *pvParameters){
     for( ;; )
     {
         xQueueSendToBack(xQueue, &test, xTicksToWait);
-<<<<<<< HEAD
-=======
-        //sender_ethernet(test,sizeof(test));
->>>>>>> 14acac24ea1c0367257c0113e87757ee82ac1270
         vTaskDelay(1000);
     }
 }
@@ -152,11 +148,7 @@ void init_task(void *arg)
         status = xTaskCreate(
                 eth_server,
                 "eth_server",
-<<<<<<< HEAD
                 ETH_SERVER_TASK_STACK_SIZE,
-=======
-                ETH_SERVER_TASK_STACK_SIZE * 12,
->>>>>>> 14acac24ea1c0367257c0113e87757ee82ac1270
                 (void *) netif,
                 ETH_SERVER_TASK_PRIO,
                 &eth_server_handle);
