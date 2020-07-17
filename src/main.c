@@ -79,11 +79,16 @@ void data_recive(void *pvParameters){
     static const xData test={100,200};
     portBASE_TYPE xStatus;
     const portTickType xTicksToWait = 100 / portTICK_RATE_MS;
-    xQueue=xQueueCreate(1,sizeof(xData));
-    vTaskDelay(10000);
+    xEventGroupWaitBits(
+                eg_task_started,
+                (EG_INIT_STARTED | EG_ETHERIF_IN_STARTED | EG_LINK_STATE_STARTED | EG_DHCP_FSM_STARTED | ETH_SERVER_STARTED | ETH_SENDER_STARTED),
+                pdFALSE,
+                pdTRUE,
+                portMAX_DELAY);
+    xEventGroupSetBits(eg_task_started, EG_DATA_RECIVE_STARTED);
     for( ;; )
     {
-        xQueueSendToBack(xQueue, &test, xTicksToWait);
+        xQueueSendToBack(QueueTransmitEthernet, &test, xTicksToWait);
         vTaskDelay(1000);
     }
 }
@@ -96,11 +101,12 @@ void init_task(void *arg)
     xQueueHandle xQueue;
 
     __HAL_RCC_GPIOD_CLK_ENABLE();
-
+    
     eg_task_started = xEventGroupCreate();
     configASSERT(eg_task_started);
-
+    
     xEventGroupSetBits(eg_task_started, EG_INIT_STARTED);
+
 
     /* Initialize LCD */
     lcd_init();
@@ -159,8 +165,7 @@ void init_task(void *arg)
         /* Wait for all tasks initialization */
         xEventGroupWaitBits(
                 eg_task_started,
-                (EG_INIT_STARTED | EG_ETHERIF_IN_STARTED | EG_LINK_STATE_STARTED | EG_DHCP_FSM_STARTED /*|
-                 EG_ANALOG_TEMP_STARTED | ETH_SERVER_STARTED*/),
+                (EG_INIT_STARTED | EG_ETHERIF_IN_STARTED | EG_LINK_STATE_STARTED | EG_DHCP_FSM_STARTED),
                 pdFALSE,
                 pdTRUE,
                 portMAX_DELAY);

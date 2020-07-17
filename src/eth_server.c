@@ -16,13 +16,12 @@ static int clients[MAX_CLIENTS];
 static uint8_t check_conn_buf[CHECK_CONNECTION_BUF_SIZE];
 SemaphoreHandle_t clients_mut;
 
-int sender_ethernet (xData data, int size){
+int sender_ethernet (void *data, int size){
     int err=0;
-    //char *test="test";
     for (int i = 0; i < MAX_CLIENTS; i++) {
         if (clients[i] != 0) {
             xSemaphoreTake(clients_mut, portMAX_DELAY);
-            err=lwip_write(clients[i], &data, size);
+            err=lwip_write(clients[i], data, size);
             xSemaphoreGive(clients_mut);
             if(err==-1){
                 //For error
@@ -70,6 +69,12 @@ void eth_server(void * const arg)
         LWIP_ASSERT("server(): cannot create mutex", 0);
         return;
     }
+    xEventGroupWaitBits(
+                eg_task_started,
+                (EG_INIT_STARTED | EG_ETHERIF_IN_STARTED | EG_LINK_STATE_STARTED | EG_DHCP_FSM_STARTED),
+                pdFALSE,
+                pdTRUE,
+                portMAX_DELAY);
     /* Notify init task that server task has been started */
     xEventGroupSetBits(eg_task_started, ETH_SERVER_STARTED);
 

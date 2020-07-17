@@ -7,17 +7,25 @@
 #include "lm335z.h"
 #include "main.h"
 
+xQueueHandle QueueTransmitEthernet;
 
 
 void eth_sender(void *pvParameters){
     xData lReceivedValue;
     portBASE_TYPE xStatus;
-    const portTickType xTicksToWait = 100 / portTICK_RATE_MS;
+    xEventGroupWaitBits(
+                eg_task_started,
+                (EG_INIT_STARTED | EG_ETHERIF_IN_STARTED | EG_LINK_STATE_STARTED | EG_DHCP_FSM_STARTED | ETH_SERVER_STARTED ),
+                pdFALSE,
+                pdTRUE,
+                portMAX_DELAY);
+    QueueTransmitEthernet=xQueueCreate(1,sizeof(xData));
+    xEventGroupSetBits(eg_task_started, ETH_SENDER_STARTED);
     for( ;; )
     {
-            xStatus = xQueueReceive(xQueue, &lReceivedValue, xTicksToWait);
+            xStatus = xQueueReceive(QueueTransmitEthernet, &lReceivedValue, portMAX_DELAY);
             if (xStatus == pdPASS) {
-                sender_ethernet(lReceivedValue, sizeof(lReceivedValue));
+                sender_ethernet(&lReceivedValue, sizeof(lReceivedValue));
             }
     }
 }

@@ -5,7 +5,7 @@
 #define MAX_CLIENTS                     (4)
 #include "main.h"
 
-int sender_ethernet (xData data, int size);
+int sender_ethernet (void *data, int size);
 void eth_server(void * const arg);
 
 

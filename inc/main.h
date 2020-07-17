@@ -73,6 +73,8 @@
 #define EG_ANALOG_TEMP_STARTED      (0x20)
 #define ETH_SERVER_STARTED          (0x40)
 #define ETH_SENDER_STARTED          (0x80)
+#define EG_DATA_RECIVE_STARTED      (0x100)
+
 
 
 /* Exported types ------------------------------------------------------------*/
@@ -95,6 +97,7 @@ typedef struct
 }xData;
 
 extern EventGroupHandle_t eg_task_started;
+
 
 #endif /* __MAIN_H */
 
