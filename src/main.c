@@ -67,7 +67,7 @@ EventGroupHandle_t eg_task_started = NULL;
 
 
 
-
+xQueueHandle xQueue;
 struct netif gnetif;
 
 static void SystemClock_Config(void);
