@@ -103,6 +103,9 @@ static SemaphoreHandle_t sys_arch_protect_mutex;
 #if SYS_LIGHTWEIGHT_PROT && LWIP_FREERTOS_SYS_ARCH_PROTECT_SANITY_CHECK
 static sys_prot_t sys_arch_protect_nesting;
 #endif
+#if LWIP_TCPIP_CORE_LOCKING
+extern sys_mutex_t lock_tcpip_core;
+#endif
 
 /* Initialize this module (see description in sys.h) */
 void

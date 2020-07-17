@@ -50,14 +50,24 @@
 #include "tasks_def.h"
 #include "hw_delay.h"
 #include "lm335z.h"
+#include "eth_server.h"
+#include "eth_sender.h"
+#include "queue.h"
+
 
 TaskHandle_t init_handle = NULL;
 TaskHandle_t ethif_in_handle = NULL;
 TaskHandle_t link_state_handle = NULL;
 TaskHandle_t dhcp_fsm_handle = NULL;
+TaskHandle_t analog_temp_handle = NULL;
+TaskHandle_t eth_server_handle = NULL;
+TaskHandle_t eth_sender_handle = NULL;
 
 EventGroupHandle_t eg_task_started = NULL;
 
+
+
+xQueueHandle xQueue;
 struct netif gnetif;
 
 static void SystemClock_Config(void);
@@ -65,11 +75,25 @@ void Error_Handler(void);
 static void netif_setup();
 void init_task(void *arg);
 
+void data_recive(void *pvParameters){
+    static const xData test={100,200};
+    portBASE_TYPE xStatus;
+    const portTickType xTicksToWait = 100 / portTICK_RATE_MS;
+    xQueue=xQueueCreate(1,sizeof(xData));
+    vTaskDelay(10000);
+    for( ;; )
+    {
+        xQueueSendToBack(xQueue, &test, xTicksToWait);
+        vTaskDelay(1000);
+    }
+}
+
 void init_task(void *arg)
 {
     GPIO_InitTypeDef gpio;
     BaseType_t status;
     struct netif *netif = (struct netif *)arg;
+    xQueueHandle xQueue;
 
     __HAL_RCC_GPIOD_CLK_ENABLE();
 
@@ -88,78 +112,111 @@ void init_task(void *arg)
 
     /* Initialize PHY */
     netif_setup();
-
-    status = xTaskCreate(
+    xQueue = xQueueCreate( 5, sizeof( long ) );
+    if( xQueue != NULL ) {
+        status = xTaskCreate(
                 link_state,
                 "link_st",
                 LINK_STATE_TASK_STACK_SIZE,
-                (void *)netif,
+                (void *) netif,
                 LINK_STATE_TASK_PRIO,
                 &link_state_handle);
 
-    configASSERT(status);
+        configASSERT(status);
 
-    status = xTaskCreate(
+        status = xTaskCreate(
                 dhcp_fsm,
                 "dhcp_fsm",
                 DHCP_FSM_TASK_STACK_SIZE,
-                (void *)netif,
+                (void *) netif,
                 DHCP_FSM_TASK_PRIO,
                 &dhcp_fsm_handle);
 
-    configASSERT(status);
+        configASSERT(status);
 
-    status = xTaskCreate(
+        status = xTaskCreate(
                 ethernetif_input,
                 "ethif_in",
                 ETHIF_IN_TASK_STACK_SIZE,
-                (void *)netif,
+                (void *) netif,
                 ETHIF_IN_TASK_PRIO,
                 &ethif_in_handle);
 
-    configASSERT(status);
-	
-    status = xTaskCreate(
-                analog_temp,
-                "analog_temp",
-                ETHIF_IN_TASK_STACK_SIZE,
-                (void *)netif,
-                ETHIF_IN_TASK_PRIO,
-                &ethif_in_handle);
+        configASSERT(status);
 
-    configASSERT(status);	
 
-    /* Wait for all tasks initialization */
-    xEventGroupWaitBits(
-            eg_task_started,
-            (EG_INIT_STARTED | EG_ETHERIF_IN_STARTED | EG_LINK_STATE_STARTED | EG_DHCP_FSM_STARTED),
-            pdFALSE,
-            pdTRUE,
-            portMAX_DELAY);
+        status = xTaskCreate(
+                eth_server,
+                "eth_server",
+                ETH_SERVER_TASK_STACK_SIZE * 6,
+                (void *) netif,
+                ETH_SERVER_TASK_PRIO,
+                &eth_server_handle);
 
-    if (netif_is_up(netif))
-    {
-        /* Start DHCP address request */
-        ethernetif_dhcp_start();
-    }
+        configASSERT(status);
 
-    gpio.Mode = GPIO_MODE_OUTPUT_PP;
-    gpio.Pull = GPIO_NOPULL;
-    gpio.Pin = GPIO_PIN_13;
-    HAL_GPIO_Init(GPIOD, &gpio);
-    HAL_GPIO_WritePin(GPIOD, GPIO_PIN_13, GPIO_PIN_SET);
 
-    for (;;)
-    {
-        if (!netif_is_link_up(netif))
-        {
-            lcd_clear();
-            lcd_print_string_at("Link:", 0, 0);
-            lcd_print_string_at("down", 0, 1);
+        /* Wait for all tasks initialization */
+        xEventGroupWaitBits(
+                eg_task_started,
+                (EG_INIT_STARTED | EG_ETHERIF_IN_STARTED | EG_LINK_STATE_STARTED | EG_DHCP_FSM_STARTED /*|
+                 EG_ANALOG_TEMP_STARTED | ETH_SERVER_STARTED*/),
+                pdFALSE,
+                pdTRUE,
+                portMAX_DELAY);
+
+        if (netif_is_up(netif)) {
+            /* Start DHCP address request */
+            ethernetif_dhcp_start();
         }
 
-        HAL_GPIO_TogglePin(GPIOD, GPIO_PIN_13);
-        vTaskDelay(500);
+        status = xTaskCreate(
+                analog_temp,
+                "analog_temp",
+                ANALOG_TEMP_TASK_STACK_SIZE,
+                (void *) netif,
+                ANALOG_TEMP_TASK_PRIO,
+                &analog_temp_handle);
+
+        configASSERT(status);
+
+        status = xTaskCreate(
+                eth_sender,
+                "eth_sender",
+                ETH_SENDER_TASK_STACK_SIZE,
+                (void *) netif,
+                ETH_SENDER_TASK_PRIO,
+                &eth_sender_handle);
+
+        configASSERT(status);
+        status = xTaskCreate(
+                data_recive,
+                "data_recive",
+                ETH_SENDER_TASK_STACK_SIZE * 2,
+                (void *) netif,
+                ETH_SENDER_TASK_PRIO,
+                &eth_sender_handle);
+
+        configASSERT(status);
+
+
+
+        gpio.Mode = GPIO_MODE_OUTPUT_PP;
+        gpio.Pull = GPIO_NOPULL;
+        gpio.Pin = GPIO_PIN_13;
+        HAL_GPIO_Init(GPIOD, &gpio);
+        HAL_GPIO_WritePin(GPIOD, GPIO_PIN_13, GPIO_PIN_SET);
+
+        for (;;) {
+            if (!netif_is_link_up(netif)) {
+                lcd_clear();
+                lcd_print_string_at("Link:", 0, 0);
+                lcd_print_string_at("down", 0, 1);
+            }
+
+            HAL_GPIO_TogglePin(GPIOD, GPIO_PIN_13);
+            vTaskDelay(500);
+        }
     }
 }
 /* Private functions ---------------------------------------------------------*/
