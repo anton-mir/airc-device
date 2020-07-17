@@ -65,12 +65,29 @@ TaskHandle_t eth_sender_handle = NULL;
 
 EventGroupHandle_t eg_task_started = NULL;
 
+
+
+
 struct netif gnetif;
 
 static void SystemClock_Config(void);
 void Error_Handler(void);
 static void netif_setup();
 void init_task(void *arg);
+
+void data_recive(void *pvParameters){
+    static const xData test={100,200};
+    portBASE_TYPE xStatus;
+    const portTickType xTicksToWait = 100 / portTICK_RATE_MS;
+    xQueue=xQueueCreate(1,sizeof(xData));
+    vTaskDelay(10000);
+    for( ;; )
+    {
+        xQueueSendToBack(xQueue, &test, xTicksToWait);
+        //sender_ethernet(test,sizeof(test));
+        vTaskDelay(1000);
+    }
+}
 
 void init_task(void *arg)
 {
@@ -132,7 +149,7 @@ void init_task(void *arg)
         status = xTaskCreate(
                 eth_server,
                 "eth_server",
-                ETH_SERVER_TASK_STACK_SIZE * 6,
+                ETH_SERVER_TASK_STACK_SIZE * 12,
                 (void *) netif,
                 ETH_SERVER_TASK_PRIO,
                 &eth_server_handle);
@@ -173,6 +190,16 @@ void init_task(void *arg)
                 &eth_sender_handle);
 
         configASSERT(status);
+        status = xTaskCreate(
+                data_recive,
+                "data_recive",
+                ETH_SENDER_TASK_STACK_SIZE,
+                (void *) netif,
+                ETH_SENDER_TASK_PRIO,
+                &eth_sender_handle);
+
+        configASSERT(status);
+
 
 
         gpio.Mode = GPIO_MODE_OUTPUT_PP;

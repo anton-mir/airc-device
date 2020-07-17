@@ -3,8 +3,9 @@
 
 #define SERVER_PORT                     (11333)
 #define MAX_CLIENTS                     (4)
+#include "main.h"
 
-int sender_ethernet (void *ptr_buffer, int size);
+int sender_ethernet (xData data, int size);
 void eth_server(void * const arg);
 
 

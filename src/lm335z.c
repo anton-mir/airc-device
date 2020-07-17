@@ -6,7 +6,6 @@
 
 /* Private variables ---------------------------------------------------------*/
 ADC_HandleTypeDef hadc2;
-xQueueHandle xQueue;
 /**
  * @brief PHY GPIO init
  *
@@ -143,13 +142,11 @@ void analog_temp(void *pvParameters)
 	 MX_ADC2_Init();
 	 ADC_Init();
      HAL_ADC_MspInit(&hadc2);
-     xQueue=xQueueCreate(5,sizeof(long));
      xEventGroupSetBits(eg_task_started, EG_ANALOG_TEMP_STARTED);
 	 double temp=0;
         for (;;) 
         {
                 temp=Get_Analog_Temp();
-                xStatus = xQueueSendToBack( xQueue, 100, xTicksToWait );
                 vTaskDelay(1000);
         }
 }

@@ -5,23 +5,18 @@
 #include "lwip/sockets.h"
 #include "lwip/mem.h"
 #include "lm335z.h"
+#include "main.h"
 
-
-static int clients[MAX_CLIENTS];
 
 void eth_sender(void *pvParameters){
-    long lReceivedValue;
+    xData lReceivedValue;
     portBASE_TYPE xStatus;
     const portTickType xTicksToWait = 100 / portTICK_RATE_MS;
-    char *test="Test";
     for( ;; )
     {
-        if( uxQueueMessagesWaiting( xQueue ) == 0 ) {
             xStatus = xQueueReceive(xQueue, &lReceivedValue, xTicksToWait);
             if (xStatus == pdPASS) {
-                sender_ethernet(test,sizeof(test));
+                sender_ethernet(lReceivedValue, sizeof(lReceivedValue));
             }
-        }
     }
-    free(test);
 }

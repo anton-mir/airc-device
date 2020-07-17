@@ -86,6 +86,12 @@ extern TaskHandle_t dhcp_fsm_handle;
 extern TaskHandle_t eth_server_handle;
 extern TaskHandle_t eth_sender_handle;
 
+typedef struct 
+{
+    double temp;
+    double co2;  
+}xData;
+
 extern EventGroupHandle_t eg_task_started;
 
 #endif /* __MAIN_H */
