@@ -43,6 +43,7 @@
 #include "FreeRTOSConfig.h"
 #include "task.h"
 #include "event_groups.h"
+#include "queue.h"
 
 // #define USE_DHCP       /* enable DHCP, if disabled static address is used */
 
@@ -85,6 +86,7 @@ extern TaskHandle_t link_state_handle;
 extern TaskHandle_t dhcp_fsm_handle;
 extern TaskHandle_t eth_server_handle;
 extern TaskHandle_t eth_sender_handle;
+extern xQueueHandle xQueue;
 
 typedef struct 
 {

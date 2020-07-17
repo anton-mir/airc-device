@@ -137,12 +137,10 @@ double Get_Avg_Analog_Temp(const uint32_t count)
 void analog_temp(void *pvParameters) 
 {
     portBASE_TYPE xStatus;
-    const portTickType xTicksToWait = 100 / portTICK_RATE_MS;
 	 MX_GPIO_Init();
 	 MX_ADC2_Init();
 	 ADC_Init();
      HAL_ADC_MspInit(&hadc2);
-     xQueue=xQueueCreate(5,sizeof(long));
      xEventGroupSetBits(eg_task_started, EG_ANALOG_TEMP_STARTED);
      vTaskDelay(1000);
 	 double temp=0;

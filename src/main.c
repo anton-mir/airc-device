@@ -181,17 +181,17 @@ void init_task(void *arg)
         configASSERT(status);
 
         status = xTaskCreate(
-                eth_sender,
-                "eth_sender",
+                data_recive,
+                "data_recive",
                 ETH_SENDER_TASK_STACK_SIZE,
                 (void *) netif,
                 ETH_SENDER_TASK_PRIO,
                 &eth_sender_handle);
-
         configASSERT(status);
+        
         status = xTaskCreate(
-                data_recive,
-                "data_recive",
+                eth_sender,
+                "eth_sender",
                 ETH_SENDER_TASK_STACK_SIZE,
                 (void *) netif,
                 ETH_SENDER_TASK_PRIO,
