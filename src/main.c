@@ -148,7 +148,7 @@ void init_task(void *arg)
         status = xTaskCreate(
                 eth_server,
                 "eth_server",
-                ETH_SERVER_TASK_STACK_SIZE * 6,
+                ETH_SERVER_TASK_STACK_SIZE,
                 (void *) netif,
                 ETH_SERVER_TASK_PRIO,
                 &eth_server_handle);
@@ -192,7 +192,7 @@ void init_task(void *arg)
         status = xTaskCreate(
                 data_recive,
                 "data_recive",
-                ETH_SENDER_TASK_STACK_SIZE * 2,
+                ETH_SENDER_TASK_STACK_SIZE,
                 (void *) netif,
                 ETH_SENDER_TASK_PRIO,
                 &eth_sender_handle);
