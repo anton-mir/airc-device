@@ -8,8 +8,6 @@
 #include "main.h"
 
 
-static int clients[MAX_CLIENTS];
-
 void eth_sender(void *pvParameters){
     xData lReceivedValue;
     portBASE_TYPE xStatus;
