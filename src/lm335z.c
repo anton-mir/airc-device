@@ -2,6 +2,7 @@
 #include "main.h"
 #include "task.h"
 #include "wh1602.h"
+#define BUFFER_TEMP_SIZE (10)
 
 
 /* Private variables ---------------------------------------------------------*/
@@ -109,7 +110,8 @@ double Get_Analog_Temp(void)
 	double temperature=TEMP_ERROR;
 	uint32_t sensorValue;
 	HAL_ADC_Start(&HAL_ADC);
-	if(HAL_ADC_PollForConversion(&HAL_ADC, HAL_TIMEOUT)== HAL_OK){  
+	if(HAL_ADC_PollForConversion(&HAL_ADC, HAL_TIMEOUT)== HAL_OK)
+	{
 		sensorValue=HAL_ADC_GetValue(&HAL_ADC);
 		temperature = (double)((sensorValue) * VREF / ADC_CONV);
 		temperature = (double)((V_TEMP_0 - temperature) * COEF_TEMP);
@@ -126,7 +128,8 @@ double Get_Avg_Analog_Temp(const uint32_t count)
 	 if(count==1)
 		 return Get_Analog_Temp();
 	 double sum=0,temp=0;
-	 for(uint32_t i=0;i<count;i++){
+	 for(uint32_t i=0;i<count;i++)
+	 {
 		 temp=Get_Analog_Temp();
 		 if(temp==TEMP_ERROR)
 			 return TEMP_ERROR;
@@ -147,26 +150,26 @@ void analog_temp(void *pvParameters)
 	 ADC_Init();
      HAL_ADC_MspInit(&hadc2);
      xEventGroupSetBits(eg_task_started, EG_ANALOG_TEMP_STARTED);
-	 double temp=0, buffer_temp[10], buffer_avg_temp;
+	 double temp=0, buffer_temp[BUFFER_TEMP_SIZE], buffer_avg_temp;
      temp=Get_Analog_Temp();
      avg_temp=temp;
-     for(int i=0;i<10;i++)
+     for(int i=0;i<BUFFER_TEMP_SIZE;i++)
      {
-        buffer_temp[i]=temp;
+         buffer_temp[i]=temp;
      }
      for (;;) 
      {
-             temp=Get_Analog_Temp();
-             buffer_avg_temp=temp;
-             for(int i=10-1;i>0;i--)
-             {
-                buffer_temp[i]=buffer_temp[i-1];
-                buffer_avg_temp+=buffer_temp[i];
-             }
-             buffer_temp[0]=temp;
-             buffer_avg_temp/=10;
-             avg_temp=buffer_avg_temp;
-             vTaskDelay(1000);
+         temp=Get_Analog_Temp();
+         buffer_avg_temp=temp;
+         for(int i=BUFFER_TEMP_SIZE-1;i>0;i--)
+         {
+             buffer_temp[i]=buffer_temp[i-1];
+             buffer_avg_temp+=buffer_temp[i];
+         }
+         buffer_temp[0]=temp;
+         buffer_avg_temp/=BUFFER_TEMP_SIZE;
+         avg_temp=buffer_avg_temp;
+         vTaskDelay(1000);
      }
 }
 

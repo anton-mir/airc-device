@@ -19,15 +19,17 @@ SemaphoreHandle_t clients_mut;
 uint32_t sender_ethernet (void *data, uint32_t size){
     uint32_t err=0;
     uint32_t result=ETH_STATUS_SEND_OK;
-    for (int i = 0; i < MAX_CLIENTS; i++) {
-        if (clients[i] != 0) {
+    for (int i = 0; i < MAX_CLIENTS; i++)
+    {
+        if (clients[i] != 0)
+        {
             xSemaphoreTake(clients_mut, portMAX_DELAY);
             err=lwip_write(clients[i], data, size);
             xSemaphoreGive(clients_mut);
-            if(err!=size){
+            if(err!=size)
+            {
                 result|=1<<i;
             }
-
         }
     }
     return result;
@@ -36,18 +38,17 @@ uint32_t sender_ethernet (void *data, uint32_t size){
 static int add_client(int new_clientfd)
 {
     int retval = -EINVAL;
-    for (int i = 0; i < MAX_CLIENTS; i++) {
-        if (clients[i] == 0) {
+    for (int i = 0; i < MAX_CLIENTS; i++)
+    {
+        if (clients[i] == 0)
+        {
             xSemaphoreTake(clients_mut, portMAX_DELAY);
             clients[i] = new_clientfd;
             xSemaphoreGive(clients_mut);
-
             retval = 0;
             break;
         }
     }
-
-
     return retval;
 }
 
@@ -66,7 +67,8 @@ void eth_server(void * const arg)
     memset(&server_addr, 0, sizeof(server_addr));
 
     clients_mut = xSemaphoreCreateMutex();
-    if (!clients_mut) {
+    if (!clients_mut)
+    {
         LWIP_ASSERT("server(): cannot create mutex", 0);
         return;
     }
@@ -87,28 +89,34 @@ void eth_server(void * const arg)
     server_addr.sin_port = lwip_htons(SERVER_PORT);
 
     err = lwip_bind(listenfd, (struct sockaddr *)&server_addr, sizeof(server_addr));
-    if (err < 0) {
+    if (err < 0)
+    {
         LWIP_ASSERT("server(): socket bind failed", 0);
     }
 
     err = lwip_listen(listenfd, MAX_CLIENTS);
-    if (err < 0) {
+    if (err < 0)
+    {
         LWIP_ASSERT("server(): socket listen failed", 0);
     }
 
-    for (;;) {
+    for (;;)
+    {
         FD_ZERO(&readfds);
         FD_SET(listenfd, &readfds);
         maxfd = listenfd;
 
-        for (int i = 0; i < MAX_CLIENTS; i++) {
+        for (int i = 0; i < MAX_CLIENTS; i++)
+        {
             clientfd = clients[i];
 
-            if (clientfd > 0) {
+            if (clientfd > 0)
+            {
                 FD_SET(clientfd, &readfds);
             }
 
-            if (clientfd > maxfd) {
+            if (clientfd > maxfd)
+            {
                 maxfd = clientfd;
             }
         }
@@ -118,7 +126,8 @@ void eth_server(void * const arg)
             continue;
 
         /* check for new client */
-        if (FD_ISSET(listenfd, &readfds)) {
+        if (FD_ISSET(listenfd, &readfds))
+        {
             clientfd = lwip_accept(
                     listenfd,
                     (struct sockaddr *)&client_addr,
@@ -132,19 +141,21 @@ void eth_server(void * const arg)
         }
 
         /* check for already connected clients */
-        for (int i = 0; i < MAX_CLIENTS; i++) {
+        for (int i = 0; i < MAX_CLIENTS; i++)
+        {
             clientfd = clients[i];
 
-            if (clientfd > 0 && FD_ISSET(clientfd, &readfds)) {
+            if (clientfd > 0 && FD_ISSET(clientfd, &readfds))
+            {
                 read_len = lwip_read(
                         clientfd,
                         check_conn_buf,
                         CHECK_CONNECTION_BUF_SIZE);
 
-                if (read_len <= 0) {
+                if (read_len <= 0)
+                {
                     /* client disconnected or error - drop this connection */
                     lwip_close(clientfd);
-
                     xSemaphoreTake(clients_mut, portMAX_DELAY);
                     clients[i] = 0;
                     xSemaphoreGive(clients_mut);

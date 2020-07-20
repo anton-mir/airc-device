@@ -15,7 +15,8 @@ void eth_sender(void *pvParameters){
     portBASE_TYPE xStatus;
     xEventGroupWaitBits(
                 eg_task_started,
-                (EG_INIT_STARTED | EG_ETHERIF_IN_STARTED | EG_LINK_STATE_STARTED | EG_DHCP_FSM_STARTED | ETH_SERVER_STARTED ),
+                (EG_INIT_STARTED | EG_ETHERIF_IN_STARTED | EG_LINK_STATE_STARTED |
+                EG_DHCP_FSM_STARTED | ETH_SERVER_STARTED ),
                 pdFALSE,
                 pdTRUE,
                 portMAX_DELAY);
@@ -24,8 +25,9 @@ void eth_sender(void *pvParameters){
     for( ;; )
     {
             xStatus = xQueueReceive(QueueTransmitEthernet, &lReceivedValue, portMAX_DELAY);
-            if (xStatus == pdPASS) {
-                sender_ethernet(&lReceivedValue, sizeof(lReceivedValue));
+            if (xStatus == pdPASS)
+            {
+                sender_ethernet(&lReceivedValue, sizeof(xData));
             }
     }
 }
