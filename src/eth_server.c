@@ -16,19 +16,21 @@ static int clients[MAX_CLIENTS];
 static uint8_t check_conn_buf[CHECK_CONNECTION_BUF_SIZE];
 SemaphoreHandle_t clients_mut;
 
-int sender_ethernet (void *data, int size){
-    int err=0;
+uint32_t sender_ethernet (void *data, uint32_t size){
+    uint32_t err=0;
+    uint32_t result=ETH_STATUS_SEND_OK;
     for (int i = 0; i < MAX_CLIENTS; i++) {
         if (clients[i] != 0) {
             xSemaphoreTake(clients_mut, portMAX_DELAY);
             err=lwip_write(clients[i], data, size);
             xSemaphoreGive(clients_mut);
-            if(err==-1){
-                //For error
+            if(err!=size){
+                result|=1<<i;
             }
 
         }
     }
+    return result;
 }
 
 static int add_client(int new_clientfd)
