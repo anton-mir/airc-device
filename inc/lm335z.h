@@ -15,6 +15,7 @@
 
 
 void analog_temp(void *pvParameters);
+double get_analog_temp(void);
 
 #endif /* LM335Z_H */
 

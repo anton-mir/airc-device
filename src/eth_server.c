@@ -62,7 +62,6 @@ void eth_server(void * const arg)
     struct sockaddr_in server_addr;
     struct sockaddr_storage client_addr;
     socklen_t client_len;
-    struct netif *netif = (struct netif *)arg;
 
     memset(&server_addr, 0, sizeof(server_addr));
 

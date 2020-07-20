@@ -2,10 +2,11 @@
 #include "main.h"
 #include "task.h"
 #include "wh1602.h"
-#include "queue.h"
+
 
 /* Private variables ---------------------------------------------------------*/
 ADC_HandleTypeDef hadc2;
+double avg_temp=0;
 /**
  * @brief PHY GPIO init
  *
@@ -133,22 +134,40 @@ double Get_Avg_Analog_Temp(const uint32_t count)
 	 }
 	 return (double)sum/count;
 }
+
+double get_analog_temp(void)
+{
+    return avg_temp;
+}
  
 void analog_temp(void *pvParameters) 
 {
-    portBASE_TYPE xStatus;
 	 MX_GPIO_Init();
 	 MX_ADC2_Init();
 	 ADC_Init();
      HAL_ADC_MspInit(&hadc2);
      xEventGroupSetBits(eg_task_started, EG_ANALOG_TEMP_STARTED);
-     vTaskDelay(1000);
-	 double temp=0;
-        for (;;) 
-        {
-                temp=Get_Analog_Temp();
-                vTaskDelay(1000);
-        }
+	 double temp=0, buffer_temp[10], buffer_avg_temp;
+     temp=Get_Analog_Temp();
+     avg_temp=temp;
+     for(int i=0;i<10;i++)
+     {
+        buffer_temp[i]=temp;
+     }
+     for (;;) 
+     {
+             temp=Get_Analog_Temp();
+             buffer_avg_temp=temp;
+             for(int i=10-1;i>0;i--)
+             {
+                buffer_temp[i]=buffer_temp[i-1];
+                buffer_avg_temp+=buffer_temp[i];
+             }
+             buffer_temp[0]=temp;
+             buffer_avg_temp/=10;
+             avg_temp=buffer_avg_temp;
+             vTaskDelay(1000);
+     }
 }
 
 
