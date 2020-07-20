@@ -70,8 +70,14 @@ static void GPIO_Init(void) {
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
     HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-    GPIO_InitStruct.Pin = GPIO_PIN_6|GPIO_PIN_8;
+    GPIO_InitStruct.Pin = GPIO_PIN_6;
     GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+    HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
+
+    GPIO_InitStruct.Pin = GPIO_PIN_8;
+    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
     HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
@@ -173,6 +179,10 @@ void echo_server(void * const arg)
     }
 }
 
+volatile uint8_t rx;
+volatile uint8_t command[64];
+volatile uint8_t command_ready = 0;
+
 void CO_sensor(void * const arg) {
     /* Notify init task that CO sensor task has been started */
     xEventGroupSetBits(eg_task_started, EG_CO_SENSOR_STARTED);
@@ -180,48 +190,46 @@ void CO_sensor(void * const arg) {
     GPIO_Init();
     USART3_UART_Init();
 
-    /*Set_CO_RX();
-    uint8_t command = 'c';
-    HAL_UART_Transmit_IT(&huart3, &command, 1);
+    Set_CO_RX();
+    uint8_t commanda = 'c';
+    HAL_UART_Transmit_IT(&huart3, &commanda, 1);
     while (HAL_UART_GetState(&huart3) == HAL_UART_STATE_BUSY_TX);
     HAL_Delay(10000);
-    HAL_UART_Transmit_IT(&huart3, &command, 1);
+    HAL_UART_Transmit_IT(&huart3, &commanda, 1);
     while (HAL_UART_GetState(&huart3) == HAL_UART_STATE_BUSY_TX);
 
-    Set_CO_TX();*/
-
-    volatile uint8_t rx;
-    volatile uint8_t command[64];
-    volatile uint8_t command_ready = 0;
+    Set_CO_TX();
 
     /* Start reception once, rest is done in interrupt handler */
     HAL_UART_Receive_IT(&huart3, &rx, 1);
     while (1) {
-      if (command_ready) {
-        command_ready = 0;
-      }
-      vTaskDelay(500);
+        if (command_ready) {
+            command_ready = 0;
+        }
+        vTaskDelay(500);
     }
-
+}
     void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
-              static uint8_t cmd[64];
-              static uint8_t icmd;
-              cmd[icmd] = rx;
-              /* Parse received byte for EOL */
-              if (rx == '\n') { /* If \r or \n print text */
+        if (huart->Instance == USART3) {
+            static uint8_t cmd[64];
+            static uint8_t icmd;
+            cmd[icmd] = rx;
+            /* Parse received byte for EOL */
+            if (rx == '\n') { /* If \r or \n print text */
                 /* Terminate string with \0 */
                 cmd[icmd] = 0;
                 icmd = 0;
-                strncpy(command, cmd, sizeof (command));
+                strncpy(command, cmd, sizeof(command));
                 command_ready = 1;
-              } else if (rx == '\r') { /* Skip \r character */
-              } else { /* If regular character, put it into cmd[] */
+            } else if (rx == '\r') { /* Skip \r character */
+            } else { /* If regular character, put it into cmd[] */
                 cmd[icmd++] = rx;
-              }
-              /* Restart reception */
-              HAL_UART_Receive_IT(&huart3, &rx, 1);
+            }
+            /* Restart reception */
+            HAL_UART_Receive_IT(&huart3, &rx, 1);
+        }
      }
-}
+
 
 
 
