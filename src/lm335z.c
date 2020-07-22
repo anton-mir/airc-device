@@ -136,7 +136,7 @@ void analog_temp(void *pvParameters)
     HAL_ADC_MspInit(&hadc2);
     xEventGroupSetBits(eg_task_started, EG_ANALOG_TEMP_STARTED);
     double temp=0, buffer_temp[BUFFER_TEMP_SIZE], buffer_avg_temp;
-    temp=Get_Analog_Temp();
+    temp=Get_Analog_Temp_d();
     avg_temp=temp;
     for(int i=0;i<BUFFER_TEMP_SIZE;i++)
     {
