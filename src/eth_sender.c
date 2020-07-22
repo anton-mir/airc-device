@@ -1,17 +1,13 @@
 #include "eth_sender.h"
 #include "eth_server.h"
-#include "lwip/opt.h"
-#include "lwip/sys.h"
-#include "lwip/sockets.h"
-#include "lwip/mem.h"
-#include "lm335z.h"
 #include "main.h"
+#include "lm335z.h"
 
 xQueueHandle QueueTransmitEthernet;
 
 
 void eth_sender(void *pvParameters){
-    xData lReceivedValue;
+    dataPacket_S lReceivedValue;
     portBASE_TYPE xStatus;
     xEventGroupWaitBits(
                 eg_task_started,
@@ -20,14 +16,14 @@ void eth_sender(void *pvParameters){
                 pdFALSE,
                 pdTRUE,
                 portMAX_DELAY);
-    QueueTransmitEthernet=xQueueCreate(1,sizeof(xData));
+    QueueTransmitEthernet=xQueueCreate(1,sizeof(dataPacket_S));
     xEventGroupSetBits(eg_task_started, ETH_SENDER_STARTED);
     for( ;; )
     {
             xStatus = xQueueReceive(QueueTransmitEthernet, &lReceivedValue, portMAX_DELAY);
             if (xStatus == pdPASS)
             {
-                sender_ethernet(&lReceivedValue, sizeof(xData));
+                sender_ethernet(&lReceivedValue, sizeof(dataPacket_S));
             }
     }
 }

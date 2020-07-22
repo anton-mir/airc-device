@@ -62,6 +62,7 @@ TaskHandle_t dhcp_fsm_handle = NULL;
 TaskHandle_t analog_temp_handle = NULL;
 TaskHandle_t eth_server_handle = NULL;
 TaskHandle_t eth_sender_handle = NULL;
+TaskHandle_t data_collector_handle = NULL;
 
 EventGroupHandle_t eg_task_started = NULL;
 
@@ -72,22 +73,7 @@ void Error_Handler(void);
 static void netif_setup();
 void init_task(void *arg);
 
-void data_recive(void *pvParameters){
-    static const xData test={100,200};
-    const portTickType xTicksToWait = 100 / portTICK_RATE_MS;
-    xEventGroupWaitBits(
-                eg_task_started,
-                (EG_INIT_STARTED | EG_ETHERIF_IN_STARTED | EG_LINK_STATE_STARTED | EG_DHCP_FSM_STARTED | ETH_SERVER_STARTED | ETH_SENDER_STARTED),
-                pdFALSE,
-                pdTRUE,
-                portMAX_DELAY);
-    xEventGroupSetBits(eg_task_started, EG_DATA_RECIVE_STARTED);
-    for( ;; )
-    {
-        xQueueSendToBack(QueueTransmitEthernet, &test, xTicksToWait);
-        vTaskDelay(1000);
-    }
-}
+
 
 void init_task(void *arg)
 {
@@ -179,20 +165,20 @@ void init_task(void *arg)
     configASSERT(status);
 
     status = xTaskCreate(
-            data_recive,
-            "data_recive",
+            data_collector,
+            "data_collector",
             ETH_SENDER_TASK_STACK_SIZE,
             NULL,
             ETH_SENDER_TASK_PRIO,
-            &eth_sender_handle);
+            &data_collector_handle);
     configASSERT(status);
         
     status = xTaskCreate(
             eth_sender,
             "eth_sender",
-            ETH_SENDER_TASK_STACK_SIZE,
+            DATA_COLLECTOR_STACK_SIZE,
             NULL,
-            ETH_SENDER_TASK_PRIO,
+            DATA_COLLECTOR_PRIO,
             &eth_sender_handle);
 
     configASSERT(status);

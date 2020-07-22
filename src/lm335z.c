@@ -105,7 +105,7 @@ void HAL_ADC_MspInit(ADC_HandleTypeDef* hadc)
 }
 
 
-double Get_Analog_Temp(void)
+double Get_Analog_Temp_d(void)
 {
 	double temperature=TEMP_ERROR;
 	uint32_t sensorValue;
@@ -121,22 +121,7 @@ double Get_Analog_Temp(void)
 
 }
 
-double Get_Avg_Analog_Temp(const uint32_t count)
-{
-	 if(count==0)
-		 return TEMP_ERROR;
-	 if(count==1)
-		 return Get_Analog_Temp();
-	 double sum=0,temp=0;
-	 for(uint32_t i=0;i<count;i++)
-	 {
-		 temp=Get_Analog_Temp();
-		 if(temp==TEMP_ERROR)
-			 return TEMP_ERROR;
-		 sum+=temp;
-	 }
-	 return (double)sum/count;
-}
+
 
 double get_analog_temp(void)
 {
@@ -159,7 +144,7 @@ void analog_temp(void *pvParameters)
     }
     for (;;)
     {
-        temp=Get_Analog_Temp();
+        temp=Get_Analog_Temp_d();
         buffer_avg_temp=temp;
         for(int i=BUFFER_TEMP_SIZE-1;i>0;i--)
         {

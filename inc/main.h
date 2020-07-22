@@ -73,7 +73,7 @@
 #define EG_ANALOG_TEMP_STARTED      (0x20)
 #define ETH_SERVER_STARTED          (0x40)
 #define ETH_SENDER_STARTED          (0x80)
-#define EG_DATA_RECIVE_STARTED      (0x100)
+#define EG_DATA_COLLECTOR_STARTED   (0x100)
 
 
 
@@ -88,12 +88,7 @@ extern TaskHandle_t link_state_handle;
 extern TaskHandle_t dhcp_fsm_handle;
 extern TaskHandle_t eth_server_handle;
 extern TaskHandle_t eth_sender_handle;
-
-typedef struct 
-{
-    double temp;
-    double co2;  
-}xData;
+extern TaskHandle_t data_collector_handle;
 
 extern EventGroupHandle_t eg_task_started;
 
