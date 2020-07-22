@@ -1,7 +1,7 @@
 #include "eth_sender.h"
 #include "eth_server.h"
 #include "main.h"
-#include "lm335z.h"
+#include "data_collector.h"
 
 xQueueHandle QueueTransmitEthernet;
 
