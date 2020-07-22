@@ -78,7 +78,7 @@ static void GPIO_Init(void) {
 
     GPIO_InitStruct.Pin = GPIO_PIN_8;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Pull = GPIO_PULLUP;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
     HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 }
@@ -190,7 +190,7 @@ void CO_sensor(void * const arg) {
     GPIO_Init();
     USART3_UART_Init();
 
-    Set_CO_RX();
+    Set_CO_TX();
     uint8_t commanda = 'c';
     HAL_UART_Transmit_IT(&huart3, &commanda, 1);
     while (HAL_UART_GetState(&huart3) == HAL_UART_STATE_BUSY_TX);
@@ -198,7 +198,7 @@ void CO_sensor(void * const arg) {
     HAL_UART_Transmit_IT(&huart3, &commanda, 1);
     while (HAL_UART_GetState(&huart3) == HAL_UART_STATE_BUSY_TX);
 
-    Set_CO_TX();
+    Set_CO_RX();
 
     /* Start reception once, rest is done in interrupt handler */
     HAL_UART_Receive_IT(&huart3, &rx, 1);
