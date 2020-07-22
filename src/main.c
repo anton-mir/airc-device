@@ -53,6 +53,7 @@
 #include "eth_server.h"
 #include "eth_sender.h"
 #include "queue.h"
+#include "data_collector.h"
 
 
 TaskHandle_t init_handle = NULL;
