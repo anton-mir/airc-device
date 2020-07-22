@@ -1,6 +1,7 @@
 #include "main.h"
 #include "data_collector.h"
 #include "data_structure.h"
+#include "eth_sender.h"
 #include "lm335z.h"
 
 
