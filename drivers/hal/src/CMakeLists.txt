@@ -32,7 +32,6 @@ set(LOCAL_SRCS
     "stm32f4xx_hal_flash_ex.c"
     "stm32f4xx_hal_flash_ramfunc.c"
     "stm32f4xx_hal_gpio.c"
-    "stm32f4xx_hal_msp_template.c"
     "stm32f4xx_hal_pwr.c"
     "stm32f4xx_hal_pwr_ex.c"
     "stm32f4xx_hal_rcc.c"
