@@ -8,7 +8,7 @@
 void data_collector(void *pvParameters)
 {
     const portTickType xTicksToWait = 100 / portTICK_RATE_MS;
-    dataPacket_S packet={{0},{0},{0},{0},{0},{0},{0},{0},{0},{0},{0},{0}};
+    dataPacket_S packet={0,0,0,0,0,0,0,0,0,0,0,0};
     //Add waiting for other sensors
     xEventGroupWaitBits(
             eg_task_started,
