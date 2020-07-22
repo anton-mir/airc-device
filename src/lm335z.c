@@ -145,32 +145,32 @@ double get_analog_temp(void)
  
 void analog_temp(void *pvParameters) 
 {
-	 MX_GPIO_Init();
-	 MX_ADC2_Init();
-	 ADC_Init();
-     HAL_ADC_MspInit(&hadc2);
-     xEventGroupSetBits(eg_task_started, EG_ANALOG_TEMP_STARTED);
-	 double temp=0, buffer_temp[BUFFER_TEMP_SIZE], buffer_avg_temp;
-     temp=Get_Analog_Temp();
-     avg_temp=temp;
-     for(int i=0;i<BUFFER_TEMP_SIZE;i++)
-     {
-         buffer_temp[i]=temp;
-     }
-     for (;;) 
-     {
-         temp=Get_Analog_Temp();
-         buffer_avg_temp=temp;
-         for(int i=BUFFER_TEMP_SIZE-1;i>0;i--)
-         {
-             buffer_temp[i]=buffer_temp[i-1];
-             buffer_avg_temp+=buffer_temp[i];
-         }
-         buffer_temp[0]=temp;
-         buffer_avg_temp/=BUFFER_TEMP_SIZE;
-         avg_temp=buffer_avg_temp;
-         vTaskDelay(1000);
-     }
+    MX_GPIO_Init();
+    MX_ADC2_Init();
+    ADC_Init();
+    HAL_ADC_MspInit(&hadc2);
+    xEventGroupSetBits(eg_task_started, EG_ANALOG_TEMP_STARTED);
+    double temp=0, buffer_temp[BUFFER_TEMP_SIZE], buffer_avg_temp;
+    temp=Get_Analog_Temp();
+    avg_temp=temp;
+    for(int i=0;i<BUFFER_TEMP_SIZE;i++)
+    {
+        buffer_temp[i]=temp;
+    }
+    for (;;)
+    {
+        temp=Get_Analog_Temp();
+        buffer_avg_temp=temp;
+        for(int i=BUFFER_TEMP_SIZE-1;i>0;i--)
+        {
+            buffer_temp[i]=buffer_temp[i-1];
+            buffer_avg_temp+=buffer_temp[i];
+        }
+        buffer_temp[0]=temp;
+        buffer_avg_temp/=BUFFER_TEMP_SIZE;
+        avg_temp=buffer_avg_temp;
+        vTaskDelay(1000);
+    }
 }
 
 
