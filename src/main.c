@@ -50,7 +50,8 @@
 #include "tasks_def.h"
 #include "hw_delay.h"
 #include "lm335z.h"
-
+#include "dataGetter.h"
+#include"queue.h"
 TaskHandle_t init_handle = NULL;
 TaskHandle_t ethif_in_handle = NULL;
 TaskHandle_t link_state_handle = NULL;
@@ -171,8 +172,18 @@ void init_task(void *arg)
   */
 int main(void)
 {
+    // just testig queue 
+    // you can remove that
     BaseType_t status;
-
+    dataPacket_S pack;
+    dataPacket_S packv2;
+    pack.co.field = 1.0;
+    pack.co2.field = 2.0;
+    QueueHandle_t ethQueue = xQueueCreate(1,sizeof(dataPacket_S));
+    if(ethQueue != NULL){
+        xQueueSend(ethQueue,&pack,0);
+    }
+    xQueueReceive(ethQueue,&packv2,0);
     HAL_Init();
 
     /* Configure the system clock to 168 MHz */
