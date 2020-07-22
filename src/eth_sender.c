@@ -1,7 +1,7 @@
 #include "eth_sender.h"
 #include "eth_server.h"
 #include "main.h"
-#include "data_collector.h"
+#include "data_structure.h"
 
 xQueueHandle QueueTransmitEthernet;
 
