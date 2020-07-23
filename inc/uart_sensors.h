@@ -6,6 +6,5 @@
 UART_HandleTypeDef huart3;
 
 void CO_sensor(void * const arg);
-void echo_server(void * const arg);
 
 #endif //AIRC_DEVICE_UART_SENSORS_H

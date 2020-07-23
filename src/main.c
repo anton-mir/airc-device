@@ -55,7 +55,6 @@ TaskHandle_t init_handle = NULL;
 TaskHandle_t ethif_in_handle = NULL;
 TaskHandle_t link_state_handle = NULL;
 TaskHandle_t dhcp_fsm_handle = NULL;
-TaskHandle_t echo_server_handle = NULL;
 TaskHandle_t CO_sensor_handle = NULL;
 
 EventGroupHandle_t eg_task_started = NULL;
@@ -135,16 +134,6 @@ void init_task(void *arg)
     configASSERT(status);
 
     status = xTaskCreate(
-                echo_server,
-                "echo_srv",
-                ECHO_SERVER_TASK_STACK_SIZE,
-                (void *)netif,
-                ECHO_SERVER_TASK_PRIO,
-                &echo_server_handle);
-
-    configASSERT(status);
-
-    status = xTaskCreate(
             CO_sensor,
             "CO_sensor",
             CO_SENSOR_TASK_STACK_SIZE,
@@ -158,7 +147,7 @@ void init_task(void *arg)
     xEventGroupWaitBits(
             eg_task_started,
             (EG_INIT_STARTED | EG_ETHERIF_IN_STARTED | EG_LINK_STATE_STARTED | 
-                EG_DHCP_FSM_STARTED | EG_ECHO_SERVER_STARTED | EG_CO_SENSOR_STARTED),
+                EG_DHCP_FSM_STARTED | EG_CO_SENSOR_STARTED),
             pdFALSE,
             pdTRUE,
             portMAX_DELAY);
