@@ -78,18 +78,32 @@ static void GPIO_Init(void) {
 
 }
 
-static void Set_CO_RX(void){
-    HAL_GPIO_WritePin(GPIOE, GPIO_PIN_6, GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET);
-    HAL_GPIO_WritePin(GPIOE, GPIO_PIN_5, GPIO_PIN_SET);
-    HAL_GPIO_WritePin(GPIOD, GPIO_PIN_6, GPIO_PIN_RESET);
-}
+uint8_t chan_table[16][4] = {
+        // s0, s1, s2, s3     channel
+        {0,  0,  0,  0}, // 0 HCHO sensor RX
+        {1,  0,  0,  0}, // 1 PM dust sensor RX
+        {0,  1,  0,  0}, // 2 SO2 spec sensor RX
+        {1,  1,  0,  0}, // 3 SO2 spec sensor TX
+        {0,  0,  1,  0}, // 4 NO2 spec sensor RX
+        {1,  0,  1,  0}, // 5 NO2 spec sensor TX
+        {0,  1,  1,  0}, // 6 CO spec sensor RX
+        {1,  1,  1,  0}, // 7 CO spec sensor TX
+        {0,  0,  0,  1}, // 8 O3 spec sensor RX
+        {1,  0,  0,  1}, // 9 O3 spec sensor TX
+        {0,  1,  0,  1}, // 10
+        {1,  1,  0,  1}, // 11
+        {0,  0,  1,  1}, // 12
+        {1,  0,  1,  1}, // 13
+        {0,  1,  1,  1}, // 14
+        {1,  1,  1,  1}  // 15
+};
 
-static void Set_CO_TX(void){
-    HAL_GPIO_WritePin(GPIOE, GPIO_PIN_6, GPIO_PIN_SET);
-    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET);
-    HAL_GPIO_WritePin(GPIOE, GPIO_PIN_5, GPIO_PIN_SET);
-    HAL_GPIO_WritePin(GPIOD, GPIO_PIN_6, GPIO_PIN_RESET);
+static void Set_chan(uint8_t channel)
+{
+    HAL_GPIO_WritePin(GPIOE, GPIO_PIN_6, chan_table[channel][0]);
+    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, chan_table[channel][1]);
+    HAL_GPIO_WritePin(GPIOE, GPIO_PIN_5, chan_table[channel][2]);
+    HAL_GPIO_WritePin(GPIOD, GPIO_PIN_6, chan_table[channel][3]);
 }
 
 void echo_server(void * const arg)
@@ -185,16 +199,15 @@ void CO_sensor(void * const arg) {
     GPIO_Init();
     USART3_UART_Init();
 
-    Set_CO_TX();
-    uint8_t commanda = 'c';
-    HAL_UART_Transmit_IT(&huart3, &commanda, 1);
+    Set_chan(7);
+    uint8_t spec_cmd = '\r';
+    HAL_UART_Transmit_IT(&huart3, &spec_cmd, 1);
     while (HAL_UART_GetState(&huart3) == HAL_UART_STATE_BUSY_TX);
-    HAL_Delay(10000);
-    HAL_UART_Transmit_IT(&huart3, &commanda, 1);
+    HAL_Delay(100);
+    HAL_UART_Transmit_IT(&huart3, &spec_cmd, 1);
     while (HAL_UART_GetState(&huart3) == HAL_UART_STATE_BUSY_TX);
 
-    Set_CO_RX();
-
+    Set_chan(6);
     /* Start reception once, rest is done in interrupt handler */
     HAL_UART_Receive_IT(&huart3, &rx, 1);
     while (1) {
