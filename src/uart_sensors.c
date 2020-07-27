@@ -11,6 +11,12 @@
 #include "main.h"
 #include "string.h"
 
+volatile uint8_t rx;
+volatile uint8_t command[64];
+volatile uint8_t command_ready = 0;
+
+static SemaphoreHandle_t tx_uart_sem = NULL;
+
 static void USART3_UART_Init(void)
 {
     huart3.Instance = USART3;
@@ -83,19 +89,18 @@ uint8_t chan_table[16][4] = {
         {1,  1,  1,  1}  // 15
 };
 
-static void Set_chan(uint8_t channel)
-{
+static void Set_chan(uint8_t channel){
     HAL_GPIO_WritePin(GPIOE, GPIO_PIN_6, chan_table[channel][0]);
     HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, chan_table[channel][1]);
     HAL_GPIO_WritePin(GPIOE, GPIO_PIN_5, chan_table[channel][2]);
     HAL_GPIO_WritePin(GPIOD, GPIO_PIN_6, chan_table[channel][3]);
 }
 
-volatile uint8_t rx;
-volatile uint8_t command[64];
-volatile uint8_t command_ready = 0;
-
 void CO_sensor(void * const arg) {
+
+    tx_uart_sem = xSemaphoreCreateBinary();
+    configASSERT(tx_uart_sem != NULL);
+
     /* Notify init task that CO sensor task has been started */
     xEventGroupSetBits(eg_task_started, EG_CO_SENSOR_STARTED);
 
@@ -105,10 +110,10 @@ void CO_sensor(void * const arg) {
     Set_chan(7);
     uint8_t spec_cmd = 'c';
     HAL_UART_Transmit_IT(&huart3, &spec_cmd, 1);
-    while (HAL_UART_GetState(&huart3) == HAL_UART_STATE_BUSY_TX);
+    xSemaphoreTake(tx_uart_sem, portMAX_DELAY);
     HAL_Delay(100);
     HAL_UART_Transmit_IT(&huart3, &spec_cmd, 1);
-    while (HAL_UART_GetState(&huart3) == HAL_UART_STATE_BUSY_TX);
+    xSemaphoreTake(tx_uart_sem, portMAX_DELAY );
 
     Set_chan(6);
     /* Start reception once, rest is done in interrupt handler */
@@ -120,6 +125,27 @@ void CO_sensor(void * const arg) {
         vTaskDelay(500);
     }
 }
+
+void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart) {
+    if (huart->Instance == USART3) {
+
+        BaseType_t reschedule;
+        UBaseType_t tx_uart_critical;
+
+        tx_uart_critical = taskENTER_CRITICAL_FROM_ISR();
+
+        if (tx_uart_sem != NULL) {
+            reschedule = pdFALSE;
+            /* Unblock the task by releasing the semaphore.*/
+            xSemaphoreGiveFromISR(tx_uart_sem, &reschedule);
+
+            /* If reschedule was set to true we should yield.*/
+            portYIELD_FROM_ISR(reschedule);
+        }
+        taskEXIT_CRITICAL_FROM_ISR( tx_uart_critical );
+    }
+}
+
     void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
         if (huart->Instance == USART3) {
             static uint8_t cmd[64];
@@ -162,7 +188,7 @@ void HAL_UART_MspInit(UART_HandleTypeDef* huart)
         GPIO_InitStruct.Alternate = GPIO_AF7_USART3;
         HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
-        HAL_NVIC_SetPriority(USART3_IRQn, 0, 0);
+        HAL_NVIC_SetPriority(USART3_IRQn, 5, 0U);
         HAL_NVIC_EnableIRQ(USART3_IRQn);
     }
 
@@ -178,10 +204,3 @@ void HAL_UART_MspDeInit(UART_HandleTypeDef* huart)
     }
 
 }
-
-
-
-
-
-
-
