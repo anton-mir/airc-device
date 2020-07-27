@@ -33,6 +33,7 @@ void data_collector(void *pvParameters)
         packet.temp=get_analog_temp();
         //packet.tvoc=;
         //packet.so2=;
+        //TODO: Do return value processing.
         xQueueSendToBack(QueueTransmitEthernet, &packet, xTicksToWait);
         //xQueueSendToBack for wifi
         vTaskDelay(1000);
