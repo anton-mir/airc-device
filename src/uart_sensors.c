@@ -15,8 +15,6 @@ volatile uint8_t rx;
 volatile uint8_t command[64];
 volatile uint8_t command_ready = 0;
 
-static SemaphoreHandle_t tx_uart_sem = NULL;
-
 static void USART3_UART_Init(void)
 {
     huart3.Instance = USART3;
@@ -98,9 +96,6 @@ static void Set_chan(uint8_t channel){
 
 void CO_sensor(void * const arg) {
 
-    tx_uart_sem = xSemaphoreCreateBinary();
-    configASSERT(tx_uart_sem != NULL);
-
     /* Notify init task that CO sensor task has been started */
     xEventGroupSetBits(eg_task_started, EG_CO_SENSOR_STARTED);
 
@@ -110,10 +105,10 @@ void CO_sensor(void * const arg) {
     Set_chan(7);
     uint8_t spec_cmd = 'c';
     HAL_UART_Transmit_IT(&huart3, &spec_cmd, 1);
-    xSemaphoreTake(tx_uart_sem, portMAX_DELAY);
+    ulTaskNotifyTake( pdTRUE, portMAX_DELAY);
     HAL_Delay(100);
     HAL_UART_Transmit_IT(&huart3, &spec_cmd, 1);
-    xSemaphoreTake(tx_uart_sem, portMAX_DELAY );
+    ulTaskNotifyTake( pdTRUE, portMAX_DELAY);
 
     Set_chan(6);
     /* Start reception once, rest is done in interrupt handler */
@@ -129,19 +124,14 @@ void CO_sensor(void * const arg) {
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart) {
     if (huart->Instance == USART3) {
 
-        BaseType_t reschedule;
+        BaseType_t reschedule = pdFALSE;
         UBaseType_t tx_uart_critical;
 
         tx_uart_critical = taskENTER_CRITICAL_FROM_ISR();
 
-        if (tx_uart_sem != NULL) {
-            reschedule = pdFALSE;
-            /* Unblock the task by releasing the semaphore.*/
-            xSemaphoreGiveFromISR(tx_uart_sem, &reschedule);
+        vTaskNotifyGiveFromISR(CO_sensor_handle, &reschedule);
+        portYIELD_FROM_ISR(reschedule);
 
-            /* If reschedule was set to true we should yield.*/
-            portYIELD_FROM_ISR(reschedule);
-        }
         taskEXIT_CRITICAL_FROM_ISR( tx_uart_critical );
     }
 }
