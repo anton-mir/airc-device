@@ -13,8 +13,8 @@
 #define DHCP_FSM_TASK_PRIO          (tskIDLE_PRIORITY + 1)
 #define DHCP_FSM_TASK_STACK_SIZE    (configMINIMAL_STACK_SIZE * 2)
 
-#define CO_SENSOR_TASK_PRIO         (tskIDLE_PRIORITY + 2)
-#define CO_SENSOR_TASK_STACK_SIZE   (configMINIMAL_STACK_SIZE * 2)
+#define UART_SENSORS_TASK_PRIO         (tskIDLE_PRIORITY + 2)
+#define UART_SENSORS_TASK_STACK_SIZE   (configMINIMAL_STACK_SIZE * 2)
 
 #endif /* TASKS_DEF_H */
 

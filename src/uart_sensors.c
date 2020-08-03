@@ -13,7 +13,13 @@
 
 volatile uint8_t rx;
 volatile uint8_t command[64];
-volatile uint8_t command_ready = 0;
+volatile uint8_t SO2_data[64];
+volatile uint8_t NO2_data[64];
+volatile uint8_t CO_data[64];
+volatile uint8_t O3_data[64];
+
+static SemaphoreHandle_t rx_uart_sem = NULL;
+
 
 static void USART3_UART_Init(void)
 {
@@ -94,29 +100,72 @@ static void Set_chan(uint8_t channel){
     HAL_GPIO_WritePin(GPIOD, GPIO_PIN_6, chan_table[channel][3]);
 }
 
-void CO_sensor(void * const arg) {
+void uart_sensors(void * const arg) {
+
+    rx_uart_sem = xSemaphoreCreateBinary();
+    configASSERT(rx_uart_sem != NULL);
 
     /* Notify init task that CO sensor task has been started */
-    xEventGroupSetBits(eg_task_started, EG_CO_SENSOR_STARTED);
+    xEventGroupSetBits(eg_task_started, EG_UART_SENSORS_STARTED);
 
     GPIO_Init();
     USART3_UART_Init();
-
-    Set_chan(7);
     uint8_t spec_cmd = 'c';
+
+    Set_chan(3);
     HAL_UART_Transmit_IT(&huart3, &spec_cmd, 1);
     ulTaskNotifyTake( pdTRUE, portMAX_DELAY);
     HAL_Delay(100);
     HAL_UART_Transmit_IT(&huart3, &spec_cmd, 1);
     ulTaskNotifyTake( pdTRUE, portMAX_DELAY);
 
-    Set_chan(6);
-    /* Start reception once, rest is done in interrupt handler */
-    HAL_UART_Receive_IT(&huart3, &rx, 1);
+    Set_chan(5);
+    HAL_UART_Transmit_IT(&huart3, &spec_cmd, 1);
+    ulTaskNotifyTake( pdTRUE, portMAX_DELAY);
+    HAL_Delay(100);
+    HAL_UART_Transmit_IT(&huart3, &spec_cmd, 1);
+    ulTaskNotifyTake( pdTRUE, portMAX_DELAY);
+
+    Set_chan(7);
+    HAL_UART_Transmit_IT(&huart3, &spec_cmd, 1);
+    ulTaskNotifyTake( pdTRUE, portMAX_DELAY);
+    HAL_Delay(100);
+    HAL_UART_Transmit_IT(&huart3, &spec_cmd, 1);
+    ulTaskNotifyTake( pdTRUE, portMAX_DELAY);
+
+    Set_chan(9);
+    HAL_UART_Transmit_IT(&huart3, &spec_cmd, 1);
+    ulTaskNotifyTake( pdTRUE, portMAX_DELAY);
+    HAL_Delay(100);
+    HAL_UART_Transmit_IT(&huart3, &spec_cmd, 1);
+    ulTaskNotifyTake( pdTRUE, portMAX_DELAY);
+
     while (1) {
-        if (command_ready) {
-            command_ready = 0;
+
+        Set_chan(2);
+        HAL_UART_Receive_IT(&huart3, &rx, 1);
+        if(xSemaphoreTake(rx_uart_sem, pdMS_TO_TICKS(3000)) == pdTRUE) {
+            strncpy(SO2_data, command, 64);
         }
+
+        Set_chan(4);
+        HAL_UART_Receive_IT(&huart3, &rx, 1);
+        if(xSemaphoreTake(rx_uart_sem, pdMS_TO_TICKS(3000)) == pdTRUE) {
+            strncpy(NO2_data, command, 64);
+        }
+
+        Set_chan(6);
+        HAL_UART_Receive_IT(&huart3, &rx, 1);
+        if(xSemaphoreTake(rx_uart_sem, pdMS_TO_TICKS(3000)) == pdTRUE) {
+            strncpy(CO_data, command, 64);
+        }
+
+        Set_chan(8);
+        HAL_UART_Receive_IT(&huart3, &rx, 1);
+        if(xSemaphoreTake(rx_uart_sem, pdMS_TO_TICKS(3000)) == pdTRUE) {
+            strncpy(O3_data, command, 64);
+        }
+
         vTaskDelay(500);
     }
 }
@@ -125,37 +174,47 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart) {
     if (huart->Instance == USART3) {
 
         BaseType_t reschedule = pdFALSE;
-        UBaseType_t tx_uart_critical;
 
+        vTaskNotifyGiveFromISR(uart_sensors_handle, &reschedule);
+        portYIELD_FROM_ISR(reschedule);
+    }
+}
+
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
+    if (huart->Instance == USART3) {
+
+        BaseType_t reschedule;
+
+        UBaseType_t tx_uart_critical;
         tx_uart_critical = taskENTER_CRITICAL_FROM_ISR();
 
-        vTaskNotifyGiveFromISR(CO_sensor_handle, &reschedule);
-        portYIELD_FROM_ISR(reschedule);
+        static uint8_t cmd[64];
+        static uint8_t icmd;
+        cmd[icmd] = rx;
+
+        /* Parse received byte for EOL */
+        if (rx == '\n') { /* If \r or \n print text */
+            /* Terminate string with \0 */
+            cmd[icmd] = 0;
+            icmd = 0;
+            strncpy(command, cmd, sizeof(command));
+            if (rx_uart_sem != NULL) {
+                reschedule = pdFALSE;
+                /* Unblock the task by releasing the semaphore.*/
+                xSemaphoreGiveFromISR(rx_uart_sem, &reschedule);
+                portYIELD_FROM_ISR(reschedule);
+            }
+        } else if (rx == '\r') { /* Skip \r character */
+        } else { /* If regular character, put it into cmd[] */
+            cmd[icmd++] = rx;
+        }
+
+        /* Restart reception */
+        HAL_UART_Receive_IT(&huart3, &rx, 1);
 
         taskEXIT_CRITICAL_FROM_ISR( tx_uart_critical );
     }
 }
-
-    void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
-        if (huart->Instance == USART3) {
-            static uint8_t cmd[64];
-            static uint8_t icmd;
-            cmd[icmd] = rx;
-            /* Parse received byte for EOL */
-            if (rx == '\n') { /* If \r or \n print text */
-                /* Terminate string with \0 */
-                cmd[icmd] = 0;
-                icmd = 0;
-                strncpy(command, cmd, sizeof(command));
-                command_ready = 1;
-            } else if (rx == '\r') { /* Skip \r character */
-            } else { /* If regular character, put it into cmd[] */
-                cmd[icmd++] = rx;
-            }
-            /* Restart reception */
-            HAL_UART_Receive_IT(&huart3, &rx, 1);
-        }
-     }
 
 void HAL_MspInit(void)
 {

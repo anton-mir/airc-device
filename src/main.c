@@ -55,7 +55,7 @@ TaskHandle_t init_handle = NULL;
 TaskHandle_t ethif_in_handle = NULL;
 TaskHandle_t link_state_handle = NULL;
 TaskHandle_t dhcp_fsm_handle = NULL;
-TaskHandle_t CO_sensor_handle = NULL;
+TaskHandle_t uart_sensors_handle = NULL;
 
 EventGroupHandle_t eg_task_started = NULL;
 
@@ -134,12 +134,12 @@ void init_task(void *arg)
     configASSERT(status);
 
     status = xTaskCreate(
-            CO_sensor,
+            uart_sensors,
             "CO_sensor",
-            CO_SENSOR_TASK_STACK_SIZE,
+            UART_SENSORS_TASK_STACK_SIZE,
             (void *)netif,
-            CO_SENSOR_TASK_PRIO,
-            &CO_sensor_handle);
+            UART_SENSORS_TASK_PRIO,
+            &uart_sensors_handle);
 
     configASSERT(status);
 
@@ -147,7 +147,7 @@ void init_task(void *arg)
     xEventGroupWaitBits(
             eg_task_started,
             (EG_INIT_STARTED | EG_ETHERIF_IN_STARTED | EG_LINK_STATE_STARTED | 
-                EG_DHCP_FSM_STARTED | EG_CO_SENSOR_STARTED),
+                EG_DHCP_FSM_STARTED | EG_UART_SENSORS_STARTED),
             pdFALSE,
             pdTRUE,
             portMAX_DELAY);
