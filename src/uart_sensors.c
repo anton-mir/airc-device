@@ -2,21 +2,32 @@
 // Created by dmytro on 16.06.20.
 //
 
+/*TODO: Test O3 sensor
+        Fix possible wrong data income*/
+
+
 #include "uart_sensors.h"
 
 #include <stdint.h>
+#include <stdlib.h>
 #include "FreeRTOS.h"
 #include "semphr.h"
 #include "task.h"
 #include "main.h"
 #include "string.h"
 
+#define  BUF_LEN 64
+
 volatile uint8_t rx;
-volatile uint8_t command[64];
-volatile uint8_t SO2_data[64];
-volatile uint8_t NO2_data[64];
-volatile uint8_t CO_data[64];
-volatile uint8_t O3_data[64];
+volatile uint8_t command[BUF_LEN];
+volatile uint8_t SO2_data[6];
+volatile uint8_t NO2_data[3];
+volatile uint8_t CO_data[3];
+volatile uint8_t O3_data[4];
+double SO2_val = 0;
+double NO2_val = 0;
+double CO_val = 0;
+double O3_val = 0;
 
 static SemaphoreHandle_t rx_uart_sem = NULL;
 
@@ -100,6 +111,22 @@ static void Set_chan(uint8_t channel){
     HAL_GPIO_WritePin(GPIOD, GPIO_PIN_6, chan_table[channel][3]);
 }
 
+double get_SO2(void){
+    return SO2_val = strtod(SO2_data, NULL);
+}
+
+double get_NO2(void){
+    return NO2_val = strtod(NO2_data, NULL);
+}
+
+double get_CO(void){
+    return CO_val = strtod(CO_data, NULL);
+}
+
+double get_O3(void){
+    return O3_val = strtod(O3_data, NULL);
+}
+
 void uart_sensors(void * const arg) {
 
     rx_uart_sem = xSemaphoreCreateBinary();
@@ -145,25 +172,37 @@ void uart_sensors(void * const arg) {
         Set_chan(2);
         HAL_UART_Receive_IT(&huart3, &rx, 1);
         if(xSemaphoreTake(rx_uart_sem, pdMS_TO_TICKS(3000)) == pdTRUE) {
-            strncpy(SO2_data, command, 64);
+            SO2_data[0] = command[14];
+            SO2_data[1] = command[15];
+            SO2_data[2] = command[16];
+            SO2_data[3] = command[17];
+            SO2_data[4] = command[18];
+            SO2_data[5] = command[19];
         }
 
         Set_chan(4);
         HAL_UART_Receive_IT(&huart3, &rx, 1);
         if(xSemaphoreTake(rx_uart_sem, pdMS_TO_TICKS(3000)) == pdTRUE) {
-            strncpy(NO2_data, command, 64);
+            NO2_data[0] = command[14];
+            NO2_data[1] = command[15];
+            NO2_data[2] = command[16];
         }
 
         Set_chan(6);
         HAL_UART_Receive_IT(&huart3, &rx, 1);
         if(xSemaphoreTake(rx_uart_sem, pdMS_TO_TICKS(3000)) == pdTRUE) {
-            strncpy(CO_data, command, 64);
+            CO_data[0] = command[14];
+            CO_data[1] = command[15];
+            CO_data[2] = command[16];
         }
 
         Set_chan(8);
         HAL_UART_Receive_IT(&huart3, &rx, 1);
         if(xSemaphoreTake(rx_uart_sem, pdMS_TO_TICKS(3000)) == pdTRUE) {
-            strncpy(O3_data, command, 64);
+            O3_data[0] = command[15];
+            O3_data[1] = command[16];
+            O3_data[2] = command[17];
+            O3_data[3] = command[18];
         }
 
         vTaskDelay(500);
