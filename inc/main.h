@@ -43,6 +43,7 @@
 #include "FreeRTOSConfig.h"
 #include "task.h"
 #include "event_groups.h"
+#include "queue.h"
 
 // #define USE_DHCP       /* enable DHCP, if disabled static address is used */
 
@@ -68,7 +69,12 @@
 #define EG_ETHERIF_IN_STARTED       (0x02)
 #define EG_LINK_STATE_STARTED       (0x04)
 #define EG_DHCP_FSM_STARTED         (0x08)
-#define EG_UART_SENSORS_STARTED     (0x10)
+#define EG_ECHO_SERVER_STARTED      (0x10)
+#define EG_ANALOG_TEMP_STARTED      (0x20)
+#define ETH_SERVER_STARTED          (0x40)
+#define ETH_SENDER_STARTED          (0x80)
+#define EG_DATA_COLLECTOR_STARTED   (0x100)
+#define EG_UART_SENSORS_STARTED     (0x120)
 
 
 /* Exported types ------------------------------------------------------------*/
@@ -80,9 +86,13 @@ extern TaskHandle_t init_handle;
 extern TaskHandle_t ethif_in_handle;
 extern TaskHandle_t link_state_handle;
 extern TaskHandle_t dhcp_fsm_handle;
+extern TaskHandle_t eth_server_handle;
+extern TaskHandle_t eth_sender_handle;
+extern TaskHandle_t data_collector_handle;
 extern TaskHandle_t uart_sensors_handle;
 
 extern EventGroupHandle_t eg_task_started;
+
 
 #endif /* __MAIN_H */
 
