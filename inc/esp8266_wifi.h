@@ -3,10 +3,12 @@
 
 #include "stm32f4xx_hal.h"
 
-#define ESP_UART_DELAY          1000
-#define ESP_UART_BUFFER_SIZE    64
+#define ESP_UART_DELAY          0x3E8  // (1000)
+#define ESP_UART_BUFFER_SIZE    0x40   // (64)
+#define ESP_MAX_TCP_SIZE        0x800  // (2048)
+#define ESP_INT_PRIO            0x8    // (9)
 
-#define NUMBER_LENGTH(port) ((size_t)floor(log10(port) + 1))
+#define NUMBER_LENGTH(number) ((size_t)floor(log10(number) + 1))
 
 typedef enum ESP8266_MODE {
     STA = 1,
@@ -35,16 +37,20 @@ typedef struct ESP8266
 
 typedef struct ESP8266_TCP_PACKET
 {
-    int ipd_flag;
-    size_t tcp_length;
-    uint8_t tcp_id;
-    size_t tcp_counter;
-    uint8_t tcp_data[];
+    size_t length;
+    size_t buffer_size;
+    uint8_t id;
+    uint8_t *data;
 } ESP8266_TCP_PACKET;
+
+typedef struct ESP8266_TCP_QUAUE
+{
+    size_t count;
+    ESP8266_TCP_PACKET *packets;
+} ESP8266_TCP_QUAUE;
 
 void wifi_task(void * const arg);
 HAL_StatusTypeDef esp_module_init(void);
-int search_in_buffer(uint8_t *buffer, size_t buffer_size, const uint8_t *needle, size_t needle_size);
 
 void ESP_UART_DMAReceiveCpltCallback(DMA_HandleTypeDef *_hdma);
 

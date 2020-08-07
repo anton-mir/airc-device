@@ -60,7 +60,7 @@ extern UART_HandleTypeDef esp_uart;
 extern DMA_HandleTypeDef esp_dma_rx;
 
 extern volatile int esp_uart_rx_completed;
-extern volatile int esp_tcp_last_part_flag;
+extern volatile int esp_tcp_tail;
 /******************************************************************************/
 /*            Cortex-M4 Processor Exceptions Handlers                         */
 /******************************************************************************/
@@ -186,7 +186,7 @@ void USART2_IRQHandler(void)
 
 void DMA1_Stream5_IRQHandler(void)
 {
-  if (esp_tcp_last_part_flag) esp_dma_rx.XferCpltCallback((DMA_HandleTypeDef *)&esp_dma_rx);
+  if (esp_tcp_tail > 0) esp_dma_rx.XferCpltCallback((DMA_HandleTypeDef *)&esp_dma_rx);
   HAL_DMA_IRQHandler((DMA_HandleTypeDef *)&esp_dma_rx);
 }
 
