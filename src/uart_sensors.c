@@ -162,31 +162,29 @@ void uart_sensors(void * const arg) {
     HAL_UART_Transmit_IT(&huart3, &spec_cmd, 1);
     ulTaskNotifyTake( pdTRUE, portMAX_DELAY);
 
+    HAL_UART_Receive_IT(&huart3, &rx, 1);
+
     while (1) {
 
         Set_chan(2);
-        HAL_UART_Receive_IT(&huart3, &rx, 1);
         if(xSemaphoreTake(rx_uart_sem, pdMS_TO_TICKS(3000)) == pdTRUE) {
             strtod(command, &SO2_data);
             SO2_val = strtod(strtok(SO2_data, "- ,"), NULL) / 100;
         }
 
         Set_chan(4);
-        HAL_UART_Receive_IT(&huart3, &rx, 1);
         if(xSemaphoreTake(rx_uart_sem, pdMS_TO_TICKS(3000)) == pdTRUE) {
             strtod(command, &NO2_data);
             NO2_val = strtod(strtok(NO2_data, "- ,"), NULL) / 100;
         }
 
         Set_chan(6);
-        HAL_UART_Receive_IT(&huart3, &rx, 1);
         if(xSemaphoreTake(rx_uart_sem, pdMS_TO_TICKS(3000)) == pdTRUE) {
             strtod(command, &CO_data);
             CO_val = strtod(strtok(CO_data, "- ,"), NULL);
         }
 
         Set_chan(8);
-        HAL_UART_Receive_IT(&huart3, &rx, 1);
         if(xSemaphoreTake(rx_uart_sem, pdMS_TO_TICKS(3000)) == pdTRUE) {
             strtod(command, &O3_data);
             O3_val = strtod(strtok(O3_data, "- ,"), NULL) / 100;
@@ -216,13 +214,15 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 
         static uint8_t cmd[64];
         static uint8_t icmd;
+        static uint8_t is_second;
         cmd[icmd] = rx;
 
         /* Parse received byte for EOL */
-        if (rx == '\n') { /* If \r or \n print text */
+        if (rx == '\n' && is_second == 1) { /* If \r or \n print text */
             /* Terminate string with \0 */
             cmd[icmd] = 0;
             icmd = 0;
+            is_second = 0;
             strncpy(command, cmd, sizeof(command));
             if (rx_uart_sem != NULL) {
                 reschedule = pdFALSE;
@@ -230,8 +230,15 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
                 xSemaphoreGiveFromISR(rx_uart_sem, &reschedule);
                 portYIELD_FROM_ISR(reschedule);
             }
-        } else if (rx == '\r') { /* Skip \r character */
-        } else { /* If regular character, put it into cmd[] */
+        }
+        else if(rx == '\n' && is_second == 0){
+            is_second = 1;
+            icmd = 0;
+        }
+        else if (rx == '\r') {
+            /* Skip \r character */
+        }
+        else { /* If regular character, put it into cmd[] */
             cmd[icmd++] = rx;
         }
 
