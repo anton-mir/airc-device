@@ -56,5 +56,12 @@ void http_build_error_response(
     size_t *head_size,
     uint16_t status
 );
+void http_build_html_response(
+    char *buffer,
+    const char **message,
+    size_t *message_size,
+    size_t *head_size,
+    const char *route
+);
 
 #endif /* HTTP_HELPER_H */

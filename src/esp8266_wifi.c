@@ -205,7 +205,15 @@ void wifi_task(void * const arg)
                     }
                     else
                     {
-                        
+                        http_response.status = 200;
+                        if (memcmp(http_request.method, "GET", http_request.method_size) == 0)
+                        {
+                            http_build_html_response(
+                                http_buffer, &http_response.message,
+                                &http_response.message_size, &http_response.head_size,
+                                http_request.route
+                            );
+                        }
                     }
                     tcp_packet.length = http_response.head_size;
                     tcp_packet.data = (uint8_t *)http_buffer;
@@ -220,7 +228,6 @@ void wifi_task(void * const arg)
                     send_tcp_data();
                 }
             }
-
             start_uart_rx();
         }
     }
