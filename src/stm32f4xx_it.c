@@ -59,8 +59,7 @@ extern volatile ETH_HandleTypeDef h_eth;
 extern UART_HandleTypeDef esp_uart;
 extern DMA_HandleTypeDef esp_dma_rx;
 
-extern volatile int esp_uart_rx_completed;
-extern volatile int esp_tcp_tail;
+extern void ESP_UART_IRQHandler(UART_HandleTypeDef *huart);
 /******************************************************************************/
 /*            Cortex-M4 Processor Exceptions Handlers                         */
 /******************************************************************************/
@@ -182,17 +181,12 @@ void ETH_IRQHandler(void)
 void USART2_IRQHandler(void)
 {
   HAL_UART_IRQHandler((UART_HandleTypeDef *)&esp_uart);
+  ESP_UART_IRQHandler((UART_HandleTypeDef *)&esp_uart);
 }
 
 void DMA1_Stream5_IRQHandler(void)
 {
-  if (esp_tcp_tail > 0) esp_dma_rx.XferCpltCallback((DMA_HandleTypeDef *)&esp_dma_rx);
-  HAL_DMA_IRQHandler((DMA_HandleTypeDef *)&esp_dma_rx);
-}
-
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
-{
-  if (huart->Instance == USART2) esp_uart_rx_completed = 1;
+   HAL_DMA_IRQHandler((DMA_HandleTypeDef *)&esp_dma_rx);
 }
 /******************************************************************************/
 /*                 STM32F4xx Peripherals Interrupt Handlers                   */

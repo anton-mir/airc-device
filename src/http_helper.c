@@ -1,103 +1,104 @@
 #include "picohttpparser.h"
 #include "http_helper.h"
+#include "esp8266_wifi.h"
 
 #include "main.h"
 
-uint16_t http_parse_request(HTTP_REQUEST *request, uint8_t *tcp_data, size_t tcp_length)
+const char * const HTTP_ROUTES[] = {
+    "/",
+    "/settings"
+};
+const size_t HTTP_ROUTES_COUNT = 2;
+
+const char * const HTTP_METHODS[] = {
+    "GET",
+    "POST",
+    "PUT",
+    "DELETE"
+};
+const size_t HTTP_METHODS_COUNT = 4;
+
+int http_validate_route(const char *route, size_t route_size)
 {
-    struct phr_header headers[HTTP_MAX_HEADERS];
-    size_t headers_count = HTTP_MAX_HEADERS;
-    char *method;
-    size_t method_length;
-    int version;
-    int res = phr_parse_request((char *)tcp_data, tcp_length, 
-                                &method, &method_length, 
-                                &request->path, &request->path_length, &version, 
-                                &headers, &headers_count);
-
-    if (res < 0) return 500;
-
-    return 200;
-}
-
-/*HTTP_RESPONSE build_http_response(HTTP_REQUEST request, uint16_t code, uint8_t id)
-{
-    HTTP_RESPONSE response = { 0 };
-    response.id = id;
-    response.code = code;
-
-    if (code == 200 && request.data_type == TEXT_DATA)
+    for (size_t i = 0; i < HTTP_ROUTES_COUNT; i++)
     {
-        if (memcmp(request.path, "/", request.path_length) == 0)
-        {
-            response.body_template = HTML_HOME;
-            response.content_type = HTML;
-        }
-        else if (memcmp(request.path, "/settings", request.path_length) == 0)
-        {
-            response.body_template = HTML_SETTINGS;
-            response.content_type = HTML;
-        } 
-        else 
-        {
-            response.body_template = HTML_404;
-            response.content_type = HTML;
-            response.code = 404;
-        }
-    }
-    else if (code == 401)
-    {
-        response.body_template = HTML_401;
-        response.content_type = HTML;
-    }
-    else if (code == 404)
-    {
-        response.body_template = HTML_404;
-        response.content_type = HTML;
-    }
-    else if (code == 500)
-    {
-        response.body_template = HTML_500;
-        response.content_type = HTML;
+        size_t size = strlen(HTTP_ROUTES[i]);
+        if (size >= route_size)
+            if (memcmp(route, HTTP_ROUTES[i], size) == 0)
+                return 1;
+        else
+            if (memcmp(route, HTTP_ROUTES[i], route_size) == 0)
+                return 1;
     }
     
-    return response;
+    return 0;
 }
 
-void format_http_response(HTTP_RESPONSE *response)
+int http_validate_method(const char *method, size_t method_size)
 {
-    if (response->body_template == HTML_HOME)
-        response->body = "HOME";
-    else if (response->body_template == HTML_SETTINGS)
-        response->body = "SETTINGS";
-    else if (response->body_template == HTML_401)
-        response->body = "401";
-    else if (response->body_template == HTML_404)
-        response->body = "404";
-    else if (response->body_template == HTML_500)
-        response->body = "500";
+    for (size_t i = 0; i < HTTP_METHODS_COUNT; i++)
+    {
+        size_t size = strlen(HTTP_METHODS[i]);
+        if (size >= method_size)
+            if (memcmp(method, HTTP_METHODS[i], size) == 0)
+                return 1;
+        else
+            if (memcmp(method, HTTP_METHODS[i], method_size) == 0)
+                return 1;
+    }
 
-    response->content_size = strlen(response->body);
+    return 0;
+}
 
-    response->content_length_header = "Content-Length: ";
+void http_build_error_response(
+    char *buffer,
+    const char **message,
+    size_t *message_size,
+    size_t *head_size,
+    uint16_t status
+)
+{
+    memcpy(buffer, "HTTP/1.1 ", 9);
+    *head_size = 9;
 
-    if (response->content_type == TEXT)
-        response->content_type_header = "Content-Type: text/plain";
-    else if (response->content_type == HTML)
-        response->content_type_header = "Content-Type: text/html";
-    else if (response->content_type == JSON)
-        response->content_type_header = "Content-Type: application/json";
-    else if (response->content_type == JS)
-        response->content_type_header = "Content-Type: application/javascript";
-    else if (response->content_type == CSS)
-        response->content_type_header = "Content-Type: text/css";
+    if (status == 404)
+    {
+        *message = HTML_404_PAGE;
+        memcpy(buffer + *head_size, "404 Not Found\n", 14);
+        *head_size += 14;
+    }
+    else if (status == 405)
+    {
+        *message = HTML_405_PAGE;
+        memcpy(buffer + *head_size, "405 Method Not Allowed\n", 23);
+        *head_size += 23;
+    }
+    else if (status == 505)
+    {
+        *message = HTML_505_PAGE;
+        memcpy(buffer + *head_size, "505 HTTP Version Not Supported\n", 31);
+        *head_size += 31;
+    }
+    else
+    {
+        *message = HTML_500_PAGE;
+        memcpy(buffer + *head_size, "500 Internal Server Error\n", 26);
+        *head_size += 26;
+    }
+    *message_size = strlen(*message);
 
-    if (response->code == 200)
-        response->http = "HTTP/1.1 200 OK";
-    if (response->code == 401)
-        response->http = "HTTP/1.1 401 Unauthorized";
-    if (response->code == 404)
-        response->http = "HTTP/1.1 404 Not Found";
-    if (response->code == 500)
-        response->http = "HTTP/1.1 500 Internal Server Error";
-}*/
+    memcpy(buffer + *head_size, "Content-Type: text/html\n", 24);
+    *head_size += 24;
+    memcpy(buffer + *head_size, "Content-Length: ", 16);
+    *head_size += 16;
+
+    size_t message_size_str_length = NUMBER_LENGTH(*message_size);
+    char message_size_str[message_size_str_length];
+    sprintf(message_size_str, "%d", *message_size);
+
+    memcpy(buffer + *head_size, message_size_str, message_size_str_length);
+    *head_size += message_size_str_length;
+
+    memcpy(buffer + *head_size, "\n\n", 2);
+    *head_size += 2;
+}

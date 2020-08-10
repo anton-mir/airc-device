@@ -6,6 +6,7 @@
 
 #define HTTP_SERVER_PORT 11333
 #define HTTP_MAX_HEADERS 20
+#define HTTP_MAX_SIZE    0xFFF
 
 typedef enum HTTP_METHODS
 {
@@ -31,30 +32,29 @@ typedef enum HTTP_REQUEST_DATA_TYPES
     TEXT_DATA
 } HTTP_REQUEST_DATA_TYPE;
 
-typedef struct HTTP_REQUEST
+struct HTTP_REQUEST
 {
-    HTTP_REQUEST_DATA_TYPE data_type;
-    HTTP_METHOD method;
-    const char *path;
-    size_t path_length;
-    const char *body;
-    size_t body_length;
+    size_t headers_count, method_size, route_size;
+    const char *method, *route;
+    int version;
+};
+
+struct HTTP_RESPONSE
+{
+    size_t message_size, head_size;
+    const char *message;
     uint16_t status;
-} HTTP_REQUEST;
+    int version;
+};
 
-typedef struct HTTP_RESPONSE
-{
-    uint8_t id;
-    uint16_t code;
-    HTTP_CONTENT_TYPE content_type;
-    size_t content_size;
-    HTML_PAGE body_template;
-    const char *body;
-    const char *content_type_header;
-    const char *content_length_header;
-    const char *http;
-} HTTP_RESPONSE;
-
-uint16_t http_parse_request(HTTP_REQUEST *request, uint8_t *tcp_data, size_t tcp_length);
+int http_validate_route(const char *route, size_t route_size);
+int http_validate_method(const char *method, size_t method_size);
+void http_build_error_response(
+    char *buffer,
+    const char **message,
+    size_t *message_size,
+    size_t *head_size,
+    uint16_t status
+);
 
 #endif /* HTTP_HELPER_H */

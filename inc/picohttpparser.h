@@ -56,7 +56,7 @@ int phr_parse_response(const char *_buf, size_t len, int *minor_version, int *st
                        struct phr_header *headers, size_t *num_headers, size_t last_len);
 
 /* ditto */
-int phr_parse_headers(const char *buf, size_t len, struct phr_header *headers, size_t *num_headers, size_t last_len);
+int phr_parse_headers(const char *buf, size_t len, struct phr_header *headers, size_t *num_headers);
 
 /* should be zero-filled before start */
 struct phr_chunked_decoder {
