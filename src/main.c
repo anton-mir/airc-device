@@ -56,6 +56,7 @@
 #include "eth_server.h"
 #include "eth_sender.h"
 #include "queue.h"
+#include "i2c_ccs811sensor.h"
 #include "data_collector.h"
 #include "leds.h"
 #include "flash_SST25VF016B.h"
@@ -72,6 +73,7 @@ TaskHandle_t wifi_tsk_handle = NULL;
 TaskHandle_t esp_rx_tsk_handle = NULL;
 TaskHandle_t analog_temp_handle = NULL;
 TaskHandle_t eth_server_handle = NULL;
+TaskHandle_t i2c_ccs811sensor_handle = NULL;
 TaskHandle_t eth_sender_handle = NULL;
 TaskHandle_t data_collector_handle = NULL;
 TaskHandle_t reed_switch_handle = NULL;
@@ -109,10 +111,10 @@ void init_task(void *arg)
     __HAL_RCC_DMA2_CLK_ENABLE();
 
     (void)HAL_RNG_Init(&rng_handle);
-
+    
     eg_task_started = xEventGroupCreate();
     configASSERT(eg_task_started);
-
+    
     xEventGroupSetBits(eg_task_started, EG_INIT_STARTED);
     initBlueButtonAndReedSwitch();
     initLeds();
@@ -197,6 +199,16 @@ void init_task(void *arg)
     configASSERT(status);
 
     status = xTaskCreate(
+	     i2c_ccs811sensor,
+ 	     "i2c_ccs811sensor",
+             ETH_SERVER_TASK_STACK_SIZE,
+             NULL,
+             ETH_SERVER_TASK_PRIO,
+             &i2c_ccs811sensor);
+
+    configASSERT(status);
+
+    status = xTaskCreate(
                 esp_rx_task,
                 "esp_rx_tsk",
                 ESP8266_RX_TASK_STACK_SIZE,
@@ -249,7 +261,7 @@ void init_task(void *arg)
             ETH_SENDER_TASK_PRIO,
             &data_collector_handle);
     configASSERT(status);
-
+        
     status = xTaskCreate(
             eth_sender,
             "eth_sender",
@@ -345,6 +357,7 @@ int main(void)
     configASSERT(status);
 
     vTaskStartScheduler();
+
     for (;;) { ; }
 }
 
