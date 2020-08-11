@@ -53,6 +53,7 @@
 #include "eth_server.h"
 #include "eth_sender.h"
 #include "queue.h"
+#include "i2c_ccs811sensor.h"
 #include "data_collector.h"
 
 
@@ -62,6 +63,7 @@ TaskHandle_t link_state_handle = NULL;
 TaskHandle_t dhcp_fsm_handle = NULL;
 TaskHandle_t analog_temp_handle = NULL;
 TaskHandle_t eth_server_handle = NULL;
+TaskHandle_t i2c_ccs811sensor_handle = NULL;
 TaskHandle_t eth_sender_handle = NULL;
 TaskHandle_t data_collector_handle = NULL;
 
@@ -151,6 +153,17 @@ void init_task(void *arg)
             &eth_server_handle);
 
     configASSERT(status);
+
+    
+    status = xTaskCreate(
+	     i2c_ccs811sensor,
+ 	     "i2c_ccs811sensor",
+             ETH_SERVER_TASK_STACK_SIZE,
+             NULL,
+             ETH_SERVER_TASK_PRIO,
+             &i2c_ccs811sensor);
+
+    configASSERT(status);    
 
 
     /* Wait for all tasks initialization */

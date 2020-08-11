@@ -74,6 +74,7 @@
 #define ETH_SERVER_STARTED          (0x40)
 #define ETH_SENDER_STARTED          (0x80)
 #define EG_DATA_COLLECTOR_STARTED   (0x100)
+#define EG_I2C_CCS811_STARTED       (0x200)
 
 
 
