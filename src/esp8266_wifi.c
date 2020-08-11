@@ -13,6 +13,7 @@ struct ESP8266 esp_module = { 0 };
 UART_HandleTypeDef esp_uart;
 DMA_HandleTypeDef esp_dma_rx;
 
+static struct ESP8266_UART_PACKET uart_packet = { 0 };
 static uint8_t uart_buffer[ESP_UART_BUFFER_SIZE];
 static int rx_uart_idle_flag;
 
@@ -62,8 +63,10 @@ static uint8_t *check_uart_flag(const uint8_t *flag)
 static int send_command(size_t length)
 {
     HAL_UART_Transmit(&esp_uart, uart_buffer, length, ESP_UART_DELAY);
-    
-    if (check_uart_flag(AT_OK) == NULL) return 0;
+
+    uart_packet.flag_value = AT_OK;
+    uart_packet.flag_size = sizeof(AT_OK);
+
 
     return 1;
 }
@@ -131,7 +134,101 @@ static int send_tcp_data()
     return tcp_packet.length;
 }
 
+void esp_uart_rx_task(void * const arg)
+{
+    static uint32_t uart_notify;
+
+    xEventGroupSetBits(eg_task_started, EG_ESP_UART_RX_TSK_STARTED);
+
+    for (;;)
+    {
+        uart_notify = ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+        if (uart_notify)
+        {
+            lcd_clear();
+            char str[16];
+            memcpy(str, uart_buffer, 16);
+            lcd_print_string(str);
+        }
+    }
+    
+}
+
 void wifi_task(void * const arg)
+{
+    xEventGroupSetBits(eg_task_started, EG_WIFI_TSK_STARTED);
+
+    for (;;)
+    {
+        if (!esp_module.initialized)
+        {
+            /* PINS: TX - PD5, RX - PD6*/
+            GPIO_InitTypeDef gpio;
+            gpio.Pin = GPIO_PIN_5;
+            gpio.Mode = GPIO_MODE_AF_PP;
+            gpio.Pull = GPIO_NOPULL;
+            gpio.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+            gpio.Alternate = GPIO_AF7_USART2;
+            HAL_GPIO_Init(GPIOD, &gpio);
+
+            gpio.Pin = GPIO_PIN_6;
+            gpio.Mode = GPIO_MODE_AF_OD;
+            HAL_GPIO_Init(GPIOD, &gpio);
+
+            HAL_NVIC_SetPriority(USART2_IRQn, ESP_INT_PRIO, 0);
+            HAL_NVIC_EnableIRQ(USART2_IRQn);
+
+            /* USART 2 */
+            esp_uart.Instance = USART2;
+            esp_uart.Init.BaudRate = 115200;
+            esp_uart.Init.WordLength = UART_WORDLENGTH_8B;
+            esp_uart.Init.StopBits = UART_STOPBITS_1;
+            esp_uart.Init.Parity = UART_PARITY_NONE;
+            esp_uart.Init.Mode = UART_MODE_TX_RX;
+            esp_uart.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+            esp_uart.Init.OverSampling = UART_OVERSAMPLING_16;
+
+            if (HAL_UART_Init(&esp_uart) == HAL_ERROR) continue;
+            __HAL_UART_ENABLE_IT(&esp_uart, UART_IT_IDLE);
+
+            esp_dma_rx.Instance = DMA1_Stream5;
+            esp_dma_rx.Init.Channel = DMA_CHANNEL_4;
+            esp_dma_rx.Init.Direction = DMA_PERIPH_TO_MEMORY;
+            esp_dma_rx.Init.PeriphInc = DMA_PINC_DISABLE;
+            esp_dma_rx.Init.MemInc = DMA_MINC_ENABLE;
+            esp_dma_rx.Init.Mode = DMA_NORMAL;
+            esp_dma_rx.Init.Priority = DMA_PRIORITY_VERY_HIGH;
+            esp_dma_rx.Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE;
+            esp_dma_rx.Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
+            esp_dma_rx.Init.FIFOMode = DMA_FIFOMODE_DISABLE;
+
+            if (HAL_DMA_Init(&esp_dma_rx) == HAL_ERROR) continue;
+            __HAL_LINKDMA(&esp_uart, hdmarx, esp_dma_rx);
+
+            HAL_NVIC_SetPriority(DMA1_Stream5_IRQn, ESP_INT_PRIO, 0);
+            HAL_NVIC_EnableIRQ(DMA1_Stream5_IRQn);
+
+            esp_module.mode = STA_AP;
+            esp_module.ap_ssid = "AirC Device";
+            esp_module.ap_pass = "314159265";
+            esp_module.ap_chl = 5;
+            esp_module.ap_enc = WPA2_PSK;
+            esp_module.mux = 1;
+            esp_module.port = HTTP_SERVER_PORT;
+
+            if (configure_esp() == 0) continue;
+
+            esp_module.initialized = 1;
+        }
+        else
+        {
+            
+        }
+        vTaskDelay(500);
+    }
+}
+
+/*void wifi_task(void * const arg)
 {
     xEventGroupSetBits(eg_task_started, EG_WIFI_TSK_STARTED);
 
@@ -231,79 +328,7 @@ void wifi_task(void * const arg)
             start_uart_rx();
         }
     }
-}
-
-HAL_StatusTypeDef esp_module_init(void)
-{
-    HAL_StatusTypeDef status;
-    /* 
-    PINS
-    TX - PD5
-    RX - PD6
-    */
-    GPIO_InitTypeDef gpio;
-    gpio.Pin = GPIO_PIN_5;
-    gpio.Mode = GPIO_MODE_AF_PP;
-    gpio.Pull = GPIO_NOPULL;
-    gpio.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
-    gpio.Alternate = GPIO_AF7_USART2;
-    HAL_GPIO_Init(GPIOD, &gpio);
-
-    gpio.Pin = GPIO_PIN_6;
-    gpio.Mode = GPIO_MODE_AF_OD;
-    HAL_GPIO_Init(GPIOD, &gpio);
-
-    HAL_NVIC_SetPriority(USART2_IRQn, ESP_INT_PRIO, 0);
-    HAL_NVIC_EnableIRQ(USART2_IRQn);
-
-    /* USART 2 */
-    esp_uart.Instance = USART2;
-    esp_uart.Init.BaudRate = 115200;
-    esp_uart.Init.WordLength = UART_WORDLENGTH_8B;
-    esp_uart.Init.StopBits = UART_STOPBITS_1;
-    esp_uart.Init.Parity = UART_PARITY_NONE;
-    esp_uart.Init.Mode = UART_MODE_TX_RX;
-    esp_uart.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-    esp_uart.Init.OverSampling = UART_OVERSAMPLING_16;
-
-    status = HAL_UART_Init(&esp_uart);
-    if (status == HAL_ERROR) return status;
-
-    __HAL_UART_ENABLE_IT(&esp_uart, UART_IT_IDLE);
-
-    esp_dma_rx.Instance = DMA1_Stream5;
-    esp_dma_rx.Init.Channel = DMA_CHANNEL_4;
-    esp_dma_rx.Init.Direction = DMA_PERIPH_TO_MEMORY;
-    esp_dma_rx.Init.PeriphInc = DMA_PINC_DISABLE;
-    esp_dma_rx.Init.MemInc = DMA_MINC_ENABLE;
-    esp_dma_rx.Init.Mode = DMA_NORMAL;
-    esp_dma_rx.Init.Priority = DMA_PRIORITY_VERY_HIGH;
-    esp_dma_rx.Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE;
-    esp_dma_rx.Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
-    esp_dma_rx.Init.FIFOMode = DMA_FIFOMODE_DISABLE;
-
-    status = HAL_DMA_Init(&esp_dma_rx);
-    if (status == HAL_ERROR) return status;
-
-    __HAL_LINKDMA(&esp_uart, hdmarx, esp_dma_rx);
-
-    HAL_NVIC_SetPriority(DMA1_Stream5_IRQn, ESP_INT_PRIO, 0);
-    HAL_NVIC_EnableIRQ(DMA1_Stream5_IRQn);
-
-    esp_module.mode = STA_AP;
-    esp_module.ap_ssid = "AirC Device";
-    esp_module.ap_pass = "314159265";
-    esp_module.ap_chl = 5;
-    esp_module.ap_enc = WPA2_PSK;
-    esp_module.mux = 1;
-    esp_module.port = HTTP_SERVER_PORT;
-
-    if (configure_esp() == 0) return HAL_ERROR;
-
-    esp_module.initialized = 1;
-
-    return status;
-}
+}*/
 
 void ESP_UART_IRQHandler(UART_HandleTypeDef *huart)
 {
@@ -312,7 +337,10 @@ void ESP_UART_IRQHandler(UART_HandleTypeDef *huart)
         if(RESET != __HAL_UART_GET_FLAG(huart, UART_FLAG_IDLE))
         {
             __HAL_UART_CLEAR_IDLEFLAG(huart);
-            rx_uart_idle_flag = 1;
+
+            BaseType_t uart_rx_task_woken = pdFALSE;
+            vTaskNotifyGiveFromISR(esp_uart_rx_tsk_handle, &uart_rx_task_woken);
+            portYIELD_FROM_ISR(uart_rx_task_woken);
         }
     }     
 }
