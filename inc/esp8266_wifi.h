@@ -35,15 +35,6 @@ struct ESP8266
     uint16_t port;
 };
 
-struct ESP8266_UART_PACKET
-{
-    uint8_t *flag_value;
-    size_t flag_size;
-    uint8_t *flag_pos;
-    uint8_t *data;
-    uint8_t *data_size;
-};
-
 struct ESP8266_TCP_PACKET
 {
     size_t length;
@@ -52,7 +43,6 @@ struct ESP8266_TCP_PACKET
 };
 
 void wifi_task(void * const arg);
-void esp_uart_rx_task(void * const arg);
 
 void ESP_UART_IRQHandler(UART_HandleTypeDef *huart);
 

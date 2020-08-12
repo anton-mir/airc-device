@@ -60,7 +60,6 @@ TaskHandle_t link_state_handle = NULL;
 TaskHandle_t dhcp_fsm_handle = NULL;
 TaskHandle_t echo_server_handle = NULL;
 TaskHandle_t wifi_tsk_handle = NULL;
-TaskHandle_t esp_uart_rx_tsk_handle = NULL;
 
 EventGroupHandle_t eg_task_started = NULL;
 
@@ -159,22 +158,12 @@ void init_task(void *arg)
                 &wifi_tsk_handle);
 
     configASSERT(status);
-
-    status = xTaskCreate(
-                esp_uart_rx_task,
-                "esp_uart_rx_tsk",
-                ESP8266_UART_RX_TASK_STACK_SIZE,
-                NULL,
-                ESP8266_UART_RX_TASK_PRIO,
-                &esp_uart_rx_tsk_handle);
-
-    configASSERT(status);
     
     /* Wait for all tasks initialization */
     xEventGroupWaitBits(
             eg_task_started,
             (EG_INIT_STARTED | EG_ETHERIF_IN_STARTED | EG_LINK_STATE_STARTED | 
-                EG_DHCP_FSM_STARTED | EG_ECHO_SERVER_STARTED | EG_WIFI_TSK_STARTED | EG_ESP_UART_RX_TSK_STARTED),
+                EG_DHCP_FSM_STARTED | EG_ECHO_SERVER_STARTED | EG_WIFI_TSK_STARTED),
             pdFALSE,
             pdTRUE,
             portMAX_DELAY);
@@ -195,9 +184,9 @@ void init_task(void *arg)
     {
         if (!netif_is_link_up(netif))
         {
-            //lcd_clear();
-            //lcd_print_string_at("Link:", 0, 0);
-            //lcd_print_string_at("down", 0, 1);
+            lcd_clear();
+            lcd_print_string_at("Link:", 0, 0);
+            lcd_print_string_at("down", 0, 1);
         }
 
         HAL_GPIO_TogglePin(GPIOD, GPIO_PIN_13);
