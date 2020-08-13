@@ -37,7 +37,8 @@ set(LOCAL_SRCS
     "main.c"
 	"eth_server.c"
 	"eth_sender.c"
-	"data_collector.c")
+	"data_collector.c"
+    "leds.c")
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR} "../drivers/CMSIS/core/inc")
 include_directories(${CMAKE_CURRENT_SOURCE_DIR} "../drivers/dev/inc")

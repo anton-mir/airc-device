@@ -54,7 +54,7 @@
 #include "eth_sender.h"
 #include "queue.h"
 #include "data_collector.h"
-
+#include "leds.h"
 
 TaskHandle_t init_handle = NULL;
 TaskHandle_t ethif_in_handle = NULL;
@@ -64,6 +64,7 @@ TaskHandle_t analog_temp_handle = NULL;
 TaskHandle_t eth_server_handle = NULL;
 TaskHandle_t eth_sender_handle = NULL;
 TaskHandle_t data_collector_handle = NULL;
+TaskHandle_t leds_handle = NULL;
 
 EventGroupHandle_t eg_task_started = NULL;
 
@@ -85,9 +86,10 @@ uint32_t rand_wrapper()
     return random;
 }
 
+
+
 void init_task(void *arg)
 {
-    GPIO_InitTypeDef gpio;
     BaseType_t status;
     struct netif *netif = (struct netif *)arg;
 
@@ -166,6 +168,7 @@ void init_task(void *arg)
         ethernetif_dhcp_start();
     }
 
+
     status = xTaskCreate(
             analog_temp,
             "analog_temp",
@@ -195,24 +198,22 @@ void init_task(void *arg)
 
     configASSERT(status);
 
+        
 
-
+  
+    GPIO_InitTypeDef gpio;
     gpio.Mode = GPIO_MODE_OUTPUT_PP;
-    gpio.Pull = GPIO_NOPULL;
-    gpio.Pin = GPIO_PIN_13;
+    gpio.Pull = GPIO_PULLUP;
+    gpio.Pin = RED_LED | GREEN_LED | BLUE_LED;
     HAL_GPIO_Init(GPIOD, &gpio);
-    HAL_GPIO_WritePin(GPIOD, GPIO_PIN_13, GPIO_PIN_SET);
-
-    for (;;) {
-        if (!netif_is_link_up(netif)) {
-            lcd_clear();
-            lcd_print_string_at("Link:", 0, 0);
-            lcd_print_string_at("down", 0, 1);
-        }
-
-        HAL_GPIO_TogglePin(GPIOD, GPIO_PIN_13);
-        vTaskDelay(500);
+    HAL_GPIO_WritePin(GPIOD,RED_LED |GREEN_LED | BLUE_LED,GPIO_PIN_RESET);
+    for(;;){
+        uint16_t current_pin = choos_right_pin(current_mode);
+        TickType_t delay = (current_pin == RED_LED) ? 500u : 3000u;
+        HAL_GPIO_TogglePin(GPIOD,current_pin);
+        vTaskDelay(delay);
     }
+
 }
 /* Private functions ---------------------------------------------------------*/
 /**
@@ -225,10 +226,10 @@ int main(void)
     BaseType_t status;
 
     HAL_Init();
+    init_button();
 
     /* Configure the system clock to 168 MHz */
     SystemClock_Config();
-
     status = xTaskCreate(
                     init_task,
                     "init",
@@ -238,9 +239,8 @@ int main(void)
                     &init_handle);
 
     configASSERT(status);
-
+    
     vTaskStartScheduler();
-
     for (;;) { ; }
 }
 
@@ -324,7 +324,15 @@ static void SystemClock_Config(void)
   * @retval None
   */
 void HAL_GPIO_EXTI_Callback(uint16_t pin)
-{
+{   if(pin == GPIO_PIN_0){
+        delay_s(3);
+        if(HAL_GPIO_ReadPin(GPIOA,pin) == GPIO_PIN_SET)
+            change_led(WIFI_MODE);
+        else{
+            //restart device
+            change_led(FAULT_MODE);
+        }
+    }
     if (pin == RMII_PHY_INT_PIN)
     {
         /* Get the IT status register value */
@@ -376,6 +384,8 @@ void Error_Handler(void)
     }
 }
 
-
+void EXTI0_IRQHandler(void){
+    HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_0);
+}
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
