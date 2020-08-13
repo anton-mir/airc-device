@@ -64,7 +64,7 @@ TaskHandle_t analog_temp_handle = NULL;
 TaskHandle_t eth_server_handle = NULL;
 TaskHandle_t eth_sender_handle = NULL;
 TaskHandle_t data_collector_handle = NULL;
-TaskHandle_t leds_handle = NULL;
+
 
 EventGroupHandle_t eg_task_started = NULL;
 
