@@ -1,9 +1,7 @@
 #include<stdint.h>
-#include"FreeRTOS.h"
 #include "stm32f4xx_hal.h"
 #include"stm32f407xx.h"
 #include "leds.h"
-#include "main.h"
 
 
 
@@ -22,7 +20,11 @@ uint16_t choos_right_pin(LEDs_mode mode){
             return 0;
     }
 }
-
+/*
+    init_task() will blink LED that depends on some mode
+    the mode is defined in current_mode variable
+    change_led() change the current_mode variable
+*/
 void change_led(LEDs_mode mode){
     if(current_mode != mode){
         HAL_GPIO_WritePin(GPIOD,choos_right_pin(current_mode),GPIO_PIN_RESET);
@@ -30,8 +32,9 @@ void change_led(LEDs_mode mode){
    }
 }
 
-
-
+/*
+    Blue button on stm32f
+*/
 void init_button(){
     GPIO_InitTypeDef b_init;
 
