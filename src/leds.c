@@ -1,13 +1,14 @@
 #include<stdint.h>
-#include "stm32f4xx_hal.h"
-#include"stm32f407xx.h"
+
 #include "leds.h"
+#include "stm32f407xx.h"
+#include "stm32f4xx_hal.h"
 
 
 
 LEDs_mode current_mode = WORKING_MODE;
 
-uint16_t choos_right_pin(LEDs_mode mode){
+uint16_t choose_pin(LEDs_mode mode){
     switch (mode)
     {
         case WORKING_MODE:
@@ -16,8 +17,10 @@ uint16_t choos_right_pin(LEDs_mode mode){
             return GREEN_LED;
         case FAULT_MODE:
             return RED_LED;
+        case OFF_MODE:
+            return OFF_LEDS;
         default:
-            return 0;
+            return BLUE_LED;
     }
 }
 /*
@@ -27,7 +30,8 @@ uint16_t choos_right_pin(LEDs_mode mode){
 */
 void change_led(LEDs_mode mode){
     if(current_mode != mode){
-        HAL_GPIO_WritePin(GPIOD,choos_right_pin(current_mode),GPIO_PIN_RESET);
+        if(current_mode != OFF_MODE)
+            HAL_GPIO_WritePin(GPIOD,choose_pin(current_mode),GPIO_PIN_RESET);
         current_mode = mode;
    }
 }
@@ -40,7 +44,7 @@ void init_button(){
 
     __HAL_RCC_GPIOA_CLK_ENABLE();
     
-    b_init.Pin = GPIO_PIN_0;
+    b_init.Pin = BLUE_BUTTON;
     b_init.Mode = GPIO_MODE_IT_RISING;
     HAL_GPIO_Init(GPIOA,&b_init);
 

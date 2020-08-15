@@ -208,12 +208,22 @@ void init_task(void *arg)
     HAL_GPIO_Init(GPIOD, &gpio);
     HAL_GPIO_WritePin(GPIOD,RED_LED |GREEN_LED | BLUE_LED,GPIO_PIN_RESET);
     for(;;){
-        uint16_t current_pin = choos_right_pin(current_mode);
-        TickType_t delay = (current_pin == RED_LED) ? 500u : 3000u;
-        HAL_GPIO_TogglePin(GPIOD,current_pin);
-        vTaskDelay(delay);
+        if (!netif_is_link_up(netif)) {
+            lcd_clear();
+            lcd_print_string_at("Link:", 0, 0);
+            lcd_print_string_at("down", 0, 1);
+        }
+        uint16_t current_pin = choose_pin(current_mode);
+        // don't rest if it's already reset
+        if(current_pin == OFF_LEDS && HAL_GPIO_ReadPin(GPIOD,current_pin) == GPIO_PIN_SET){
+                HAL_GPIO_WritePin(GPIOD,current_pin,GPIO_PIN_RESET);
+        }
+        else if(current_pin != OFF_LEDS){
+            TickType_t delay = (current_pin == RED_LED) ? 500u : 3000u;
+            HAL_GPIO_TogglePin(GPIOD,current_pin);
+            vTaskDelay(delay);
+        }
     }
-
 }
 /* Private functions ---------------------------------------------------------*/
 /**
@@ -326,8 +336,9 @@ static void SystemClock_Config(void)
 void HAL_GPIO_EXTI_Callback(uint16_t pin)
 {   if(pin == GPIO_PIN_0){
         delay_s(3);
-        if(HAL_GPIO_ReadPin(GPIOA,pin) == GPIO_PIN_SET)
+        if(HAL_GPIO_ReadPin(GPIOA,BLUE_BUTTON) == GPIO_PIN_SET){
             change_led(WIFI_MODE);
+        }
         else{
             //restart device
             change_led(FAULT_MODE);
