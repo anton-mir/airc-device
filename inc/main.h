@@ -90,6 +90,7 @@ extern TaskHandle_t dhcp_fsm_handle;
 extern TaskHandle_t eth_server_handle;
 extern TaskHandle_t eth_sender_handle;
 extern TaskHandle_t data_collector_handle;
+extern TaskHandle_t i2c_ccs811sensor_handle;
 
 extern EventGroupHandle_t eg_task_started;
 

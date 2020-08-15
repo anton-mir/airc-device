@@ -161,7 +161,7 @@ void init_task(void *arg)
              ETH_SERVER_TASK_STACK_SIZE,
              NULL,
              ETH_SERVER_TASK_PRIO,
-             &i2c_ccs811sensor);
+             &i2c_ccs811sensor_handle);
 
     configASSERT(status);    
 
