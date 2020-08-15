@@ -4,8 +4,8 @@
 
 #include "stm32f4xx_hal.h"
 
-#define CCS811_ADDR 0x5B //7-bit unshifted default I2C Address
-#define CCS811_ADDRD 0xB6 //7-bit unshifted default I2C Address
+#define CCS811_ADDR 0x5A //7-bit unshifted I2C Address 1
+#define CCS811_ADDRD 0x5B //7-bit unshifted I2C Address 2
 #define CCS811_ADDWR 0XB6
 #define CSS811_STATUS 0x00
 #define CSS811_MEAS_MODE 0x01

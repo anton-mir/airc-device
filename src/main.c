@@ -167,7 +167,6 @@ void init_task(void *arg)
 
     configASSERT(status);
 
-
     status = xTaskCreate(
             uart_sensors,
             "uart_sensors",
@@ -204,7 +203,7 @@ void init_task(void *arg)
              ETH_SERVER_TASK_STACK_SIZE,
              NULL,
              ETH_SERVER_TASK_PRIO,
-             &i2c_ccs811sensor);
+             &i2c_ccs811sensor_handle);
 
     configASSERT(status);
 
@@ -280,7 +279,6 @@ void init_task(void *arg)
             REED_SWITCH_PRIO,
             &reed_switch_handle);
     configASSERT(status);
-
 
     gpio.Mode = GPIO_MODE_OUTPUT_PP;
     gpio.Pull = GPIO_NOPULL;

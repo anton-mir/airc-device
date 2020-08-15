@@ -94,6 +94,7 @@ extern TaskHandle_t data_collector_handle;
 extern TaskHandle_t reed_switch_handle;
 extern TaskHandle_t uart_sensors_handle;
 extern TaskHandle_t i2c_bme280_sensor_handle;
+extern TaskHandle_t i2c_ccs811sensor_handle;
 
 extern EventGroupHandle_t eg_task_started;
 

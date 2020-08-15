@@ -26,9 +26,8 @@ uint8_t  Mode_CCS811=1;
 void Init_I2C_CCS811(void)
 {
 	hi2cxc.Instance = I2CXC;
-	hi2cxc.Init.ClockSpeed = 0x2000090E;
-	hi2cxc.Init.OwnAddress1 = 0;
-	hi2cxc.Init.OwnAddress1 = 0;
+	hi2cxc.Init.ClockSpeed = 100000;
+	hi2cxc.Init.OwnAddress1 = 0x15; // Randomly chosen
 	hi2cxc.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
 	hi2cxc.Init.DualAddressMode = I2C_DUALADDRESS_DISABLED;
 	hi2cxc.Init.OwnAddress2 = 0;
@@ -64,7 +63,7 @@ void readResults()
 {
 
 	uint8_t data_rq[4];
-	HAL_I2C_Mem_Read( &hi2cxc, CCS811_ADDRD, ( uint8_t )CSS811_ALG_RESULT_DATA, I2C_MEMADD_SIZE_8BIT, data_rq, 4, 100 );
+	HAL_I2C_Mem_Read( &hi2cxc, CCS811_ADDR, ( uint8_t )CSS811_ALG_RESULT_DATA, I2C_MEMADD_SIZE_8BIT, data_rq, 4, 100 );
 
 	uint8_t co2MSB = data_rq[0];
 	uint8_t co2LSB = data_rq[1];
@@ -193,7 +192,7 @@ void setDriveMode(uint8_t mode)
  */
 void read_Mul_Register(uint8_t addr, uint8_t * val,uint8_t size)
 {
-	HAL_I2C_Mem_Read( &hi2cxc, CCS811_ADDRD, ( uint8_t )addr, I2C_MEMADD_SIZE_8BIT, val, size,100 );
+	HAL_I2C_Mem_Read( &hi2cxc, CCS811_ADDR, ( uint8_t )addr, I2C_MEMADD_SIZE_8BIT, val, size,100 );
 }
 
 /*
@@ -232,7 +231,7 @@ uint8_t readRegister(uint8_t addr)
 {
 	uint8_t dt;
 
-	HAL_I2C_Mem_Read( &hi2cxc, CCS811_ADDRD, ( uint8_t )addr,1, &dt, 1,
+	HAL_I2C_Mem_Read( &hi2cxc, CCS811_ADDR, ( uint8_t )addr,1, &dt, 1,
 			300 );
 	while (HAL_I2C_GetState(&hi2cxc) != HAL_I2C_STATE_READY);
 
@@ -253,7 +252,7 @@ void writeRegister(uint8_t addr, uint8_t val)
 	while (HAL_I2C_GetState(&hi2cxc) != HAL_I2C_STATE_READY)
 	{
 	} 
-	while (HAL_I2C_IsDeviceReady(&hi2cxc, CCS811_ADDRD, 10, 300) == HAL_TIMEOUT);
+	while (HAL_I2C_IsDeviceReady(&hi2cxc, CCS811_ADDR, 10, 300) == HAL_TIMEOUT);
 	while(HAL_I2C_GetState(&hi2cxc) != HAL_I2C_STATE_READY)
 	{
 	}
