@@ -77,6 +77,8 @@ void Error_Handler(void);
 static void netif_setup();
 void init_task(void *arg);
 
+const uint16_t reedSwitchHoldInterval = 1000;
+
 uint32_t rand_wrapper()
 {
     uint32_t random = 0;
@@ -102,6 +104,7 @@ void init_task(void *arg)
     
     xEventGroupSetBits(eg_task_started, EG_INIT_STARTED);
 
+    initGPIO_Pins();
 
     /* Initialize LCD */
     lcd_init();
@@ -198,29 +201,25 @@ void init_task(void *arg)
 
     configASSERT(status);
 
-        
-
-  
-    GPIO_InitTypeDef gpio;
-    gpio.Mode = GPIO_MODE_OUTPUT_PP;
-    gpio.Pull = GPIO_PULLUP;
-    gpio.Pin = RED_LED | GREEN_LED | BLUE_LED;
-    HAL_GPIO_Init(GPIOD, &gpio);
-    HAL_GPIO_WritePin(GPIOD,RED_LED |GREEN_LED | BLUE_LED,GPIO_PIN_RESET);
     for(;;){
-        if (!netif_is_link_up(netif)) {
+        if (!netif_is_link_up(netif))
+        {
             lcd_clear();
             lcd_print_string_at("Link:", 0, 0);
             lcd_print_string_at("down", 0, 1);
         }
         uint16_t current_pin = choose_pin(current_mode);
         // don't rest if it's already reset
-        if(current_pin == OFF_LEDS && HAL_GPIO_ReadPin(GPIOD,current_pin) == GPIO_PIN_SET){
-                HAL_GPIO_WritePin(GPIOD,current_pin,GPIO_PIN_RESET);
+        if (current_pin == OFF_LEDS)
+        {
+            HAL_GPIO_WritePin(GPIOD,RED_LED |GREEN_LED,GPIO_PIN_RESET);
+            HAL_GPIO_WritePin(GPIOB,BLUE_LED,GPIO_PIN_RESET);
         }
-        else if(current_pin != OFF_LEDS){
-            TickType_t delay = (current_pin == RED_LED) ? 500u : 3000u;
-            HAL_GPIO_TogglePin(GPIOD,current_pin);
+        else
+        {
+            TickType_t delay = (current_pin == RED_LED) ? 500u : 2000u;
+            if (current_pin == BLUE_LED) HAL_GPIO_TogglePin(GPIOB,current_pin);
+            else HAL_GPIO_TogglePin(GPIOD,current_pin);
             vTaskDelay(delay);
         }
     }
@@ -333,18 +332,31 @@ static void SystemClock_Config(void)
   * @param  pin: Specifies the pins connected EXTI line
   * @retval None
   */
+
 void HAL_GPIO_EXTI_Callback(uint16_t pin)
-{   if(pin == GPIO_PIN_0){
-        delay_s(3);
-        if(HAL_GPIO_ReadPin(GPIOA,BLUE_BUTTON) == GPIO_PIN_SET){
-            change_led(WIFI_MODE);
-        }
-        else{
-            //restart device
-            change_led(FAULT_MODE);
-        }
+{
+    static uint32_t reedSwitchPressedTick = 0;
+    if (pin == BLUE_BUTTON_DISCOVERY)
+    {
+        HAL_GPIO_TogglePin(GPIOD, RED_LED_DISCOVERY);
     }
-    if (pin == RMII_PHY_INT_PIN)
+    else if (pin == REED_SWITCH)
+    {
+        if (HAL_GetTick() - reedSwitchPressedTick > 10)
+        {
+            // REED SWITCH pressed
+            if(HAL_GPIO_ReadPin(GPIOB,REED_SWITCH) == GPIO_PIN_RESET)
+            {
+                // TODO:
+                // Need to run timer and after reedSwitchHoldInterval check
+                // REED_SWITCH pin state again, if it is GPIO_PIN_SET
+                // then switch to WIFI setting mode
+                change_led(WIFI_MODE);
+            }
+        }
+        reedSwitchPressedTick = HAL_GetTick();
+    }
+    else if (pin == RMII_PHY_INT_PIN)
     {
         /* Get the IT status register value */
         ethernetif_phy_irq();
@@ -396,7 +408,30 @@ void Error_Handler(void)
 }
 
 void EXTI0_IRQHandler(void){
-    HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_0);
+    HAL_GPIO_EXTI_IRQHandler(BLUE_BUTTON_DISCOVERY);
+}
+
+void EXTI15_10_IRQHandler(void){
+    HAL_GPIO_EXTI_IRQHandler(REED_SWITCH);
+}
+
+void initGPIO_Pins()
+{
+    GPIO_InitTypeDef gpio;
+    gpio.Mode = GPIO_MODE_OUTPUT_PP;
+    gpio.Pull = GPIO_PULLUP;
+
+    gpio.Pin = RED_LED | GREEN_LED;
+    HAL_GPIO_Init(GPIOD, &gpio);
+    HAL_GPIO_WritePin(GPIOD,RED_LED |GREEN_LED,GPIO_PIN_RESET);
+
+    gpio.Pin = BLUE_LED;
+    HAL_GPIO_Init(GPIOB, &gpio);
+    HAL_GPIO_WritePin(GPIOB,BLUE_LED,GPIO_PIN_RESET);
+
+    gpio.Pin = RED_LED_DISCOVERY;
+    HAL_GPIO_Init(GPIOD, &gpio);
+    HAL_GPIO_WritePin(GPIOD,RED_LED_DISCOVERY,GPIO_PIN_RESET);
 }
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

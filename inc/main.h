@@ -91,6 +91,7 @@ extern TaskHandle_t data_collector_handle;
 
 extern EventGroupHandle_t eg_task_started;
 
+void initGPIO_Pins();
 
 #endif /* __MAIN_H */
 
