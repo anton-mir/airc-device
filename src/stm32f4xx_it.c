@@ -57,6 +57,9 @@
 
 extern volatile ETH_HandleTypeDef h_eth;
 extern UART_HandleTypeDef huart3;
+extern DMA_HandleTypeDef huart3_dma_rx;
+
+extern void UART_SENSORS_IRQHandler(UART_HandleTypeDef *huart);
 /******************************************************************************/
 /*            Cortex-M4 Processor Exceptions Handlers                         */
 /******************************************************************************/
@@ -77,10 +80,10 @@ void NMI_Handler(void)
   */
 void HardFault_Handler(void)
 {
-  /* Go to infinite loop when Hard Fault exception occurs */
-  while (1)
-  {
-  }
+    /* Go to infinite loop when Hard Fault exception occurs */
+    while (1)
+    {
+    }
 }
 
 /**
@@ -193,7 +196,13 @@ void ETH_IRQHandler(void)
 
 void USART3_IRQHandler(void)
 {
-    HAL_UART_IRQHandler(&huart3);
+    HAL_UART_IRQHandler((UART_HandleTypeDef *)&huart3);
+    UART_SENSORS_IRQHandler((UART_HandleTypeDef *)&huart3);
+}
+
+void DMA1_Stream1_IRQHandler(void)
+{
+    HAL_DMA_IRQHandler((DMA_HandleTypeDef *)&huart3_dma_rx);
 }
 
 

@@ -1,18 +1,16 @@
-
-/*TODO: Fix possible wrong data income*/
-
 #include "uart_sensors.h"
 
 #include <stdint.h>
 #include <stdlib.h>
 #include <ctype.h>
 #include "FreeRTOS.h"
-#include "semphr.h"
 #include "task.h"
 #include "main.h"
 #include "string.h"
 
-#define  BUF_LEN 64
+#define  BUF_LEN   64
+#define  TX_DELAY  100 / portTICK_RATE_MS
+#define  RX_DELAY  3000 / portTICK_RATE_MS
 
 volatile uint8_t rx;
 volatile uint8_t command[BUF_LEN];
@@ -25,8 +23,6 @@ double NO2_val = 0;
 double CO_val = 0;
 double O3_val = 0;
 
-static SemaphoreHandle_t rx_uart_sem = NULL;
-
 static void USART3_UART_Init(void)
 {
     huart3.Instance = USART3;
@@ -38,6 +34,30 @@ static void USART3_UART_Init(void)
     huart3.Init.HwFlowCtl = UART_HWCONTROL_NONE;
     huart3.Init.OverSampling = UART_OVERSAMPLING_16;
     if (HAL_HalfDuplex_Init(&huart3) != HAL_OK){}
+}
+
+static HAL_StatusTypeDef USART3_DMA_Init(void)
+{
+    huart3_dma_rx.Instance = DMA1_Stream1;
+    huart3_dma_rx.Init.Channel = DMA_CHANNEL_4;
+    huart3_dma_rx.Init.Direction = DMA_PERIPH_TO_MEMORY;
+    huart3_dma_rx.Init.PeriphInc = DMA_PINC_DISABLE;
+    huart3_dma_rx.Init.MemInc = DMA_MINC_ENABLE;
+    huart3_dma_rx.Init.Mode = DMA_NORMAL;
+    huart3_dma_rx.Init.Priority = DMA_PRIORITY_VERY_HIGH;
+    huart3_dma_rx.Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE;
+    huart3_dma_rx.Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
+    huart3_dma_rx.Init.FIFOMode = DMA_FIFOMODE_DISABLE;
+
+    if (HAL_DMA_Init(&huart3_dma_rx) == HAL_ERROR) return HAL_ERROR;
+    __HAL_LINKDMA(&huart3, hdmarx, huart3_dma_rx);
+
+    HAL_NVIC_SetPriority(DMA1_Stream1_IRQn, 5, 0U);
+    HAL_NVIC_EnableIRQ(DMA1_Stream1_IRQn);
+
+    if (HAL_UART_Receive_DMA(&huart3, command, BUF_LEN) == HAL_ERROR) return HAL_ERROR;
+
+    return HAL_OK;
 }
 
 static void GPIO_Init(void) {
@@ -122,167 +142,164 @@ double get_O3(void){
     return O3_val;
 }
 
-void uart_sensors(void * const arg) {
+static HAL_StatusTypeDef reset_dma_rx()
+{
+    if (HAL_UART_DMAStop(&huart3) == HAL_ERROR) return HAL_ERROR;
+    if (HAL_UART_Receive_DMA(&huart3, command, BUF_LEN) == HAL_ERROR) return HAL_ERROR;
 
-    rx_uart_sem = xSemaphoreCreateBinary();
-    configASSERT(rx_uart_sem != NULL);
+    return HAL_OK;
+}
+
+static uint8_t *check_uart_flag(uint8_t *flag)
+{
+    static uint32_t uart_notify;
+
+    uart_notify = ulTaskNotifyTake(pdFALSE, RX_DELAY);
+    if (!uart_notify) return NULL;
+
+    return strstr(command, flag);
+}
+
+void uart_sensors(void * const arg) {
 
     /* Notify init task that CO sensor task has been started */
     xEventGroupSetBits(eg_task_started, EG_UART_SENSORS_STARTED);
 
     GPIO_Init();
     USART3_UART_Init();
+    USART3_DMA_Init();
+
     uint8_t spec_cmd = 'c';
 
-    Set_chan(3);
+    Set_chan(2);
     HAL_UART_Transmit_IT(&huart3, &spec_cmd, 1);
     ulTaskNotifyTake( pdTRUE, portMAX_DELAY);
-    HAL_Delay(100);
-    HAL_UART_Transmit_IT(&huart3, &spec_cmd, 1);
-    ulTaskNotifyTake( pdTRUE, portMAX_DELAY);
-
-    Set_chan(5);
-    HAL_UART_Transmit_IT(&huart3, &spec_cmd, 1);
-    ulTaskNotifyTake( pdTRUE, portMAX_DELAY);
-    HAL_Delay(100);
+    vTaskDelay(TX_DELAY);
     HAL_UART_Transmit_IT(&huart3, &spec_cmd, 1);
     ulTaskNotifyTake( pdTRUE, portMAX_DELAY);
 
-    Set_chan(7);
+    Set_chan(4);
     HAL_UART_Transmit_IT(&huart3, &spec_cmd, 1);
     ulTaskNotifyTake( pdTRUE, portMAX_DELAY);
-    HAL_Delay(100);
-    HAL_UART_Transmit_IT(&huart3, &spec_cmd, 1);
-    ulTaskNotifyTake( pdTRUE, portMAX_DELAY);
-
-    Set_chan(9);
-    HAL_UART_Transmit_IT(&huart3, &spec_cmd, 1);
-    ulTaskNotifyTake( pdTRUE, portMAX_DELAY);
-    HAL_Delay(100);
+    vTaskDelay(TX_DELAY);
     HAL_UART_Transmit_IT(&huart3, &spec_cmd, 1);
     ulTaskNotifyTake( pdTRUE, portMAX_DELAY);
 
-    HAL_UART_Receive_IT(&huart3, &rx, 1);
+    Set_chan(6);
+    HAL_UART_Transmit_IT(&huart3, &spec_cmd, 1);
+    ulTaskNotifyTake( pdTRUE, portMAX_DELAY);
+    vTaskDelay(TX_DELAY);
+    HAL_UART_Transmit_IT(&huart3, &spec_cmd, 1);
+    ulTaskNotifyTake( pdTRUE, portMAX_DELAY);
+
+    Set_chan(8);
+    HAL_UART_Transmit_IT(&huart3, &spec_cmd, 1);
+    ulTaskNotifyTake( pdTRUE, portMAX_DELAY);
+    vTaskDelay(TX_DELAY);
+    HAL_UART_Transmit_IT(&huart3, &spec_cmd, 1);
+    ulTaskNotifyTake( pdTRUE, portMAX_DELAY);
 
     while (1) {
 
-        Set_chan(2);
-        if(xSemaphoreTake(rx_uart_sem, pdMS_TO_TICKS(3000)) == pdTRUE) {
+        Set_chan(3);
+        if (reset_dma_rx() == HAL_ERROR) continue;
+        if (check_uart_flag('\n') != NULL){
             strtod(command, &SO2_data);
             SO2_val = strtod(strtok(SO2_data, "- ,"), NULL) / 100;
+            memset(command, '\0', BUF_LEN);
         }
-
-        Set_chan(4);
-        if(xSemaphoreTake(rx_uart_sem, pdMS_TO_TICKS(3000)) == pdTRUE) {
+/*
+        Set_chan(5);
+        if (reset_dma_rx() == HAL_ERROR) continue;
+        if (check_uart_flag('\n') != NULL){
             strtod(command, &NO2_data);
             NO2_val = strtod(strtok(NO2_data, "- ,"), NULL) / 100;
+            memset(command, '\0', BUF_LEN);
         }
 
-        Set_chan(6);
-        if(xSemaphoreTake(rx_uart_sem, pdMS_TO_TICKS(3000)) == pdTRUE) {
+        Set_chan(7);
+        if (reset_dma_rx() == HAL_ERROR) continue;
+        if (check_uart_flag('\n') != NULL){
             strtod(command, &CO_data);
             CO_val = strtod(strtok(CO_data, "- ,"), NULL);
+            memset(command, '\0', BUF_LEN);
         }
 
-        Set_chan(8);
-        if(xSemaphoreTake(rx_uart_sem, pdMS_TO_TICKS(3000)) == pdTRUE) {
+        Set_chan(9);
+        if (reset_dma_rx() == HAL_ERROR) continue;
+        if (check_uart_flag('\n') != NULL){
             strtod(command, &O3_data);
             O3_val = strtod(strtok(O3_data, "- ,"), NULL) / 100;
-        }
+            memset(command, '\0', BUF_LEN);
+        }*/
 
         vTaskDelay(500);
     }
 }
 
+
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart) {
-    if (huart->Instance == USART3) {
+if (huart->Instance == USART3) {
 
-        BaseType_t reschedule = pdFALSE;
+    BaseType_t reschedule = pdFALSE;
 
-        vTaskNotifyGiveFromISR(uart_sensors_handle, &reschedule);
-        portYIELD_FROM_ISR(reschedule);
-    }
+    vTaskNotifyGiveFromISR(uart_sensors_handle, &reschedule);
+    portYIELD_FROM_ISR(reschedule);
 }
-
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
-    if (huart->Instance == USART3) {
-
-        BaseType_t reschedule;
-
-        UBaseType_t tx_uart_critical;
-        tx_uart_critical = taskENTER_CRITICAL_FROM_ISR();
-
-        static uint8_t cmd[64];
-        static uint8_t icmd;
-        static uint8_t is_second;
-        cmd[icmd] = rx;
-
-        /* Parse received byte for EOL */
-        if (rx == '\n' && is_second == 1) { /* If \r or \n print text */
-            /* Terminate string with \0 */
-            cmd[icmd] = 0;
-            icmd = 0;
-            is_second = 0;
-            strncpy(command, cmd, sizeof(command));
-            if (rx_uart_sem != NULL) {
-                reschedule = pdFALSE;
-                /* Unblock the task by releasing the semaphore.*/
-                xSemaphoreGiveFromISR(rx_uart_sem, &reschedule);
-                portYIELD_FROM_ISR(reschedule);
-            }
-        }
-        else if(rx == '\n' && is_second == 0){
-            is_second = 1;
-            icmd = 0;
-        }
-        else if (rx == '\r') {
-            /* Skip \r character */
-        }
-        else { /* If regular character, put it into cmd[] */
-            cmd[icmd++] = rx;
-        }
-
-        /* Restart reception */
-        HAL_UART_Receive_IT(&huart3, &rx, 1);
-
-        taskEXIT_CRITICAL_FROM_ISR( tx_uart_critical );
-    }
 }
 
 void HAL_MspInit(void)
 {
-    __HAL_RCC_SYSCFG_CLK_ENABLE();
-    __HAL_RCC_PWR_CLK_ENABLE();
+__HAL_RCC_SYSCFG_CLK_ENABLE();
+__HAL_RCC_PWR_CLK_ENABLE();
 }
 
 void HAL_UART_MspInit(UART_HandleTypeDef* huart)
 {
-    GPIO_InitTypeDef GPIO_InitStruct = {0};
-    if(huart->Instance==USART3)
-    {
-        __HAL_RCC_USART3_CLK_ENABLE();
+GPIO_InitTypeDef GPIO_InitStruct = {0};
+if(huart->Instance==USART3)
+{
+    __HAL_RCC_USART3_CLK_ENABLE();
+    __HAL_RCC_DMA1_CLK_ENABLE();
+    __HAL_RCC_GPIOD_CLK_ENABLE();
 
-        __HAL_RCC_GPIOD_CLK_ENABLE();
-        GPIO_InitStruct.Pin = GPIO_PIN_8;
-        GPIO_InitStruct.Mode = GPIO_MODE_AF_OD;
-        GPIO_InitStruct.Pull = GPIO_PULLUP;
-        GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
-        GPIO_InitStruct.Alternate = GPIO_AF7_USART3;
-        HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
+    GPIO_InitStruct.Pin = GPIO_PIN_8;
+    GPIO_InitStruct.Mode = GPIO_MODE_AF_OD;
+    GPIO_InitStruct.Pull = GPIO_PULLUP;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+    GPIO_InitStruct.Alternate = GPIO_AF7_USART3;
+    HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
-        HAL_NVIC_SetPriority(USART3_IRQn, 5, 0U);
-        HAL_NVIC_EnableIRQ(USART3_IRQn);
-    }
+    HAL_NVIC_SetPriority(USART3_IRQn, 5, 0U);
+    HAL_NVIC_EnableIRQ(USART3_IRQn);
+    __HAL_UART_ENABLE_IT(&huart3, UART_IT_IDLE);
+}
 
 }
 
 void HAL_UART_MspDeInit(UART_HandleTypeDef* huart)
 {
-    if(huart->Instance==USART3)
-    {
-        __HAL_RCC_USART3_CLK_DISABLE();
-        HAL_GPIO_DeInit(GPIOD, GPIO_PIN_8);
-        HAL_NVIC_DisableIRQ(USART3_IRQn);
-    }
+if(huart->Instance==USART3)
+{
+    __HAL_RCC_USART3_CLK_DISABLE();
+    HAL_GPIO_DeInit(GPIOD, GPIO_PIN_8);
+    HAL_NVIC_DisableIRQ(USART3_IRQn);
+}
+}
 
+void UART_SENSORS_IRQHandler(UART_HandleTypeDef *huart)
+{
+    if (USART3 == huart->Instance)
+    {
+        configASSERT(uart_sensors_handle != NULL);
+
+        if(RESET != __HAL_UART_GET_FLAG(huart, UART_FLAG_IDLE))
+        {
+            __HAL_UART_CLEAR_IDLEFLAG(huart);
+
+            BaseType_t uart_rx_task_woken = pdFALSE;
+            vTaskNotifyGiveFromISR(uart_sensors_handle, &uart_rx_task_woken);
+            portYIELD_FROM_ISR(uart_rx_task_woken);
+        }
+    }
 }

@@ -4,6 +4,9 @@
 #include "stm32f4xx_hal.h"
 
 UART_HandleTypeDef huart3;
+DMA_HandleTypeDef huart3_dma_rx;
+
+void UART_SENSORS_IRQHandler(UART_HandleTypeDef *huart);
 
 void uart_sensors(void * const arg);
 double get_SO2(void);
