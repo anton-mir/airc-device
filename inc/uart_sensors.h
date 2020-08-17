@@ -4,56 +4,24 @@
 #include "stm32f4xx_hal.h"
 
 UART_HandleTypeDef huart3;
+DMA_HandleTypeDef huart3_dma_rx;
 
-void CO_sensor(void * const arg);
-void echo_server(void * const arg);
-void SDS_sensor(void * const arg);
+void UART_SENSORS_IRQHandler(UART_HandleTypeDef *huart);
 
-
-typedef struct SDS_t {
-    UART_HandleTypeDef* huart3;
-    uint16_t pm_2_5;
-    uint16_t pm_10;
-    uint8_t data_receive[19];
-} SDS;
-
-
-void sdsInit(SDS* sds, const UART_HandleTypeDef* huart_sds);
-void sds_uart_RxCpltCallback(SDS* sds, UART_HandleTypeDef *huart);
-
-int8_t sdsSend(SDS* sds, const uint8_t *data_buffer, const uint8_t length);
-
-uint16_t sdsGetPm2_5(SDS* sds);
-uint16_t sdsGetPm10(SDS* sds);
-
-static const uint8_t Sds011_SleepCommand[] = {
-        0xAA,
-        0xB4,
-        0x06,
-        0x01,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0xFF,
-        0xFF,
-        0x05,
-        0xAB
-};
+void uart_sensors(void * const arg);
+double get_SO2(void);
+double get_NO2(void);
+double get_CO(void);
+double get_O3(void);
+double get_pm2_5(void);
+double get_pm10(void);
 
 static const uint8_t Sds011_WorkingMode[] = {
         0xAA,
         0xB4,
-        0x06,
-        0x01,
-        0x01,
+        0x04,
+        0x00,
+        0x00,
         0x00,
         0x00,
         0x00,

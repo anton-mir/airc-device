@@ -50,14 +50,22 @@
 #include "task.h"
 #include "tasks_def.h"
 #include "hw_delay.h"
+#include "lm335z.h"
+#include "eth_server.h"
+#include "eth_sender.h"
+#include "queue.h"
+#include "data_collector.h"
+
 
 TaskHandle_t init_handle = NULL;
 TaskHandle_t ethif_in_handle = NULL;
 TaskHandle_t link_state_handle = NULL;
 TaskHandle_t dhcp_fsm_handle = NULL;
-TaskHandle_t echo_server_handle = NULL;
-TaskHandle_t CO_sensor_handle = NULL;
-TaskHandle_t SDS_sensor_handle = NULL;
+TaskHandle_t analog_temp_handle = NULL;
+TaskHandle_t eth_server_handle = NULL;
+TaskHandle_t eth_sender_handle = NULL;
+TaskHandle_t data_collector_handle = NULL;
+TaskHandle_t uart_sensors_handle = NULL;
 
 EventGroupHandle_t eg_task_started = NULL;
 
@@ -66,14 +74,14 @@ static RNG_HandleTypeDef rng_handle;
 struct netif gnetif;
 
 static void SystemClock_Config(void);
-static void Error_Handler(void);
+void Error_Handler(void);
 static void netif_setup();
 void init_task(void *arg);
 
 uint32_t rand_wrapper()
 {
     uint32_t random = 0;
-    
+
    (void)HAL_RNG_GenerateRandomNumber(&rng_handle, &random);
 
    return random;
@@ -94,6 +102,7 @@ void init_task(void *arg)
 
     xEventGroupSetBits(eg_task_started, EG_INIT_STARTED);
 
+
     /* Initialize LCD */
     lcd_init();
     lcd_clear();
@@ -104,81 +113,102 @@ void init_task(void *arg)
 
     /* Initialize PHY */
     netif_setup();
-
     status = xTaskCreate(
-                link_state,
-                "link_st",
-                LINK_STATE_TASK_STACK_SIZE,
-                (void *)netif,
-                LINK_STATE_TASK_PRIO,
-                &link_state_handle);
+            link_state,
+            "link_st",
+            LINK_STATE_TASK_STACK_SIZE,
+            (void *) netif,
+            LINK_STATE_TASK_PRIO,
+            &link_state_handle);
 
     configASSERT(status);
 
     status = xTaskCreate(
-                dhcp_fsm,
-                "dhcp_fsm",
-                DHCP_FSM_TASK_STACK_SIZE,
-                (void *)netif,
-                DHCP_FSM_TASK_PRIO,
-                &dhcp_fsm_handle);
+            dhcp_fsm,
+            "dhcp_fsm",
+            DHCP_FSM_TASK_STACK_SIZE,
+            (void *) netif,
+            DHCP_FSM_TASK_PRIO,
+            &dhcp_fsm_handle);
 
     configASSERT(status);
 
     status = xTaskCreate(
-                ethernetif_input,
-                "ethif_in",
-                ETHIF_IN_TASK_STACK_SIZE,
-                (void *)netif,
-                ETHIF_IN_TASK_PRIO,
-                &ethif_in_handle);
+            ethernetif_input,
+            "ethif_in",
+            ETHIF_IN_TASK_STACK_SIZE,
+            (void *) netif,
+            ETHIF_IN_TASK_PRIO,
+            &ethif_in_handle);
 
     configASSERT(status);
 
-    status = xTaskCreate(
-                echo_server,
-                "echo_srv",
-                ECHO_SERVER_TASK_STACK_SIZE,
-                (void *)netif,
-                ECHO_SERVER_TASK_PRIO,
-                &echo_server_handle);
-
-    configASSERT(status);
 
     status = xTaskCreate(
-            CO_sensor,
-            "CO_sensor",
-            CO_SENSOR_TASK_STACK_SIZE,
+            uart_sensors,
+            "uart_sensors",
+            UART_SENSORS_TASK_STACK_SIZE,
             (void *)netif,
-            CO_SENSOR_TASK_PRIO,
-            &CO_sensor_handle);
+            UART_SENSORS_TASK_PRIO,
+            &uart_sensors_handle);
 
     configASSERT(status);
 
     status = xTaskCreate(
-            SDS_sensor,
-            "SDS011_sensor",
-            SDS_SENSOR_TASK_STACK_SIZE,
-            (void *)netif,
-            SDS_SENSOR_TASK_PRIO,
-            &SDS_sensor_handle);
+            eth_server,
+            "eth_server",
+            ETH_SERVER_TASK_STACK_SIZE,
+            NULL,
+            ETH_SERVER_TASK_PRIO,
+            &eth_server_handle);
 
     configASSERT(status);
+
 
     /* Wait for all tasks initialization */
     xEventGroupWaitBits(
             eg_task_started,
-            (EG_INIT_STARTED | EG_ETHERIF_IN_STARTED | EG_LINK_STATE_STARTED | 
-                EG_DHCP_FSM_STARTED | EG_ECHO_SERVER_STARTED | EG_CO_SENSOR_STARTED),
+            (EG_INIT_STARTED | EG_ETHERIF_IN_STARTED | EG_LINK_STATE_STARTED |
+            EG_DHCP_FSM_STARTED | EG_UART_SENSORS_STARTED),
             pdFALSE,
             pdTRUE,
             portMAX_DELAY);
 
-    if (netif_is_up(netif))
-    {
+    if (netif_is_up(netif)) {
         /* Start DHCP address request */
         ethernetif_dhcp_start();
     }
+
+    status = xTaskCreate(
+            analog_temp,
+            "analog_temp",
+            ANALOG_TEMP_TASK_STACK_SIZE,
+            NULL,
+            ANALOG_TEMP_TASK_PRIO,
+            &analog_temp_handle);
+
+    configASSERT(status);
+
+    status = xTaskCreate(
+            data_collector,
+            "data_collector",
+            ETH_SENDER_TASK_STACK_SIZE,
+            NULL,
+            ETH_SENDER_TASK_PRIO,
+            &data_collector_handle);
+    configASSERT(status);
+
+    status = xTaskCreate(
+            eth_sender,
+            "eth_sender",
+            DATA_COLLECTOR_STACK_SIZE,
+            NULL,
+            DATA_COLLECTOR_PRIO,
+            &eth_sender_handle);
+
+    configASSERT(status);
+
+
 
     gpio.Mode = GPIO_MODE_OUTPUT_PP;
     gpio.Pull = GPIO_NOPULL;
@@ -186,10 +216,8 @@ void init_task(void *arg)
     HAL_GPIO_Init(GPIOD, &gpio);
     HAL_GPIO_WritePin(GPIOD, GPIO_PIN_13, GPIO_PIN_SET);
 
-    for (;;)
-    {
-        if (!netif_is_link_up(netif))
-        {
+    for (;;) {
+        if (!netif_is_link_up(netif)) {
             lcd_clear();
             lcd_print_string_at("Link:", 0, 0);
             lcd_print_string_at("down", 0, 1);
@@ -353,12 +381,14 @@ static void netif_setup()
   * @param  None
   * @retval None
   */
-static void Error_Handler(void)
+void Error_Handler(void)
 {
     /* User may add here some code to deal with this error */
     while(1)
     {
     }
 }
+
+
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

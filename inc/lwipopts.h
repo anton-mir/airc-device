@@ -16,6 +16,26 @@
  */
 #define SYS_LIGHTWEIGHT_PROT    1
 
+/**
+ * LWIP_TCPIP_CORE_LOCKING
+ * Creates a global mutex that is held during TCPIP thread operations.
+ * Can be locked by client code to perform lwIP operations without changing
+ * into TCPIP thread using callbacks. See LOCK_TCPIP_CORE() and
+ * UNLOCK_TCPIP_CORE().
+ * Your system should provide mutexes supporting priority inversion to use this.
+ */
+#define LWIP_TCPIP_CORE_LOCKING                       1
+
+/** Set this to 1 to use a mutex for SYS_ARCH_PROTECT() critical regions.
+ * Default is 0 and locks interrupts/scheduler for SYS_ARCH_PROTECT().
+ */
+#define LWIP_FREERTOS_SYS_ARCH_PROTECT_USES_MUTEX     1
+
+/** Set this to 1 to enable core locking check functions in this port.
+ * For this to work, you'll have to define LWIP_ASSERT_CORE_LOCKED()
+ * and LWIP_MARK_TCPIP_THREAD() correctly in your lwipopts.h! */
+#define LWIP_FREERTOS_CHECK_CORE_LOCKING              1
+
 /* ---------- Memory options ---------- */
 /* MEM_ALIGNMENT: should be set to the alignment of the CPU for which
    lwIP is compiled. 4 byte alignment -> define MEM_ALIGNMENT to 4, 2
@@ -171,10 +191,6 @@ The STM32F7xxallows computing and verifying the IP, UDP, TCP and ICMP checksums 
  */
 #define LWIP_SOCKET                     1
 
-/**
- * TCP_LISTEN_BACKLOG: Enable the backlog option for tcp listen pcb.
- */
-#define TCP_LISTEN_BACKLOG              1
 /*
    ---------------------------------
    ---------- OS options ----------
