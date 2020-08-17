@@ -32,7 +32,6 @@ set(LOCAL_SRCS
     "stm32f4xx_hal_flash_ex.c"
     "stm32f4xx_hal_flash_ramfunc.c"
     "stm32f4xx_hal_gpio.c"
-    "stm32f4xx_hal_msp_template.c"
     "stm32f4xx_hal_pwr.c"
     "stm32f4xx_hal_pwr_ex.c"
     "stm32f4xx_hal_rcc.c"
@@ -41,7 +40,11 @@ set(LOCAL_SRCS
     "stm32f4xx_hal_tim.c"
     "stm32f4xx_hal_tim_ex.c"
         "stm32f4xx_hal_uart.c"
-        "stm32f4xx_hal_rng.c")
+        "stm32f4xx_hal_rng.c"
+    "stm32f4xx_hal_tim_ex.c"
+    "stm32f4xx_hal_adc.c"
+    "stm32f4xx_hal_adc_ex.c"
+    "stm32f4xx_hal_rng.c")
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR} "../../CMSIS/core/inc")
 include_directories(${CMAKE_CURRENT_SOURCE_DIR} "../../dev/inc")

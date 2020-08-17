@@ -17,7 +17,7 @@
   *                        opensource.org/licenses/BSD-3-Clause
   *
   ******************************************************************************
-  */ 
+  */
 
 /* Includes ------------------------------------------------------------------*/
 #include "stm32f4xx_hal.h"
@@ -50,8 +50,6 @@
   */
 void HAL_MspInit(void)
 {
-    __HAL_RCC_SYSCFG_CLK_ENABLE();
-    __HAL_RCC_PWR_CLK_ENABLE();
 
 }
 
@@ -68,7 +66,7 @@ void HAL_MspDeInit(void)
 
 /**
   * @brief  Initializes the PPP MSP.
-  * @note   This functiona is called from HAL_PPP_Init() function to perform 
+  * @note   This functiona is called from HAL_PPP_Init() function to perform
   *         peripheral(PPP) system level initialization (GPIOs, clock, DMA, interrupt)
   * @retval None
   */
@@ -79,44 +77,12 @@ void HAL_PPP_MspInit(void)
 
 /**
   * @brief  DeInitializes the PPP MSP.
-  * @note   This functiona is called from HAL_PPP_DeInit() function to perform 
+  * @note   This functiona is called from HAL_PPP_DeInit() function to perform
   *         peripheral(PPP) system level de-initialization (GPIOs, clock, DMA, interrupt)
   * @retval None
   */
 void HAL_PPP_MspDeInit(void)
 {
-
-}
-
-void HAL_UART_MspInit(UART_HandleTypeDef* huart)
-{
-    GPIO_InitTypeDef GPIO_InitStruct = {0};
-    if(huart->Instance==USART3)
-    {
-        __HAL_RCC_USART3_CLK_ENABLE();
-
-        __HAL_RCC_GPIOD_CLK_ENABLE();
-        GPIO_InitStruct.Pin = GPIO_PIN_8;
-        GPIO_InitStruct.Mode = GPIO_MODE_AF_OD;
-        GPIO_InitStruct.Pull = GPIO_NOPULL;
-        GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
-        GPIO_InitStruct.Alternate = GPIO_AF7_USART3;
-        HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
-
-        HAL_NVIC_SetPriority(USART3_IRQn, 0, 0);
-        HAL_NVIC_EnableIRQ(USART3_IRQn);
-    }
-
-}
-
-void HAL_UART_MspDeInit(UART_HandleTypeDef* huart)
-{
-    if(huart->Instance==USART3)
-    {
-        __HAL_RCC_USART3_CLK_DISABLE();
-        HAL_GPIO_DeInit(GPIOD, GPIO_PIN_8);
-        HAL_NVIC_DisableIRQ(USART3_IRQn);
-    }
 
 }
 
