@@ -200,7 +200,7 @@ void init_task(void *arg)
             &eth_sender_handle);
 
     configASSERT(status);
-
+    uint8_t reset_state = 1;
     for(;;){
         if (!netif_is_link_up(netif))
         {
@@ -210,13 +210,15 @@ void init_task(void *arg)
         }
         uint16_t current_pin = choose_pin(current_mode);
         // don't rest if it's already reset
-        if (current_pin == OFF_LEDS)
+        if (current_pin == OFF_LEDS && reset_state)
         {
             HAL_GPIO_WritePin(GPIOD,RED_LED |GREEN_LED,GPIO_PIN_RESET);
             HAL_GPIO_WritePin(GPIOB,BLUE_LED,GPIO_PIN_RESET);
+            reset_state = 0;
         }
-        else
+        else if(current_pin != OFF_LEDS)
         {
+            reset_state = 1;
             TickType_t delay = (current_pin == RED_LED) ? 500u : 2000u;
             if (current_pin == BLUE_LED) HAL_GPIO_TogglePin(GPIOB,current_pin);
             else HAL_GPIO_TogglePin(GPIOD,current_pin);
@@ -349,6 +351,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t pin)
             {
                 // TODO:
                 // Need to run timer and after reedSwitchHoldInterval check
+
                 // REED_SWITCH pin state again, if it is GPIO_PIN_SET
                 // then switch to WIFI setting mode
                 change_led(WIFI_MODE);
