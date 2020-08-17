@@ -4,104 +4,22 @@
 
 #include "main.h"
 
-const char * const HTTP_ROUTES[] = {
-    "",
-    "settings"
-};
-const size_t HTTP_ROUTES_COUNT = 2;
-
-const char * const HTTP_METHODS[] = {
-    "GET",
-    "POST",
-    "PUT",
-    "DELETE"
-};
-const size_t HTTP_METHODS_COUNT = 4;
-
-int http_validate_route(const char *route, size_t route_size)
+void http_get_form_field(char **field, size_t *field_size, const char *field_name, char *data, size_t data_size)
 {
-    route_size--;
-    for (size_t i = 0; i < HTTP_ROUTES_COUNT; i++)
+    char *delimeter, *pos;
+    if ((pos = strstr(data, field_name)) != NULL)
     {
-        size_t size = strlen(HTTP_ROUTES[i]);
-        if (size >= route_size)
-            if (memcmp(route + 1, HTTP_ROUTES[i], size) == 0)
-                return 1;
+        pos += strlen(field_name);
+        *field = pos;
+        if ((delimeter = strstr(pos, "&")) != NULL)
+        {
+            *field_size = (intptr_t)delimeter - (intptr_t)pos;
+        }
         else
-            if (memcmp(route + 1, HTTP_ROUTES[i], route_size) == 0)
-                return 1;
+        {
+            *field_size = ((intptr_t)data + data_size) - (intptr_t)pos;
+        }
     }
-    
-    return 0;
-}
-
-int http_validate_method(const char *method, size_t method_size)
-{
-    for (size_t i = 0; i < HTTP_METHODS_COUNT; i++)
-    {
-        size_t size = strlen(HTTP_METHODS[i]);
-        if (size >= method_size)
-            if (memcmp(method, HTTP_METHODS[i], size) == 0)
-                return 1;
-        else
-            if (memcmp(method, HTTP_METHODS[i], method_size) == 0)
-                return 1;
-    }
-
-    return 0;
-}
-
-void http_build_error_response(
-    char *buffer,
-    const char **message,
-    size_t *message_size,
-    size_t *head_size,
-    uint16_t status
-)
-{
-    memcpy(buffer, "HTTP/1.1 ", 9);
-    *head_size = 9;
-
-    if (status == 404)
-    {
-        *message = HTML_404_PAGE;
-        memcpy(buffer + *head_size, "404 Not Found\n", 14);
-        *head_size += 14;
-    }
-    else if (status == 405)
-    {
-        *message = HTML_405_PAGE;
-        memcpy(buffer + *head_size, "405 Method Not Allowed\n", 23);
-        *head_size += 23;
-    }
-    else if (status == 505)
-    {
-        *message = HTML_505_PAGE;
-        memcpy(buffer + *head_size, "505 HTTP Version Not Supported\n", 31);
-        *head_size += 31;
-    }
-    else
-    {
-        *message = HTML_500_PAGE;
-        memcpy(buffer + *head_size, "500 Internal Server Error\n", 26);
-        *head_size += 26;
-    }
-    *message_size = strlen(*message);
-
-    memcpy(buffer + *head_size, "Content-Type: text/html\n", 24);
-    *head_size += 24;
-    memcpy(buffer + *head_size, "Content-Length: ", 16);
-    *head_size += 16;
-
-    size_t message_size_str_length = NUMBER_LENGTH(*message_size);
-    char message_size_str[message_size_str_length];
-    sprintf(message_size_str, "%d", *message_size);
-
-    memcpy(buffer + *head_size, message_size_str, message_size_str_length);
-    *head_size += message_size_str_length;
-
-    memcpy(buffer + *head_size, "\n\n", 2);
-    *head_size += 2;
 }
 
 void http_build_html_response(
@@ -109,20 +27,20 @@ void http_build_html_response(
     const char **message,
     size_t *message_size,
     size_t *head_size,
-    const char *route
+    const char *route,
+    size_t route_size
 )
 {
     memcpy(buffer, "HTTP/1.1 ", 9);
     *head_size = 9;
-    memcpy(buffer + *head_size, "200 OK\n", 7);
-    *head_size += 7;
-    memcpy(buffer + *head_size, "Content-Type: text/html\n", 24);
-    *head_size += 24;
+    memcpy(buffer + *head_size, "200 OK\r\n", 8);
+    *head_size += 8;
+    memcpy(buffer + *head_size, "Content-Type: text/html\r\n", 25);
+    *head_size += 25;
     memcpy(buffer + *head_size, "Content-Length: ", 16);
     *head_size += 16;
 
-    if (memcmp(route + 1, "settings", 8) == 0)
-        *message = HTML_SETTINGS_PAGE;
+    *message = HTML_SETTINGS_PAGE;
     *message_size = strlen(*message);
 
     size_t message_size_str_length = NUMBER_LENGTH(*message_size);
@@ -132,6 +50,58 @@ void http_build_html_response(
     memcpy(buffer + *head_size, message_size_str, message_size_str_length);
     *head_size += message_size_str_length;
 
-    memcpy(buffer + *head_size, "\n\n", 2);
-    *head_size += 2;
+    memcpy(buffer + *head_size, "\r\n\r\n", 4);
+    *head_size += 4;
+}
+
+void http_build_text_response(
+    char *buffer,
+    const char *message,
+    size_t *message_size,
+    size_t *head_size,
+    const char *route,
+    size_t route_size,
+    uint16_t code
+)
+{
+    memcpy(buffer, "HTTP/1.1 ", 9);
+    *head_size = 9;
+
+    if (code == 200)
+    {
+        memcpy(buffer + *head_size, "200 OK\r\n", 8);
+        *head_size += 8;
+    }
+    else if (code == 500)
+    {
+        memcpy(buffer + *head_size, "500 Internal Server Error\r\n", 27);
+        *head_size += 27;
+    }
+    else if (code == 404)
+    {
+        memcpy(buffer + *head_size, "404 Not Found\r\n", 15);
+        *head_size += 15;
+    }
+    else if (code == 405)
+    {
+        memcpy(buffer + *head_size, "405 Method Not Allowed\r\n", 24);
+        *head_size += 24;
+    }
+
+    memcpy(buffer + *head_size, "Content-Type: text/plain\r\n", 26);
+    *head_size += 26;
+    memcpy(buffer + *head_size, "Content-Length: ", 16);
+    *head_size += 16;
+
+    *message_size = strlen(message);
+
+    size_t message_size_str_length = NUMBER_LENGTH(*message_size);
+    char message_size_str[message_size_str_length];
+    sprintf(message_size_str, "%d", *message_size);
+
+    memcpy(buffer + *head_size, message_size_str, message_size_str_length);
+    *head_size += message_size_str_length;
+
+    memcpy(buffer + *head_size, "\r\n\r\n", 4);
+    *head_size += 4;
 }

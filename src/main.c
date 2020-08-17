@@ -88,8 +88,9 @@ void init_task(void *arg)
     struct netif *netif = (struct netif *)arg;
 
     __HAL_RCC_GPIOD_CLK_ENABLE();
-    __HAL_RCC_USART2_CLK_ENABLE();
-    __HAL_RCC_DMA1_CLK_ENABLE();
+    __HAL_RCC_GPIOC_CLK_ENABLE();
+    __HAL_RCC_USART6_CLK_ENABLE();
+    __HAL_RCC_DMA2_CLK_ENABLE();
 
     (void)HAL_RNG_Init(&rng_handle);
 
@@ -102,6 +103,11 @@ void init_task(void *arg)
     lcd_init();
     lcd_clear();
     lcd_print_string("Initializing...");
+
+    // Init ESP8266
+    ESP_InitPins();
+    ESP_InitUART();
+    ESP_InitDMA();
 
     /* Create TCP/IP stack thread */
     tcpip_init(NULL, NULL);

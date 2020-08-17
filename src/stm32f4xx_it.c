@@ -57,7 +57,6 @@
 
 extern volatile ETH_HandleTypeDef h_eth;
 extern UART_HandleTypeDef esp_uart;
-extern DMA_HandleTypeDef esp_dma_rx;
 
 extern void ESP_UART_IRQHandler(UART_HandleTypeDef *huart);
 /******************************************************************************/
@@ -178,16 +177,12 @@ void ETH_IRQHandler(void)
     HAL_ETH_IRQHandler((ETH_HandleTypeDef *)&h_eth);
 }
 
-void USART2_IRQHandler(void)
+void USART6_IRQHandler(void)
 {
   HAL_UART_IRQHandler((UART_HandleTypeDef *)&esp_uart);
   ESP_UART_IRQHandler((UART_HandleTypeDef *)&esp_uart);
 }
 
-void DMA1_Stream5_IRQHandler(void)
-{
-   HAL_DMA_IRQHandler((DMA_HandleTypeDef *)&esp_dma_rx);
-}
 /******************************************************************************/
 /*                 STM32F4xx Peripherals Interrupt Handlers                   */
 /*  Add here the Interrupt Handler for the used peripheral(s) (PPP), for the  */
