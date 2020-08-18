@@ -1,3 +1,6 @@
+#include <memory.h>
+#include <stdio.h>
+#include "math.h"
 #include "esp8266_wifi.h"
 #include "http_helper.h"
 #include "picohttpparser.h"
@@ -22,22 +25,22 @@ DMA_HandleTypeDef esp_dma_rx;
 DMA_HandleTypeDef esp_dma_tx;
 
 static uint8_t uart_buffer[ESP_UART_BUFFER_SIZE];
-static uint8_t tcp_buffer[ESP_MAX_TCP_SIZE];
+static char tcp_buffer[ESP_MAX_TCP_SIZE];
 
-static uint16_t esp_recv_buf[ESP_MAX_TCP_CONNECTIONS];
+//static uint16_t esp_recv_buf[ESP_MAX_TCP_CONNECTIONS];
 static struct ESP8266_TCP_PACKET tcp_packet = { 0 };
 
 struct phr_header http_headers[HTTP_MAX_HEADERS];
 struct HTTP_REQUEST http_request = { 0 };
 struct HTTP_RESPONSE http_response = { 0 };
 
-static size_t get_uart_data_length();
+//static size_t get_uart_data_length();
 static HAL_StatusTypeDef reset_dma_rx();
 static int wait_uart_rx(TickType_t delay);
 static uint8_t *check_uart_flag(uint8_t *flag);
 static int send_to_esp(uint8_t *data, size_t data_size, const uint8_t *answer, TickType_t delay);
 static void esp_sysmsg_handle(void);
-static int esp_clear_buf(uint8_t id);
+//static int esp_clear_buf(uint8_t id);
 static void server_response(void);
 static int esp_send(uint8_t id, size_t size, uint8_t *data);
 static int esp_start_server(void);
@@ -49,6 +52,7 @@ static int esp_start(void);
 
 void wifi_task(void * const arg)
 {
+    (void) arg;
     xEventGroupSetBits(eg_task_started, EG_WIFI_TSK_STARTED);
 
     for (;;)
