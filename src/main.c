@@ -200,7 +200,6 @@ void init_task(void *arg)
             &eth_sender_handle);
 
     configASSERT(status);
-    uint8_t reset_state = 1;
     for(;;){
         if (!netif_is_link_up(netif))
         {
@@ -208,17 +207,18 @@ void init_task(void *arg)
             lcd_print_string_at("Link:", 0, 0);
             lcd_print_string_at("down", 0, 1);
         }
+        static uint8_t is_leds_reseted = 1;
         uint16_t current_pin = choose_pin(current_mode);
         // don't rest if it's already reset
-        if (current_pin == OFF_LEDS && reset_state)
+        if ((current_pin == OFF_LEDS) && is_leds_reseted)
         {
             HAL_GPIO_WritePin(GPIOD,RED_LED |GREEN_LED,GPIO_PIN_RESET);
             HAL_GPIO_WritePin(GPIOB,BLUE_LED,GPIO_PIN_RESET);
-            reset_state = 0;
+            is_leds_reseted = 0;
         }
         else if(current_pin != OFF_LEDS)
         {
-            reset_state = 1;
+            is_leds_reseted = 1;
             TickType_t delay = (current_pin == RED_LED) ? 500u : 2000u;
             if (current_pin == BLUE_LED) HAL_GPIO_TogglePin(GPIOB,current_pin);
             else HAL_GPIO_TogglePin(GPIOD,current_pin);
