@@ -25,14 +25,32 @@ uint8_t  Mode_CCS811=1;
  */	
 void Init_I2C_CCS811(void)
 {
-	hi2cxc.Instance = I2CXC;
-	hi2cxc.Init.ClockSpeed = 100000;
-	hi2cxc.Init.OwnAddress1 = 0x15; // Randomly chosen
-	hi2cxc.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
-	hi2cxc.Init.DualAddressMode = I2C_DUALADDRESS_DISABLED;
-	hi2cxc.Init.OwnAddress2 = 0;
-	hi2cxc.Init.GeneralCallMode = I2C_GENERALCALL_DISABLED;
-	hi2cxc.Init.NoStretchMode = I2C_NOSTRETCH_DISABLED;
+	 // Turn on clocking of the necessary modules
+        RCC_APB1PeriphClockCmd(RCC_APB1Periph_I2C1, ENABLE);
+        RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOB, ENABLE);
+
+        hi2cxc.Instance = I2CXC;
+        hi2cxc.Init.ClockSpeed = 100000;
+        hi2cxc.Init.OwnAddress1 = 0x5A; 
+        hi2cxc.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
+        hi2cxc.Init.DualAddressMode = I2C_DUALADDRESS_DISABLED;
+        hi2cxc.Init.OwnAddress2 = 0;
+        hi2cxc.Init.GeneralCallMode = I2C_GENERALCALL_DISABLED;
+        hi2cxc.Init.NoStretchMode = I2C_NOSTRETCH_DISABLED;
+
+
+        // Configure GPIO connection
+        gpio.GPIO_Pin = GPIO_Pin_6 | GPIO_Pin_9; // SCL/SDA
+        gpio.GPIO_Mode = GPIO_Mode_AF;
+        gpio.GPIO_Speed = GPIO_Speed_50MHz;
+        gpio.GPIO_OType = GPIO_OType_OD;
+        gpio.GPIO_PuPd = GPIO_PuPd_UP;
+        GPIO_Init(GPIOB, &gpio);
+
+        GPIO_PinAFConfig(GPIOB, GPIO_PinSource6, GPIO_AF_I2C1);
+        GPIO_PinAFConfig(GPIOB, GPIO_PinSource9, GPIO_AF_I2C1);
+        I2C_Cmd(I2C1, ENABLE);
+
 
 	if (HAL_I2C_Init(&hi2cxc) != HAL_OK)
 	{
