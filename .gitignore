@@ -7,3 +7,5 @@ tags
 *.swp
 *.swo
 build_local.sh
+.idea/
+cmake-build-debug/
