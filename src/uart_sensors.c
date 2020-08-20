@@ -12,8 +12,16 @@
 #define  TX_DELAY  100 / portTICK_RATE_MS
 #define  RX_DELAY  3000 / portTICK_RATE_MS
 
+#define MULTIPLEXER_CH2_SO2_TX 2
+#define MULTIPLEXER_CH3_SO2_RX 3
+#define SPEC_RESPONSE_TIME 1000
+
+uint8_t spec_wake = '\n';
+uint8_t spec_get_data = '\r';
+uint8_t spec_sleep = 's';
+
 volatile uint8_t rx;
-volatile uint8_t command[BUF_LEN];
+volatile char command[BUF_LEN];
 volatile uint8_t* SO2_data;
 volatile uint8_t* NO2_data;
 volatile uint8_t* CO_data;
@@ -119,7 +127,7 @@ static uint8_t chan_table[16][4] = {
         {1,  1,  1,  1}  // 15
 };
 
-static void Set_chan(uint8_t channel){
+static void activate_multiplexer_channel(uint8_t channel){
     HAL_GPIO_WritePin(GPIOE, GPIO_PIN_6, chan_table[channel][0]);
     HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, chan_table[channel][1]);
     HAL_GPIO_WritePin(GPIOE, GPIO_PIN_5, chan_table[channel][2]);
@@ -150,14 +158,83 @@ static HAL_StatusTypeDef reset_dma_rx()
     return HAL_OK;
 }
 
-static uint8_t *check_uart_flag(uint8_t *flag)
+static char *check_endline_flag(char *flag)
 {
-    static uint32_t uart_notify;
+//    static uint32_t uart_notify;
 
-    uart_notify = ulTaskNotifyTake(pdFALSE, RX_DELAY);
-    if (!uart_notify) return NULL;
+//    uart_notify = ulTaskNotifyTake(pdFALSE, RX_DELAY);
+//    if (!uart_notify) return NULL;
 
-    return strstr(command, flag);
+    char *strstr_return = strstr((char *)command, flag);
+
+    return strstr_return;
+}
+
+HAL_StatusTypeDef getSPEC_SO2()
+{
+    HAL_StatusTypeDef return_value = HAL_OK;
+
+    activate_multiplexer_channel(MULTIPLEXER_CH2_SO2_TX);
+    if (HAL_UART_Transmit_IT(&huart3, &spec_wake, 1) != HAL_OK)
+    {
+        return_value = HAL_ERROR;
+    }
+    vTaskDelay((TickType_t)SPEC_RESPONSE_TIME/2);
+
+    if (HAL_UART_Transmit_IT(&huart3, &spec_get_data, 1) != HAL_OK)
+    {
+        return_value = HAL_ERROR;
+    }
+    vTaskDelay((TickType_t)SPEC_RESPONSE_TIME/2);
+
+    if (HAL_UART_Transmit_IT(&huart3, &spec_get_data, 1) != HAL_OK)
+    {
+        return_value = HAL_ERROR;
+    }
+    vTaskDelay((TickType_t)SPEC_RESPONSE_TIME/2);
+
+    activate_multiplexer_channel(MULTIPLEXER_CH3_SO2_RX);
+
+    if (reset_dma_rx() != HAL_OK)
+    {
+        return HAL_ERROR;
+    }
+
+    vTaskDelay((TickType_t)SPEC_RESPONSE_TIME);
+
+    char* found_endline_flag = check_endline_flag((char *) '\n');
+
+    if (found_endline_flag != NULL)
+    {
+        char* pEnd_first;
+        char* pEnd_second;
+
+        double SO2_value1 = strtod(command, &pEnd_first);
+        double SO2_value2 = strtod(pEnd_first, &pEnd_second);
+        double SO2_value3 = strtod(pEnd_second, &pEnd_first);
+        double SO2_value4 = strtod(pEnd_first, &pEnd_second);
+        double SO2_value5 = strtod(pEnd_second, &pEnd_first);
+        double SO2_value6 = strtod(pEnd_first, &pEnd_second);
+        double SO2_value7 = strtod(pEnd_second, &pEnd_first);
+        double SO2_value8 = strtod(pEnd_first, &pEnd_second);
+        double SO2_value9 = strtod(pEnd_second, &pEnd_first);
+        double SO2_value10 = strtod(pEnd_first, &pEnd_second);
+        double SO2_value11 = strtod(pEnd_second, NULL);
+
+        memset(command, '\0', BUF_LEN);
+    }
+    else
+    {
+        return_value = HAL_ERROR;
+    }
+
+    activate_multiplexer_channel(MULTIPLEXER_CH2_SO2_TX);
+    if (HAL_UART_Transmit_IT(&huart3, &spec_sleep, 1) != HAL_OK)
+    {
+        return_value = HAL_ERROR;
+    }
+
+    return return_value;
 }
 
 void uart_sensors(void * const arg) {
@@ -169,45 +246,26 @@ void uart_sensors(void * const arg) {
     USART3_UART_Init();
     USART3_DMA_Init();
 
-    uint8_t spec_cmd = 'c';
-
-    Set_chan(2);
-    HAL_UART_Transmit_IT(&huart3, &spec_cmd, 1);
-    ulTaskNotifyTake( pdTRUE, portMAX_DELAY);
-    vTaskDelay(TX_DELAY);
-    HAL_UART_Transmit_IT(&huart3, &spec_cmd, 1);
-    ulTaskNotifyTake( pdTRUE, portMAX_DELAY);
-
-    Set_chan(4);
-    HAL_UART_Transmit_IT(&huart3, &spec_cmd, 1);
-    ulTaskNotifyTake( pdTRUE, portMAX_DELAY);
-    vTaskDelay(TX_DELAY);
-    HAL_UART_Transmit_IT(&huart3, &spec_cmd, 1);
-    ulTaskNotifyTake( pdTRUE, portMAX_DELAY);
-
-    Set_chan(6);
-    HAL_UART_Transmit_IT(&huart3, &spec_cmd, 1);
-    ulTaskNotifyTake( pdTRUE, portMAX_DELAY);
-    vTaskDelay(TX_DELAY);
-    HAL_UART_Transmit_IT(&huart3, &spec_cmd, 1);
-    ulTaskNotifyTake( pdTRUE, portMAX_DELAY);
-
-    Set_chan(8);
-    HAL_UART_Transmit_IT(&huart3, &spec_cmd, 1);
-    ulTaskNotifyTake( pdTRUE, portMAX_DELAY);
-    vTaskDelay(TX_DELAY);
-    HAL_UART_Transmit_IT(&huart3, &spec_cmd, 1);
-    ulTaskNotifyTake( pdTRUE, portMAX_DELAY);
-
     while (1) {
 
-        Set_chan(3);
-        if (reset_dma_rx() == HAL_ERROR) continue;
-        if (check_uart_flag('\n') != NULL){
-            strtod(command, &SO2_data);
-            SO2_val = strtod(strtok(SO2_data, "- ,"), NULL) / 100;
-            memset(command, '\0', BUF_LEN);
+        if (getSPEC_SO2() != HAL_OK)
+        {
+            break;
         }
+//        activate_multiplexer_channel(3);
+//        if (reset_dma_rx() == HAL_ERROR)
+//        {
+//            break;
+//        }
+////        continue;
+//        uint8_t flag_symbol_number = check_uart_flag('\n');
+//        double strtod_result;
+//        if (flag_symbol_number != NULL){
+//            strtod_result = strtod(command, &SO2_data);
+////            SO2_val = strtod(strtok(SO2_data, "- ,"), NULL) / 100;
+//            memset(command, '\0', BUF_LEN);
+//            (void) strtod_result;
+//        }
 /*
         Set_chan(5);
         if (reset_dma_rx() == HAL_ERROR) continue;
@@ -225,7 +283,7 @@ void uart_sensors(void * const arg) {
             memset(command, '\0', BUF_LEN);
         }
 
-        Set_chan(9);
+        activate_multiplexer_channel(9);
         if (reset_dma_rx() == HAL_ERROR) continue;
         if (check_uart_flag('\n') != NULL){
             strtod(command, &O3_data);

@@ -14,5 +14,7 @@ double get_NO2(void);
 double get_CO(void);
 double get_O3(void);
 
+HAL_StatusTypeDef getSPEC_SO2();
+
 
 #endif //AIRC_DEVICE_UART_SENSORS_H
