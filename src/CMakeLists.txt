@@ -36,7 +36,6 @@ set(LOCAL_SRCS
     "esp8266_wifi.c"
     "http_helper.c"
     "picohttpparser.c"
-    "echo_server.c"
     "syscalls.c"
     "sysmem.c"
     "${CMAKE_CURRENT_SOURCE_DIR}/arch/sys_arch.c"
