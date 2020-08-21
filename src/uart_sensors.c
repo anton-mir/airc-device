@@ -9,11 +9,16 @@
 #include "string.h"
 
 #define  BUF_LEN   64
-#define  TX_DELAY  100 / portTICK_RATE_MS
-#define  RX_DELAY  3000 / portTICK_RATE_MS
 
 #define MULTIPLEXER_CH2_SO2_TX 2
 #define MULTIPLEXER_CH3_SO2_RX 3
+#define MULTIPLEXER_CH4_NO2_TX 4
+#define MULTIPLEXER_CH5_NO2_RX 5
+#define MULTIPLEXER_CH6_CO_TX  6
+#define MULTIPLEXER_CH7_CO_RX  7
+#define MULTIPLEXER_CH8_O3_TX  8
+#define MULTIPLEXER_CH9_O3_RX  9
+
 #define SPEC_RESPONSE_TIME 1000
 
 uint8_t spec_wake = '\n';
@@ -160,10 +165,10 @@ static HAL_StatusTypeDef reset_dma_rx()
 
 static char *check_endline_flag(char *flag)
 {
-//    static uint32_t uart_notify;
+    static uint32_t uart_notify;
 
-//    uart_notify = ulTaskNotifyTake(pdFALSE, RX_DELAY);
-//    if (!uart_notify) return NULL;
+    uart_notify = ulTaskNotifyTake(pdFALSE, (TickType_t)SPEC_RESPONSE_TIME);
+    if (!uart_notify) return NULL;
 
     char *strstr_return = strstr((char *)command, flag);
 
@@ -206,20 +211,8 @@ HAL_StatusTypeDef getSPEC_SO2()
 
     if (found_endline_flag != NULL)
     {
-        char* pEnd_first;
-        char* pEnd_second;
-
-        double SO2_value1 = strtod(command, &pEnd_first);
-        double SO2_value2 = strtod(pEnd_first, &pEnd_second);
-        double SO2_value3 = strtod(pEnd_second, &pEnd_first);
-        double SO2_value4 = strtod(pEnd_first, &pEnd_second);
-        double SO2_value5 = strtod(pEnd_second, &pEnd_first);
-        double SO2_value6 = strtod(pEnd_first, &pEnd_second);
-        double SO2_value7 = strtod(pEnd_second, &pEnd_first);
-        double SO2_value8 = strtod(pEnd_first, &pEnd_second);
-        double SO2_value9 = strtod(pEnd_second, &pEnd_first);
-        double SO2_value10 = strtod(pEnd_first, &pEnd_second);
-        double SO2_value11 = strtod(pEnd_second, NULL);
+        strtod(command, &SO2_data);
+        SO2_val = strtod(strtok(SO2_data, "- ,"), NULL) / 100;
 
         memset(command, '\0', BUF_LEN);
     }
@@ -252,44 +245,6 @@ void uart_sensors(void * const arg) {
         {
             break;
         }
-//        activate_multiplexer_channel(3);
-//        if (reset_dma_rx() == HAL_ERROR)
-//        {
-//            break;
-//        }
-////        continue;
-//        uint8_t flag_symbol_number = check_uart_flag('\n');
-//        double strtod_result;
-//        if (flag_symbol_number != NULL){
-//            strtod_result = strtod(command, &SO2_data);
-////            SO2_val = strtod(strtok(SO2_data, "- ,"), NULL) / 100;
-//            memset(command, '\0', BUF_LEN);
-//            (void) strtod_result;
-//        }
-/*
-        Set_chan(5);
-        if (reset_dma_rx() == HAL_ERROR) continue;
-        if (check_uart_flag('\n') != NULL){
-            strtod(command, &NO2_data);
-            NO2_val = strtod(strtok(NO2_data, "- ,"), NULL) / 100;
-            memset(command, '\0', BUF_LEN);
-        }
-
-        Set_chan(7);
-        if (reset_dma_rx() == HAL_ERROR) continue;
-        if (check_uart_flag('\n') != NULL){
-            strtod(command, &CO_data);
-            CO_val = strtod(strtok(CO_data, "- ,"), NULL);
-            memset(command, '\0', BUF_LEN);
-        }
-
-        activate_multiplexer_channel(9);
-        if (reset_dma_rx() == HAL_ERROR) continue;
-        if (check_uart_flag('\n') != NULL){
-            strtod(command, &O3_data);
-            O3_val = strtod(strtok(O3_data, "- ,"), NULL) / 100;
-            memset(command, '\0', BUF_LEN);
-        }*/
 
         vTaskDelay(500);
     }
