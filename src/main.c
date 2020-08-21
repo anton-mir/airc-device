@@ -77,7 +77,7 @@ void Error_Handler(void);
 static void netif_setup();
 void init_task(void *arg);
 
-const uint16_t reedSwitchHoldInterval = 1000;
+const uint16_t reedSwitchHoldInterval = 3000;
 
 uint32_t rand_wrapper()
 {
@@ -207,18 +207,18 @@ void init_task(void *arg)
             lcd_print_string_at("Link:", 0, 0);
             lcd_print_string_at("down", 0, 1);
         }
-        static uint8_t is_leds_reseted = 1;
+        static uint8_t are_leds_reseted = 1;
         uint16_t current_pin = choose_pin(current_mode);
         // don't rest if it's already reset
-        if ((current_pin == OFF_LEDS) && is_leds_reseted)
+        if ((current_pin == OFF_LEDS) && are_leds_reseted)
         {
             HAL_GPIO_WritePin(GPIOD,RED_LED |GREEN_LED,GPIO_PIN_RESET);
             HAL_GPIO_WritePin(GPIOB,BLUE_LED,GPIO_PIN_RESET);
-            is_leds_reseted = 0;
+            are_leds_reseted = 0;
         }
         else if(current_pin != OFF_LEDS)
         {
-            is_leds_reseted = 1;
+            are_leds_reseted = 1;
             TickType_t delay = (current_pin == RED_LED) ? 500u : 2000u;
             if (current_pin == BLUE_LED) HAL_GPIO_TogglePin(GPIOB,current_pin);
             else HAL_GPIO_TogglePin(GPIOD,current_pin);
@@ -349,12 +349,15 @@ void HAL_GPIO_EXTI_Callback(uint16_t pin)
             // REED SWITCH pressed
             if(HAL_GPIO_ReadPin(GPIOB,REED_SWITCH) == GPIO_PIN_RESET)
             {
-                // TODO:
-                // Need to run timer and after reedSwitchHoldInterval check
-
-                // REED_SWITCH pin state again, if it is GPIO_PIN_SET
-                // then switch to WIFI setting mode
-                change_led(WIFI_MODE);
+                /*
+                    after reed switch is pressed wait 
+                    reedSwitchHoldInterval to complete  
+                    and if the reed switch  is still pressed go to wi-fi mode
+                */
+                delay_ms(reedSwitchHoldInterval);
+                if(HAL_GPIO_ReadPin(GPIOB,REED_SWITCH) == GPIO_PIN_SET){
+                    change_led(WIFI_MODE);
+                }
             }
         }
         reedSwitchPressedTick = HAL_GetTick();
