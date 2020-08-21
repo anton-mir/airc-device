@@ -43,6 +43,8 @@
 #include "netif/etharp.h"
 #include "ethernetif.h"
 #include "uart_sensors.h"
+#include "esp8266_wifi.h"
+#include "http_helper.h"
 #include "ksz8081rnd.h"
 #include "wh1602.h"
 #include "FreeRTOS.h"
@@ -57,10 +59,12 @@
 #include "data_collector.h"
 
 
+
 TaskHandle_t init_handle = NULL;
 TaskHandle_t ethif_in_handle = NULL;
 TaskHandle_t link_state_handle = NULL;
 TaskHandle_t dhcp_fsm_handle = NULL;
+TaskHandle_t wifi_tsk_handle = NULL;
 TaskHandle_t analog_temp_handle = NULL;
 TaskHandle_t eth_server_handle = NULL;
 TaskHandle_t eth_sender_handle = NULL;
@@ -81,10 +85,9 @@ void init_task(void *arg);
 uint32_t rand_wrapper()
 {
     uint32_t random = 0;
+    (void)HAL_RNG_GenerateRandomNumber(&rng_handle, &random);
 
-   (void)HAL_RNG_GenerateRandomNumber(&rng_handle, &random);
-
-   return random;
+    return random;
 }
 
 void init_task(void *arg)
@@ -94,12 +97,17 @@ void init_task(void *arg)
     struct netif *netif = (struct netif *)arg;
 
     __HAL_RCC_GPIOD_CLK_ENABLE();
+    __HAL_RCC_GPIOC_CLK_ENABLE();
+    __HAL_RCC_USART6_CLK_ENABLE();
+    __HAL_RCC_DMA2_CLK_ENABLE();
+
+    (void)HAL_RNG_Init(&rng_handle);
 
     (void)HAL_RNG_Init(&rng_handle);
 
     eg_task_started = xEventGroupCreate();
     configASSERT(eg_task_started);
-
+    
     xEventGroupSetBits(eg_task_started, EG_INIT_STARTED);
 
 
@@ -107,6 +115,11 @@ void init_task(void *arg)
     lcd_init();
     lcd_clear();
     lcd_print_string("Initializing...");
+
+    // Init ESP8266
+    ESP_InitPins();
+    ESP_InitUART();
+    ESP_InitDMA();
 
     /* Create TCP/IP stack thread */
     tcpip_init(NULL, NULL);
@@ -164,12 +177,23 @@ void init_task(void *arg)
 
     configASSERT(status);
 
+    status = xTaskCreate(
+                wifi_task,
+                "wifi_tsk",
+                ESP8266_WIFI_TASK_STACK_SIZE,
+                NULL,
+                ESP8266_WIFI_TASK_PRIO,
+                &wifi_tsk_handle);
+
+    configASSERT(status);
 
     /* Wait for all tasks initialization */
     xEventGroupWaitBits(
             eg_task_started,
             (EG_INIT_STARTED | EG_ETHERIF_IN_STARTED | EG_LINK_STATE_STARTED |
-            EG_DHCP_FSM_STARTED | EG_UART_SENSORS_STARTED),
+            EG_DHCP_FSM_STARTED | EG_UART_SENSORS_STARTED | EG_INIT_STARTED |
+            EG_ETHERIF_IN_STARTED | EG_LINK_STATE_STARTED |
+                EG_DHCP_FSM_STARTED | EG_WIFI_TSK_STARTED),
             pdFALSE,
             pdTRUE,
             portMAX_DELAY);
@@ -197,7 +221,7 @@ void init_task(void *arg)
             ETH_SENDER_TASK_PRIO,
             &data_collector_handle);
     configASSERT(status);
-
+        
     status = xTaskCreate(
             eth_sender,
             "eth_sender",

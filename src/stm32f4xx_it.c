@@ -56,6 +56,9 @@
 /* Private functions ---------------------------------------------------------*/
 
 extern volatile ETH_HandleTypeDef h_eth;
+extern UART_HandleTypeDef esp_uart;
+
+extern void ESP_UART_IRQHandler(UART_HandleTypeDef *huart);
 extern UART_HandleTypeDef huart3;
 extern DMA_HandleTypeDef huart3_dma_rx;
 
@@ -80,10 +83,10 @@ void NMI_Handler(void)
   */
 void HardFault_Handler(void)
 {
-    /* Go to infinite loop when Hard Fault exception occurs */
-    while (1)
-    {
-    }
+  /* Go to infinite loop when Hard Fault exception occurs */
+  while (1)
+  {
+  }
 }
 
 /**
@@ -176,6 +179,12 @@ void EXTI9_5_IRQHandler(void)
 void ETH_IRQHandler(void)
 {
     HAL_ETH_IRQHandler((ETH_HandleTypeDef *)&h_eth);
+}
+
+void USART6_IRQHandler(void)
+{
+  HAL_UART_IRQHandler((UART_HandleTypeDef *)&esp_uart);
+  ESP_UART_IRQHandler((UART_HandleTypeDef *)&esp_uart);
 }
 
 /******************************************************************************/
