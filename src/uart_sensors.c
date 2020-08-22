@@ -11,6 +11,9 @@
 #define  BUF_LEN   64
 #define  TX_DELAY  100 / portTICK_RATE_MS
 #define  RX_DELAY  3000 / portTICK_RATE_MS
+#define SDS_HEADER1 0xAA
+#define SDS_HEADER2 0xC0
+#define SDS_TAIL 0xAB
 
 volatile uint8_t rx;
 volatile uint8_t command[BUF_LEN];
@@ -19,12 +22,14 @@ volatile uint8_t* NO2_data;
 volatile uint8_t* CO_data;
 volatile uint8_t* O3_data;
 volatile uint8_t* SDS011_data;
+volatile uint8_t* HCHO_data;
 double SO2_val = 0;
 double NO2_val = 0;
 double CO_val = 0;
 double O3_val = 0;
 double pm2_5_val = 0;
 double pm10_val = 0;
+double HCHO_val = 0;
 
 static void USART3_UART_Init(void)
 {
@@ -153,6 +158,10 @@ double get_pm10(void){
     return pm10_val;
 }
 
+double get_HCHO(void){
+    return HCHO_val;
+}
+
 static HAL_StatusTypeDef reset_dma_rx()
 {
     if (HAL_UART_DMAStop(&huart3) == HAL_ERROR) return HAL_ERROR;
@@ -217,9 +226,28 @@ void uart_sensors(void * const arg) {
 
     while (1) {
 
+        Set_chan(0);
+        if (reset_dma_rx() == HAL_ERROR) continue;
+        if (check_uart_flag('\n') != NULL) {
+            strtod(command, &HCHO_data);
+            HCHO_val = (double) ((int)HCHO_data[5] | (int)HCHO_data[4] << 8);
+            memset(command, '\0', BUF_LEN);
+        }
+
         Set_chan(1);
         if (reset_dma_rx() == HAL_ERROR) continue;
         if (check_uart_flag('\n') != NULL){
+            // packet format: AA C0 PM25_Low PM25_High PM10_Low PM10_High 0 0 CRC AB
+            if (command[0] != SDS_HEADER1 || command[1] != SDS_HEADER2 || command[9] != SDS_TAIL) {
+                continue; // error with packet
+            }
+            uint8_t crc = 0;
+            for (int i = 0; i < 6; ++i) {
+                crc += command[i + 2];
+            }
+            if (crc != command[8]) {
+                continue; //error with checksum
+            }
             strtod(command, &SDS011_data);
             pm2_5_val = (double) ((int)SDS011_data[2] | (int)(SDS011_data[3] << 8)) / 10;
             pm10_val =  (double) ((int)SDS011_data[4] | (int)(SDS011_data[5] << 8)) / 10;

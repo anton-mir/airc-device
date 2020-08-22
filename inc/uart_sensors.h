@@ -15,6 +15,7 @@ double get_CO(void);
 double get_O3(void);
 double get_pm2_5(void);
 double get_pm10(void);
+double get_HCHO(void);
 
 static const uint8_t Sds011_WorkingMode[] = {
         0xAA,
@@ -37,5 +38,6 @@ static const uint8_t Sds011_WorkingMode[] = {
         0x06,
         0xAB
 };
+
 
 #endif //AIRC_DEVICE_UART_SENSORS_H
