@@ -24,7 +24,7 @@ void data_collector(void *pvParameters)
     {
         packet.co=get_CO();
         //packet.co2=;
-        //packet.hcho=;
+        packet.hcho=get_HCHO();
         //packet.humidity=;
         packet.no2=get_NO2();
         packet.o3=get_O3();
