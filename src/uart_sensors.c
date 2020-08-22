@@ -68,7 +68,7 @@ static HAL_StatusTypeDef USART3_DMA_Init(void)
     HAL_NVIC_SetPriority(DMA1_Stream1_IRQn, 5, 0U);
     HAL_NVIC_EnableIRQ(DMA1_Stream1_IRQn);
 
-    if (HAL_UART_Receive_DMA(&huart3, command, BUF_LEN) == HAL_ERROR) return HAL_ERROR;
+    if (HAL_UART_Receive_DMA(&huart3, (unsigned char*)command, BUF_LEN) == HAL_ERROR) return HAL_ERROR;
 
     return HAL_OK;
 }
@@ -116,14 +116,14 @@ static uint8_t chan_table[16][4] = {
         // s0, s1, s2, s3     channel
         {0,  0,  0,  0}, // 0 HCHO sensor RX
         {1,  0,  0,  0}, // 1 PM dust sensor RX
-        {0,  1,  0,  0}, // 2 SO2 spec sensor RX
-        {1,  1,  0,  0}, // 3 SO2 spec sensor TX
-        {0,  0,  1,  0}, // 4 NO2 spec sensor RX
-        {1,  0,  1,  0}, // 5 NO2 spec sensor TX
-        {0,  1,  1,  0}, // 6 CO spec sensor RX
-        {1,  1,  1,  0}, // 7 CO spec sensor TX
-        {0,  0,  0,  1}, // 8 O3 spec sensor RX
-        {1,  0,  0,  1}, // 9 O3 spec sensor TX
+        {0,  1,  0,  0}, // 2 SO2 spec sensor TX
+        {1,  1,  0,  0}, // 3 SO2 spec sensor RX
+        {0,  0,  1,  0}, // 4 NO2 spec sensor TX
+        {1,  0,  1,  0}, // 5 NO2 spec sensor RX
+        {0,  1,  1,  0}, // 6 CO spec sensor  TX
+        {1,  1,  1,  0}, // 7 CO spec sensor  RX
+        {0,  0,  0,  1}, // 8 O3 spec sensor  TX
+        {1,  0,  0,  1}, // 9 O3 spec sensor  RX
         {0,  1,  0,  1}, // 10
         {1,  1,  0,  1}, // 11
         {0,  0,  1,  1}, // 12
@@ -158,22 +158,11 @@ double get_O3(void){
 static HAL_StatusTypeDef reset_dma_rx()
 {
     if (HAL_UART_DMAStop(&huart3) == HAL_ERROR) return HAL_ERROR;
-    if (HAL_UART_Receive_DMA(&huart3, command, BUF_LEN) == HAL_ERROR) return HAL_ERROR;
+    if (HAL_UART_Receive_DMA(&huart3, (unsigned char*)command, BUF_LEN) == HAL_ERROR) return HAL_ERROR;
 
     return HAL_OK;
 }
 
-static char *check_endline_flag(char *flag)
-{
-    static uint32_t uart_notify;
-
-    uart_notify = ulTaskNotifyTake(pdFALSE, (TickType_t)SPEC_RESPONSE_TIME);
-    if (!uart_notify) return NULL;
-
-    char *strstr_return = strstr((char *)command, flag);
-
-    return strstr_return;
-}
 
 HAL_StatusTypeDef getSPEC_SO2()
 {
@@ -207,17 +196,15 @@ HAL_StatusTypeDef getSPEC_SO2()
 
     vTaskDelay((TickType_t)SPEC_RESPONSE_TIME);
 
-    char* found_endline_flag = check_endline_flag((char *) '\n');
-
-    if (found_endline_flag != NULL)
+    if(ulTaskNotifyTake(pdFALSE, (TickType_t)SPEC_RESPONSE_TIME) == BUF_LEN)
     {
-        strtod(command, &SO2_data);
-        SO2_val = strtod(strtok(SO2_data, "- ,"), NULL) / 100;
-
-        memset(command, '\0', BUF_LEN);
+        if(command[12] == ',' && command[13] == ' ') {
+            strtod((const char*)command, (char**)&SO2_data);
+            SO2_val = strtod(strtok((char*)SO2_data, "- ,"), NULL) / 100;
+        }
+        memset((void*)command, '\0', BUF_LEN);
     }
-    else
-    {
+    else {
         return_value = HAL_ERROR;
     }
 
@@ -229,6 +216,8 @@ HAL_StatusTypeDef getSPEC_SO2()
 
     return return_value;
 }
+
+static void UART_sensors_error_handler(){};
 
 void uart_sensors(void * const arg) {
 
@@ -243,7 +232,7 @@ void uart_sensors(void * const arg) {
 
         if (getSPEC_SO2() != HAL_OK)
         {
-            break;
+            UART_sensors_error_handler();
         }
 
         vTaskDelay(500);
@@ -311,7 +300,10 @@ void UART_SENSORS_IRQHandler(UART_HandleTypeDef *huart)
             __HAL_UART_CLEAR_IDLEFLAG(huart);
 
             BaseType_t uart_rx_task_woken = pdFALSE;
-            vTaskNotifyGiveFromISR(uart_sensors_handle, &uart_rx_task_woken);
+
+            uint8_t data_len = BUF_LEN - __HAL_DMA_GET_COUNTER(huart3.hdmarx);
+            xTaskNotifyAndQueryFromISR(uart_sensors_handle, data_len,
+                                       eSetValueWithOverwrite, NULL, &uart_rx_task_woken);
             portYIELD_FROM_ISR(uart_rx_task_woken);
         }
     }
