@@ -8,7 +8,8 @@
 #include "main.h"
 #include "string.h"
 
-#define  BUF_LEN   64
+#define  MAX_SPEC_BUF_LEN 70
+#define  MIN_SPEC_BUF_LEN 47
 
 #define MULTIPLEXER_CH2_SO2_TX 2
 #define MULTIPLEXER_CH3_SO2_RX 3
@@ -26,7 +27,7 @@ uint8_t spec_get_data = '\r';
 uint8_t spec_sleep = 's';
 
 volatile uint8_t rx;
-volatile char command[BUF_LEN];
+volatile char command[MAX_SPEC_BUF_LEN];
 volatile uint8_t* SO2_data;
 volatile uint8_t* NO2_data;
 volatile uint8_t* CO_data;
@@ -68,7 +69,7 @@ static HAL_StatusTypeDef USART3_DMA_Init(void)
     HAL_NVIC_SetPriority(DMA1_Stream1_IRQn, 5, 0U);
     HAL_NVIC_EnableIRQ(DMA1_Stream1_IRQn);
 
-    if (HAL_UART_Receive_DMA(&huart3, (unsigned char*)command, BUF_LEN) == HAL_ERROR) return HAL_ERROR;
+    if (HAL_UART_Receive_DMA(&huart3, (unsigned char*)command, MAX_SPEC_BUF_LEN) == HAL_ERROR) return HAL_ERROR;
 
     return HAL_OK;
 }
@@ -158,7 +159,7 @@ double get_O3(void){
 static HAL_StatusTypeDef reset_dma_rx()
 {
     if (HAL_UART_DMAStop(&huart3) == HAL_ERROR) return HAL_ERROR;
-    if (HAL_UART_Receive_DMA(&huart3, (unsigned char*)command, BUF_LEN) == HAL_ERROR) return HAL_ERROR;
+    if (HAL_UART_Receive_DMA(&huart3, (unsigned char*)command, MAX_SPEC_BUF_LEN) == HAL_ERROR) return HAL_ERROR;
 
     return HAL_OK;
 }
@@ -196,13 +197,13 @@ HAL_StatusTypeDef getSPEC_SO2()
 
     vTaskDelay((TickType_t)SPEC_RESPONSE_TIME);
 
-    if(ulTaskNotifyTake(pdFALSE, (TickType_t)SPEC_RESPONSE_TIME) == BUF_LEN)
+    if(ulTaskNotifyTake(pdTRUE, (TickType_t)SPEC_RESPONSE_TIME) >= MIN_SPEC_BUF_LEN)
     {
         if(command[12] == ',' && command[13] == ' ') {
             strtod((const char*)command, (char**)&SO2_data);
             SO2_val = strtod(strtok((char*)SO2_data, "- ,"), NULL) / 100;
         }
-        memset((void*)command, '\0', BUF_LEN);
+        memset((void*)command, '\0', MAX_SPEC_BUF_LEN);
     }
     else {
         return_value = HAL_ERROR;
@@ -237,17 +238,6 @@ void uart_sensors(void * const arg) {
 
         vTaskDelay(500);
     }
-}
-
-
-void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart) {
-if (huart->Instance == USART3) {
-
-    BaseType_t reschedule = pdFALSE;
-
-    vTaskNotifyGiveFromISR(uart_sensors_handle, &reschedule);
-    portYIELD_FROM_ISR(reschedule);
-}
 }
 
 void HAL_MspInit(void)
@@ -301,7 +291,7 @@ void UART_SENSORS_IRQHandler(UART_HandleTypeDef *huart)
 
             BaseType_t uart_rx_task_woken = pdFALSE;
 
-            uint8_t data_len = BUF_LEN - __HAL_DMA_GET_COUNTER(huart3.hdmarx);
+            uint8_t data_len = MAX_SPEC_BUF_LEN - __HAL_DMA_GET_COUNTER(huart3.hdmarx);
             xTaskNotifyAndQueryFromISR(uart_sensors_handle, data_len,
                                        eSetValueWithOverwrite, NULL, &uart_rx_task_woken);
             portYIELD_FROM_ISR(uart_rx_task_woken);
