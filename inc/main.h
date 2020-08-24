@@ -74,6 +74,7 @@
 #define ETH_SENDER_STARTED          (0x40)
 #define EG_DATA_COLLECTOR_STARTED   (0x80)
 #define EG_WIFI_TSK_STARTED         (0x100)
+#define EG_ESP_TX_TSK_STARTED       (0x200)
 
 
 /* Exported types ------------------------------------------------------------*/
@@ -87,6 +88,7 @@ extern TaskHandle_t link_state_handle;
 extern TaskHandle_t dhcp_fsm_handle;
 extern TaskHandle_t echo_server_handle;
 extern TaskHandle_t wifi_tsk_handle;
+extern TaskHandle_t esp_rx_tsk_handle;
 extern TaskHandle_t eth_server_handle;
 extern TaskHandle_t eth_sender_handle;
 extern TaskHandle_t data_collector_handle;
