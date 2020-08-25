@@ -26,7 +26,7 @@ typedef enum {
 
 extern LEDs_mode current_mode;
 
-void init_button();
+void initBlueButtonAndReedSwitch();
 void blink_led();
 void change_led(LEDs_mode mode);
 uint16_t choose_pin(LEDs_mode mode);

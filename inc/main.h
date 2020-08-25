@@ -93,7 +93,7 @@ extern TaskHandle_t reed_switch_handle;
 
 extern EventGroupHandle_t eg_task_started;
 
-void initGPIO_Pins();
+void initLeds();
 
 #endif /* __MAIN_H */
 

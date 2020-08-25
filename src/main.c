@@ -101,8 +101,8 @@ void init_task(void *arg)
     configASSERT(eg_task_started);
     
     xEventGroupSetBits(eg_task_started, EG_INIT_STARTED);
-    init_button();
-    initGPIO_Pins();
+    initBlueButtonAndReedSwitch();
+    initLeds();
 
     /* Initialize LCD */
     lcd_init();
@@ -209,27 +209,37 @@ void init_task(void *arg)
     configASSERT(status);
 
     for(;;){
+        uint16_t current_pin = choose_pin(current_mode);
+        static uint8_t leds_turned_off = 0;
+
         if (!netif_is_link_up(netif))
         {
             lcd_clear();
             lcd_print_string_at("Link:", 0, 0);
             lcd_print_string_at("down", 0, 1);
         }
-        static uint8_t are_leds_reseted = 1;
-        uint16_t current_pin = choose_pin(current_mode);
-        // don't rest if it's already reset
-        if ((current_pin == OFF_LEDS) && are_leds_reseted)
+
+        if (current_pin == OFF_LEDS)
         {
-            HAL_GPIO_WritePin(GPIOD,RED_LED |GREEN_LED,GPIO_PIN_RESET);
-            HAL_GPIO_WritePin(GPIOB,BLUE_LED,GPIO_PIN_RESET);
-            are_leds_reseted = 0;
+            if (!leds_turned_off) // Don't reset leds if they are already reset
+            {
+                HAL_GPIO_WritePin(GPIOD,RED_LED |GREEN_LED,GPIO_PIN_RESET);
+                HAL_GPIO_WritePin(GPIOB,BLUE_LED,GPIO_PIN_RESET);
+                leds_turned_off = 1;
+            }
         }
-        else if(current_pin != OFF_LEDS)
+        else
         {
-            are_leds_reseted = 1;
-            TickType_t delay = (current_pin == RED_LED) ? 500u : 2000u;
-            if (current_pin == BLUE_LED) HAL_GPIO_TogglePin(GPIOB,current_pin);
-            else HAL_GPIO_TogglePin(GPIOD,current_pin);
+            leds_turned_off = 0;
+            TickType_t delay = (current_pin == RED_LED) ? 500u : 1500u;
+            if (current_pin == BLUE_LED)
+            {
+                HAL_GPIO_TogglePin(GPIOB,current_pin);
+            }
+            else
+            {
+                HAL_GPIO_TogglePin(GPIOD,current_pin);
+            }
             vTaskDelay(delay);
         }
     }
@@ -405,7 +415,7 @@ void EXTI0_IRQHandler(void){
 
 
 
-void initGPIO_Pins()
+void initLeds()
 {
     __HAL_RCC_GPIOD_CLK_ENABLE();
     GPIO_InitTypeDef gpio;
