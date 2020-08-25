@@ -82,6 +82,25 @@ $ gdb-multiarch
 (gdb) file [firmware_name].elf
 (gdb) target extended-remote localhost:3333
 ```
-
 If needed, kill openocd process with "ssh airc@176.37.42.185 -p 5025 ./firmware/stop_debug.sh"
 
+# WiFi
+
+To provide wifi connection used ESP8266: http://www.microchip.ua/wireless/esp01.pdf
+  - Required AT firmware: v0.22.
+  - Required SDK: 1.0.0.
+  - Required boot loader: v1.3.
+
+**PINS connection**
+   - VCC -> 3.3v.
+   - GND -> GND.
+   - CH_PD(EN) -> 3.3v.
+   - RX -> PC6.
+   - TX -> PC7.
+
+**Soft AP default credentials**
+   - SSID: **AirC Device**.
+   - PASS: **314159265**.
+
+**Internal web-server information**
+   - HOST: **http://192.168.4.1**.
