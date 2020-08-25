@@ -76,7 +76,6 @@
 #define EG_WIFI_TSK_STARTED         (0x100)
 #define EG_ESP_TX_TSK_STARTED       (0x200)
 
-
 /* Exported types ------------------------------------------------------------*/
 /* Exported constants --------------------------------------------------------*/
 /* Exported macro ------------------------------------------------------------*/
@@ -92,9 +91,12 @@ extern TaskHandle_t esp_rx_tsk_handle;
 extern TaskHandle_t eth_server_handle;
 extern TaskHandle_t eth_sender_handle;
 extern TaskHandle_t data_collector_handle;
+extern TaskHandle_t reed_switch_handle;
+
 
 extern EventGroupHandle_t eg_task_started;
 
+void initLeds();
 
 #endif /* __MAIN_H */
 
