@@ -75,7 +75,6 @@
 #define EG_DATA_COLLECTOR_STARTED   (0x80)
 #define EG_WIFI_TSK_STARTED         (0x100)
 
-
 /* Exported types ------------------------------------------------------------*/
 /* Exported constants --------------------------------------------------------*/
 /* Exported macro ------------------------------------------------------------*/
@@ -90,9 +89,12 @@ extern TaskHandle_t wifi_tsk_handle;
 extern TaskHandle_t eth_server_handle;
 extern TaskHandle_t eth_sender_handle;
 extern TaskHandle_t data_collector_handle;
+extern TaskHandle_t reed_switch_handle;
+
 
 extern EventGroupHandle_t eg_task_started;
 
+void initLeds();
 
 #endif /* __MAIN_H */
 
