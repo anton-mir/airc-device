@@ -30,6 +30,6 @@ void init_button();
 void blink_led();
 void change_led(LEDs_mode mode);
 uint16_t choose_pin(LEDs_mode mode);
-
+void reed_switch_task(void *pvParams);
 
 #endif

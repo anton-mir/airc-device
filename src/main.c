@@ -64,7 +64,7 @@ TaskHandle_t analog_temp_handle = NULL;
 TaskHandle_t eth_server_handle = NULL;
 TaskHandle_t eth_sender_handle = NULL;
 TaskHandle_t data_collector_handle = NULL;
-
+TaskHandle_t reed_switch_handle = NULL;
 
 EventGroupHandle_t eg_task_started = NULL;
 
@@ -77,7 +77,6 @@ void Error_Handler(void);
 static void netif_setup();
 void init_task(void *arg);
 
-const uint16_t reedSwitchHoldInterval = 3000;
 
 uint32_t rand_wrapper()
 {
@@ -95,7 +94,6 @@ void init_task(void *arg)
     BaseType_t status;
     struct netif *netif = (struct netif *)arg;
 
-    __HAL_RCC_GPIOD_CLK_ENABLE();
 
     (void)HAL_RNG_Init(&rng_handle);
     
@@ -103,7 +101,7 @@ void init_task(void *arg)
     configASSERT(eg_task_started);
     
     xEventGroupSetBits(eg_task_started, EG_INIT_STARTED);
-
+    init_button();
     initGPIO_Pins();
 
     /* Initialize LCD */
@@ -200,6 +198,16 @@ void init_task(void *arg)
             &eth_sender_handle);
 
     configASSERT(status);
+
+    status = xTaskCreate(
+            reed_switch_task,
+            "reed_switch_task",
+            REED_SWITCH_STACK_SIZE,
+            NULL,
+            REED_SWITCH_PRIO,
+            &reed_switch_handle);
+    configASSERT(status);
+
     for(;;){
         if (!netif_is_link_up(netif))
         {
@@ -237,7 +245,6 @@ int main(void)
     BaseType_t status;
 
     HAL_Init();
-    init_button();
 
     /* Configure the system clock to 168 MHz */
     SystemClock_Config();
@@ -337,30 +344,9 @@ static void SystemClock_Config(void)
 
 void HAL_GPIO_EXTI_Callback(uint16_t pin)
 {
-    static uint32_t reedSwitchPressedTick = 0;
     if (pin == BLUE_BUTTON_DISCOVERY)
     {
         HAL_GPIO_TogglePin(GPIOD, RED_LED_DISCOVERY);
-    }
-    else if (pin == REED_SWITCH)
-    {
-        if (HAL_GetTick() - reedSwitchPressedTick > 10)
-        {
-            // REED SWITCH pressed
-            if(HAL_GPIO_ReadPin(GPIOB,REED_SWITCH) == GPIO_PIN_RESET)
-            {
-                /*
-                    after reed switch is pressed wait 
-                    reedSwitchHoldInterval to complete  
-                    and if the reed switch  is still pressed go to wi-fi mode
-                */
-                delay_ms(reedSwitchHoldInterval);
-                if(HAL_GPIO_ReadPin(GPIOB,REED_SWITCH) == GPIO_PIN_SET){
-                    change_led(WIFI_MODE);
-                }
-            }
-        }
-        reedSwitchPressedTick = HAL_GetTick();
     }
     else if (pin == RMII_PHY_INT_PIN)
     {
@@ -417,12 +403,11 @@ void EXTI0_IRQHandler(void){
     HAL_GPIO_EXTI_IRQHandler(BLUE_BUTTON_DISCOVERY);
 }
 
-void EXTI15_10_IRQHandler(void){
-    HAL_GPIO_EXTI_IRQHandler(REED_SWITCH);
-}
+
 
 void initGPIO_Pins()
 {
+    __HAL_RCC_GPIOD_CLK_ENABLE();
     GPIO_InitTypeDef gpio;
     gpio.Mode = GPIO_MODE_OUTPUT_PP;
     gpio.Pull = GPIO_PULLUP;

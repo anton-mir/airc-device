@@ -1,5 +1,6 @@
 #include<stdint.h>
-
+#include"FreeRTOS.h"
+#include"task.h"
 #include "leds.h"
 #include "stm32f407xx.h"
 #include "stm32f4xx_hal.h"
@@ -7,6 +8,7 @@
 
 
 LEDs_mode current_mode = WORKING_MODE;
+const uint16_t reedSwitchHoldInterval = 3000;
 
 uint16_t choose_pin(LEDs_mode mode){
     switch (mode)
@@ -39,9 +41,20 @@ void change_led(LEDs_mode mode){
    }
 }
 
-/*
-    Blue button on stm32f
-*/
+void reed_switch_task(void *pvParams){
+    for( ;; ){
+        vTaskDelay(1);
+        if(HAL_GPIO_ReadPin(GPIOB,REED_SWITCH) == GPIO_PIN_SET){
+            vTaskDelay(reedSwitchHoldInterval);
+            if(HAL_GPIO_ReadPin(GPIOB,REED_SWITCH) == GPIO_PIN_SET){
+                change_led(WIFI_MODE);
+            }
+        }
+    }
+}
+
+
+
 void init_button(){
     GPIO_InitTypeDef b_init;
 
@@ -62,14 +75,10 @@ void init_button(){
     __HAL_RCC_GPIOB_CLK_ENABLE();
 
     reedsw_init.Pin = REED_SWITCH;
-    reedsw_init.Mode = GPIO_MODE_IT_FALLING;
-    reedsw_init.Pull = GPIO_PULLUP;
+    reedsw_init.Mode = GPIO_MODE_INPUT;
+    reedsw_init.Pull = GPIO_PULLDOWN;
 
     HAL_GPIO_Init(GPIOB,&reedsw_init);
-    __HAL_GPIO_EXTI_CLEAR_IT(REED_SWITCH);
-
-    HAL_NVIC_SetPriority(EXTI15_10_IRQn,2,1);
-    HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
 
 }
 
