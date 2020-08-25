@@ -28,7 +28,7 @@ uint8_t spec_sleep = 's';
 
 volatile uint8_t rx;
 volatile char command[MAX_SPEC_BUF_LEN];
-volatile uint8_t* SO2_data;
+volatile char SO2_data[100];
 volatile uint8_t* NO2_data;
 volatile uint8_t* CO_data;
 volatile uint8_t* O3_data;
@@ -36,6 +36,8 @@ double SO2_val = 0;
 double NO2_val = 0;
 double CO_val = 0;
 double O3_val = 0;
+
+struct SPEC_values SPEC_SO2_values, SPEC_CO_values, SPEC_O3_values, SPEC_NO2_values;
 
 static void USART3_UART_Init(void)
 {
@@ -140,20 +142,20 @@ static void activate_multiplexer_channel(uint8_t channel){
     HAL_GPIO_WritePin(GPIOD, GPIO_PIN_6, chan_table[channel][3]);
 }
 
-double get_SO2(void){
-    return SO2_val;
+struct SPEC_values* get_SO2(void){
+    return &SPEC_SO2_values;
 }
 
-double get_NO2(void){
-    return NO2_val;
+struct SPEC_values get_NO2(void){
+    return SPEC_NO2_values;
 }
 
-double get_CO(void){
-    return CO_val;
+struct SPEC_values get_CO(void){
+    return SPEC_CO_values;
 }
 
-double get_O3(void){
-    return O3_val;
+struct SPEC_values get_O3(void){
+    return SPEC_O3_values;
 }
 
 static HAL_StatusTypeDef reset_dma_rx()
@@ -164,12 +166,25 @@ static HAL_StatusTypeDef reset_dma_rx()
     return HAL_OK;
 }
 
+void multiplexerSetState(uint8_t state)
+{
+    if (state)
+    {
+        HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_RESET);
+    }
+    else
+    {
+        HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_SET);
+    }
+}
+
 
 HAL_StatusTypeDef getSPEC_SO2()
 {
     HAL_StatusTypeDef return_value = HAL_OK;
 
     activate_multiplexer_channel(MULTIPLEXER_CH2_SO2_TX);
+    multiplexerSetState(1);
     if (HAL_UART_Transmit_IT(&huart3, &spec_wake, 1) != HAL_OK)
     {
         return_value = HAL_ERROR;
@@ -199,10 +214,20 @@ HAL_StatusTypeDef getSPEC_SO2()
 
     if(ulTaskNotifyTake(pdTRUE, (TickType_t)SPEC_RESPONSE_TIME) >= MIN_SPEC_BUF_LEN)
     {
-        if(command[12] == ',' && command[13] == ' ') {
-            strtod((const char*)command, (char**)&SO2_data);
-            SO2_val = strtod(strtok((char*)SO2_data, "- ,"), NULL) / 100;
-        }
+        char* pToNextValue;
+
+        SPEC_SO2_values.specSN = strtoull(command, &pToNextValue, 10);
+        SPEC_SO2_values.specPPB = strtoul(pToNextValue+2, &pToNextValue, 10);
+        SPEC_SO2_values.specTemp = strtoul(pToNextValue+2, &pToNextValue, 10);
+        SPEC_SO2_values.specRH = strtoul(pToNextValue+2, &pToNextValue, 10);
+        pToNextValue = strstr(pToNextValue+2,", ");
+        pToNextValue = strstr(pToNextValue+2,", ");
+        pToNextValue = strstr(pToNextValue+2,", ");
+        SPEC_SO2_values.specDay = strtoul(pToNextValue+2, &pToNextValue, 10);
+        SPEC_SO2_values.specHour = strtoul(pToNextValue+2, &pToNextValue, 10);
+        SPEC_SO2_values.specMinute = strtoul(pToNextValue+2, &pToNextValue, 10);
+        SPEC_SO2_values.specSecond = strtoul(pToNextValue+2, NULL, 10);
+
         memset((void*)command, '\0', MAX_SPEC_BUF_LEN);
     }
     else {
@@ -214,6 +239,7 @@ HAL_StatusTypeDef getSPEC_SO2()
     {
         return_value = HAL_ERROR;
     }
+    multiplexerSetState(0);
 
     return return_value;
 }
