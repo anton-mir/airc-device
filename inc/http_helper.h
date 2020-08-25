@@ -2,6 +2,7 @@
 #define HTTP_HELPER_H
 
 #include "stm32f4xx_hal.h"
+#include "picohttpparser.h"
 #include "esp8266_wifi.h"
 #include "http_defs.h"
 
@@ -51,7 +52,7 @@ struct HTTP_ROUTE
     HTTP_METHOD method;
     const char *name;
     int protect;
-    const char *data;
+    char *data;
     size_t data_size;
     ESP8266_SERVER_HANDLER handler;
 };
@@ -66,19 +67,19 @@ struct HTTP_REQUEST
 struct HTTP_RESPONSE
 {
     size_t message_size, head_size;
-    const char *message;
+    char *message;
     HTTP_METHOD http_method;
     HTTP_STATUS http_status;
     HTTP_CONTENT_TYPE http_content_type;
-    int version, route_index, ready;
+    int version, route_index, availible;
 };
 
 void http_build_routes(void);
 
-void http_get_form_field(char **field, size_t *field_size, const char *field_name, char *data, size_t data_size);
+void http_get_form_field(char **field, size_t *field_size, const char *field_name, const char *data, size_t data_size);
 void http_build_response(char *buffer, struct HTTP_RESPONSE *response);
-void http_check_method(struct HTTP_RESPONSE *response, char *method, size_t method_size);
-void http_check_route(struct HTTP_RESPONSE *response, char *route, size_t route_size);
+void http_check_method(struct HTTP_RESPONSE *response, const char *method, size_t method_size);
+void http_check_route(struct HTTP_RESPONSE *response, const char *route, size_t route_size, int mode);
 void http_check_content_type(struct HTTP_RESPONSE *response, struct phr_header *headers, size_t headers_count);
 void http_request_clear(struct HTTP_REQUEST *request);
 void http_response_clear(struct HTTP_RESPONSE *response);

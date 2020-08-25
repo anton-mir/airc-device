@@ -7,7 +7,7 @@
 #include "main.h"
 
 static const struct HTTP_ROUTE ALLOWED_ROUTES[] = {
-    { HTTP_GET, "settings", 1, HTML_SETTINGS, 20509, ESP_VOID_HANDLER },
+    { HTTP_GET, "settings", 1, HTML_SETTINGS, 20486, ESP_VOID_HANDLER },
     { HTTP_GET, "network", 1, NULL, 0, ESP_VOID_HANDLER },
     { HTTP_POST, "network", 1, NULL, 0, ESP_CONNECT_WIFI },
     { HTTP_GET, "networks", 1, NULL, 0, ESP_GET_WIFI_LIST }
@@ -25,7 +25,7 @@ static const struct HTTP_METHOD ALLOWED_METHODS[] = {
     { "POST", HTTP_POST }
 };
 
-void http_get_form_field(char **field, size_t *field_size, const char *field_name, char *data, size_t data_size)
+void http_get_form_field(char **field, size_t *field_size, const char *field_name, const char *data, size_t data_size)
 {
     char *delimeter, *pos;
     if ((pos = strstr(data, field_name)) != NULL)
@@ -112,7 +112,7 @@ void http_build_response(char *buffer, struct HTTP_RESPONSE *response)
     response->head_size += sprintf(buffer + response->head_size, "\r\n");
 }
 
-void http_check_method(struct HTTP_RESPONSE *http_response, char *method, size_t method_size)
+void http_check_method(struct HTTP_RESPONSE *http_response, const char *method, size_t method_size)
 {
     size_t methods_count = sizeof(ALLOWED_METHODS) / sizeof(ALLOWED_METHODS[0]);
     for (size_t method_i = 0; method_i < methods_count; method_i++)
@@ -127,7 +127,7 @@ void http_check_method(struct HTTP_RESPONSE *http_response, char *method, size_t
     http_response->http_method = HTTP_NOT_ALLOWED;
 }
 
-void http_check_route(struct HTTP_RESPONSE *http_response, char *route, size_t route_size)
+void http_check_route(struct HTTP_RESPONSE *http_response, const char *route, size_t route_size, int mode)
 {
     size_t routes_count = sizeof(ALLOWED_ROUTES) / sizeof(ALLOWED_ROUTES[0]);
     for (size_t route_i = 0; route_i < routes_count; route_i++)
@@ -137,7 +137,12 @@ void http_check_route(struct HTTP_RESPONSE *http_response, char *route, size_t r
         if (memcmp(route + 1, ALLOWED_ROUTES[route_i].name, route_length) == 0)
         {
             http_response->route_index = route_i;
-            if (http_response->http_method == ALLOWED_ROUTES[route_i].method) return;
+            if (http_response->http_method == ALLOWED_ROUTES[route_i].method)
+            {
+                if (ALLOWED_ROUTES[route_i].protect && !mode) http_response->availible = 0;
+                else http_response->availible = 1;
+                return;
+            }
             else continue;
         }
     }
@@ -188,5 +193,5 @@ void http_response_clear(struct HTTP_RESPONSE *http_response)
     http_response->http_method = HTTP_NOT_ALLOWED;
     http_response->route_index = -1;
     http_response->version = 0;
-    http_response->ready = 0;
+    http_response->availible = 0;
 }

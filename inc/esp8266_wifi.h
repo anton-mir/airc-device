@@ -25,6 +25,16 @@ typedef enum ESP8266_SERVER_HANDLERS
     ESP_CONNECT_WIFI
 } ESP8266_SERVER_HANDLER;
 
+typedef enum ESP8266_NOTIFICATIONS
+{
+    ESP_COMMAND_ERROR = 0xA0,
+    ESP_COMMAND_OK = 0xA1,
+    ESP_TCP_WAIT = 0xB0,
+    ESP_TCP_READY = 0xB1,
+    ESP_CONF_MODE_DISABLED = 0xC0,
+    ESP_CONF_MODE_ENABLED = 0xC1
+} ESP8266_NOTIFICATION;
+
 struct ESP8266
 {
     uint8_t initialized;
@@ -39,7 +49,7 @@ struct ESP8266_TCP_PACKET
 {
     size_t length;
     int id;
-    uint8_t *data;
+    char *data;
 };
 
 void esp_server_handler(ESP8266_SERVER_HANDLER handler);
