@@ -31,8 +31,7 @@ typedef enum ESP8266_NOTIFICATIONS
     ESP_COMMAND_OK = 0xA1,
     ESP_TCP_WAIT = 0xB0,
     ESP_TCP_READY = 0xB1,
-    ESP_CONF_MODE_DISABLED = 0xC0,
-    ESP_CONF_MODE_ENABLED = 0xC1
+    ESP_CONF_MODE= 0xC1
 } ESP8266_NOTIFICATION;
 
 struct ESP8266
@@ -56,6 +55,7 @@ void esp_server_handler(ESP8266_SERVER_HANDLER handler);
 
 void esp_rx_task(void * const arg);
 void wifi_task(void * const arg);
+void notify_wifi_task(uint32_t value);
 void ESP_InitPins(void);
 HAL_StatusTypeDef ESP_InitUART(void);
 HAL_StatusTypeDef ESP_InitDMA(void);

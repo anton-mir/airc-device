@@ -81,7 +81,6 @@ void Error_Handler(void);
 static void netif_setup();
 void init_task(void *arg);
 
-
 uint32_t rand_wrapper()
 {
     uint32_t random = 0;
@@ -89,8 +88,6 @@ uint32_t rand_wrapper()
 
     return random;
 }
-
-
 
 void init_task(void *arg)
 {
@@ -445,8 +442,6 @@ void Error_Handler(void)
 void EXTI0_IRQHandler(void){
     HAL_GPIO_EXTI_IRQHandler(BLUE_BUTTON_DISCOVERY);
 }
-
-
 
 void initLeds()
 {

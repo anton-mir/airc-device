@@ -5,12 +5,13 @@
 #include "esp8266_wifi.h"
 #include "http_helper.h"
 #include "picohttpparser.h"
+#include "wh1602.h"
 #include "main.h"
 
 static const TickType_t xBlockTime = pdMS_TO_TICKS(500); // Min time to wait task notification
 
 static struct ESP8266 esp_module = { 0 }; // ESP8266 init struct
-static int configure_mode = 1;
+static int configure_mode = 0;
 
 UART_HandleTypeDef esp_uart;
 DMA_HandleTypeDef esp_dma_rx;
@@ -25,8 +26,6 @@ static struct ESP8266_TCP_PACKET tcp_packet = { 0 };
 static struct phr_header http_headers[HTTP_MAX_HEADERS];
 static struct HTTP_REQUEST http_request = { 0 };
 static struct HTTP_RESPONSE http_response = { 0 };
-
-static void notify_wifi_task(uint32_t value);
 
 static void tcp_packet_clear(void);
 
@@ -60,7 +59,7 @@ void esp_rx_task(void * const arg)
 void wifi_task(void * const arg)
 {
     xEventGroupSetBits(eg_task_started, EG_WIFI_TSK_STARTED);
-    uint32_t status = ESP_TCP_WAIT;
+    uint32_t status = 0;
 
     for (;;)
     {
@@ -75,22 +74,15 @@ void wifi_task(void * const arg)
             http_response_clear(&http_response);
             tcp_packet_clear();
         }
-        else if (status == ESP_CONF_MODE_ENABLED)
+        else if (status == ESP_CONF_MODE)
         {
-            esp_drop_wifi();
-            configure_mode = 1;
-        }
-        else if (status == ESP_CONF_MODE_DISABLED)
-        {
-            configure_mode = 0;
+            if (configure_mode == 0)
+            {
+                esp_drop_wifi();
+                configure_mode = 1;
+            }
         }
     }
-}
-
-static void notify_wifi_task(uint32_t value)
-{
-    configASSERT(wifi_tsk_handle != NULL);
-    xTaskNotify(wifi_tsk_handle, value, eSetValueWithOverwrite);
 }
 
 static size_t get_uart_data_length(void)
@@ -392,11 +384,13 @@ static int esp_start(void)
     sprintf((char *)uart_buffer, "AT+CIPSERVER=1,%d\r\n", HTTP_SERVER_PORT);
     if (esp_send_data(uart_buffer, 17 + NUMBER_LENGTH(HTTP_SERVER_PORT)) == ESP_COMMAND_ERROR) return 0;
 
-    /* Temporary block of code need while button isn't connected */
-    esp_drop_wifi();
-    /* --- */
-
     return 1;
+}
+
+void notify_wifi_task(uint32_t value)
+{
+    configASSERT(wifi_tsk_handle != NULL);
+    xTaskNotify(wifi_tsk_handle, value, eSetValueWithOverwrite);
 }
 
 void ESP_InitPins(void)
