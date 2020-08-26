@@ -7,7 +7,7 @@
 #include "main.h"
 
 static const struct HTTP_ROUTE ALLOWED_ROUTES[] = {
-    { HTTP_GET, "settings", 1, HTML_SETTINGS, 20486, ESP_VOID_HANDLER },
+    { HTTP_GET, "settings", 1, HTML_SETTINGS, 20534, ESP_VOID_HANDLER },
     { HTTP_GET, "network", 1, NULL, 0, ESP_VOID_HANDLER },
     { HTTP_POST, "network", 1, NULL, 0, ESP_CONNECT_WIFI },
     { HTTP_GET, "networks", 1, NULL, 0, ESP_GET_WIFI_LIST }
