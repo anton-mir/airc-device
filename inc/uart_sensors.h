@@ -17,11 +17,9 @@ struct SPEC_values
 };
 
 struct SPEC_values* get_SO2(void);
-struct SPEC_values get_NO2(void);
-struct SPEC_values get_CO(void);
-struct SPEC_values get_O3(void);
-
-HAL_StatusTypeDef getSPEC_SO2();
+struct SPEC_values* get_NO2(void);
+struct SPEC_values* get_CO(void);
+struct SPEC_values* get_O3(void);
 
 
 #endif //AIRC_DEVICE_UART_SENSORS_H

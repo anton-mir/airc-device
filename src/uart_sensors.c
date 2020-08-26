@@ -26,18 +26,9 @@ uint8_t spec_wake = '\n';
 uint8_t spec_get_data = '\r';
 uint8_t spec_sleep = 's';
 
-volatile uint8_t rx;
 volatile char command[MAX_SPEC_BUF_LEN];
-volatile char SO2_data[100];
-volatile uint8_t* NO2_data;
-volatile uint8_t* CO_data;
-volatile uint8_t* O3_data;
-double SO2_val = 0;
-double NO2_val = 0;
-double CO_val = 0;
-double O3_val = 0;
 
-struct SPEC_values SPEC_SO2_values, SPEC_CO_values, SPEC_O3_values, SPEC_NO2_values;
+struct SPEC_values SPEC_SO2_values, SPEC_NO2_values, SPEC_CO_values, SPEC_O3_values;
 
 static void USART3_UART_Init(void)
 {
@@ -146,16 +137,16 @@ struct SPEC_values* get_SO2(void){
     return &SPEC_SO2_values;
 }
 
-struct SPEC_values get_NO2(void){
-    return SPEC_NO2_values;
+struct SPEC_values* get_NO2(void){
+    return &SPEC_NO2_values;
 }
 
-struct SPEC_values get_CO(void){
-    return SPEC_CO_values;
+struct SPEC_values* get_CO(void){
+    return &SPEC_CO_values;
 }
 
-struct SPEC_values get_O3(void){
-    return SPEC_O3_values;
+struct SPEC_values* get_O3(void){
+    return &SPEC_O3_values;
 }
 
 static HAL_StatusTypeDef reset_dma_rx()
@@ -179,11 +170,11 @@ void multiplexerSetState(uint8_t state)
 }
 
 
-HAL_StatusTypeDef getSPEC_SO2()
+HAL_StatusTypeDef getSPEC(uint8_t tx, uint8_t rx, struct SPEC_values *SPEC_gas_values)
 {
     HAL_StatusTypeDef return_value = HAL_OK;
 
-    activate_multiplexer_channel(MULTIPLEXER_CH2_SO2_TX);
+    activate_multiplexer_channel(tx);
     multiplexerSetState(1);
     if (HAL_UART_Transmit_IT(&huart3, &spec_wake, 1) != HAL_OK)
     {
@@ -203,7 +194,7 @@ HAL_StatusTypeDef getSPEC_SO2()
     }
     vTaskDelay((TickType_t)SPEC_RESPONSE_TIME/2);
 
-    activate_multiplexer_channel(MULTIPLEXER_CH3_SO2_RX);
+    activate_multiplexer_channel(rx);
 
     if (reset_dma_rx() != HAL_OK)
     {
@@ -214,19 +205,21 @@ HAL_StatusTypeDef getSPEC_SO2()
 
     if(ulTaskNotifyTake(pdTRUE, (TickType_t)SPEC_RESPONSE_TIME) >= MIN_SPEC_BUF_LEN)
     {
-        char* pToNextValue;
+        if(command[12] == ',' && command[13] == ' ') {
+            char *pToNextValue;
 
-        SPEC_SO2_values.specSN = strtoull(command, &pToNextValue, 10);
-        SPEC_SO2_values.specPPB = strtoul(pToNextValue+2, &pToNextValue, 10);
-        SPEC_SO2_values.specTemp = strtoul(pToNextValue+2, &pToNextValue, 10);
-        SPEC_SO2_values.specRH = strtoul(pToNextValue+2, &pToNextValue, 10);
-        pToNextValue = strstr(pToNextValue+2,", ");
-        pToNextValue = strstr(pToNextValue+2,", ");
-        pToNextValue = strstr(pToNextValue+2,", ");
-        SPEC_SO2_values.specDay = strtoul(pToNextValue+2, &pToNextValue, 10);
-        SPEC_SO2_values.specHour = strtoul(pToNextValue+2, &pToNextValue, 10);
-        SPEC_SO2_values.specMinute = strtoul(pToNextValue+2, &pToNextValue, 10);
-        SPEC_SO2_values.specSecond = strtoul(pToNextValue+2, NULL, 10);
+            SPEC_gas_values->specSN = strtoull(command, &pToNextValue, 10);
+            SPEC_gas_values->specPPB = strtoul(pToNextValue + 2, &pToNextValue, 10);
+            SPEC_gas_values->specTemp = strtoul(pToNextValue + 2, &pToNextValue, 10);
+            SPEC_gas_values->specRH = strtoul(pToNextValue + 2, &pToNextValue, 10);
+            pToNextValue = strstr(pToNextValue + 2, ", ");
+            pToNextValue = strstr(pToNextValue + 2, ", ");
+            pToNextValue = strstr(pToNextValue + 2, ", ");
+            SPEC_gas_values->specDay = strtoul(pToNextValue + 2, &pToNextValue, 10);
+            SPEC_gas_values->specHour = strtoul(pToNextValue + 2, &pToNextValue, 10);
+            SPEC_gas_values->specMinute = strtoul(pToNextValue + 2, &pToNextValue, 10);
+            SPEC_gas_values->specSecond = strtoul(pToNextValue + 2, NULL, 10);
+        }
 
         memset((void*)command, '\0', MAX_SPEC_BUF_LEN);
     }
@@ -234,7 +227,7 @@ HAL_StatusTypeDef getSPEC_SO2()
         return_value = HAL_ERROR;
     }
 
-    activate_multiplexer_channel(MULTIPLEXER_CH2_SO2_TX);
+    activate_multiplexer_channel(tx);
     if (HAL_UART_Transmit_IT(&huart3, &spec_sleep, 1) != HAL_OK)
     {
         return_value = HAL_ERROR;
@@ -257,8 +250,16 @@ void uart_sensors(void * const arg) {
 
     while (1) {
 
-        if (getSPEC_SO2() != HAL_OK)
-        {
+        if (getSPEC(MULTIPLEXER_CH2_SO2_TX, MULTIPLEXER_CH3_SO2_RX, &SPEC_SO2_values) != HAL_OK){
+            UART_sensors_error_handler();
+        }
+        if (getSPEC(MULTIPLEXER_CH4_NO2_TX, MULTIPLEXER_CH5_NO2_RX, &SPEC_NO2_values) != HAL_OK){
+            UART_sensors_error_handler();
+        }
+        if (getSPEC(MULTIPLEXER_CH6_CO_TX, MULTIPLEXER_CH7_CO_RX, &SPEC_CO_values) != HAL_OK){
+            UART_sensors_error_handler();
+        }
+        if (getSPEC(MULTIPLEXER_CH8_O3_TX, MULTIPLEXER_CH9_O3_RX, &SPEC_O3_values) != HAL_OK){
             UART_sensors_error_handler();
         }
 
