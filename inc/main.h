@@ -91,10 +91,12 @@ extern TaskHandle_t wifi_tsk_handle;
 extern TaskHandle_t eth_server_handle;
 extern TaskHandle_t eth_sender_handle;
 extern TaskHandle_t data_collector_handle;
+extern TaskHandle_t reed_switch_handle;
 extern TaskHandle_t uart_sensors_handle;
 
 extern EventGroupHandle_t eg_task_started;
 
+void initLeds();
 
 #endif /* __MAIN_H */
 

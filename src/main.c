@@ -57,7 +57,7 @@
 #include "eth_sender.h"
 #include "queue.h"
 #include "data_collector.h"
-
+#include "leds.h"
 
 
 TaskHandle_t init_handle = NULL;
@@ -69,6 +69,7 @@ TaskHandle_t analog_temp_handle = NULL;
 TaskHandle_t eth_server_handle = NULL;
 TaskHandle_t eth_sender_handle = NULL;
 TaskHandle_t data_collector_handle = NULL;
+TaskHandle_t reed_switch_handle = NULL;
 TaskHandle_t uart_sensors_handle = NULL;
 
 EventGroupHandle_t eg_task_started = NULL;
@@ -104,12 +105,13 @@ void init_task(void *arg)
     (void)HAL_RNG_Init(&rng_handle);
 
     (void)HAL_RNG_Init(&rng_handle);
-
+    
     eg_task_started = xEventGroupCreate();
     configASSERT(eg_task_started);
     
     xEventGroupSetBits(eg_task_started, EG_INIT_STARTED);
-
+    initBlueButtonAndReedSwitch();
+    initLeds();
 
     /* Initialize LCD */
     lcd_init();
@@ -186,7 +188,7 @@ void init_task(void *arg)
                 &wifi_tsk_handle);
 
     configASSERT(status);
-
+    
     /* Wait for all tasks initialization */
     xEventGroupWaitBits(
             eg_task_started,
@@ -232,6 +234,14 @@ void init_task(void *arg)
 
     configASSERT(status);
 
+    status = xTaskCreate(
+            reed_switch_task,
+            "reed_switch_task",
+            REED_SWITCH_STACK_SIZE,
+            NULL,
+            REED_SWITCH_PRIO,
+            &reed_switch_handle);
+    configASSERT(status);
 
 
     gpio.Mode = GPIO_MODE_OUTPUT_PP;
@@ -248,14 +258,39 @@ void init_task(void *arg)
     HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_SET);
 
     for (;;) {
+
+        uint16_t current_pin = choose_pin(current_mode);
+        static uint8_t leds_turned_off = 0;
+
         if (!netif_is_link_up(netif)) {
             lcd_clear();
             lcd_print_string_at("Link:", 0, 0);
             lcd_print_string_at("down", 0, 1);
         }
 
-        HAL_GPIO_TogglePin(GPIOD, GPIO_PIN_13);
-        vTaskDelay(500);
+        if (current_pin == OFF_LEDS)
+        {
+            if (!leds_turned_off) // Don't reset leds if they are already reset
+            {
+                HAL_GPIO_WritePin(GPIOD,RED_LED |GREEN_LED,GPIO_PIN_RESET);
+                HAL_GPIO_WritePin(GPIOB,BLUE_LED,GPIO_PIN_RESET);
+                leds_turned_off = 1;
+            }
+        }
+        else
+        {
+            leds_turned_off = 0;
+            TickType_t delay = (current_pin == RED_LED) ? 500u : 1500u;
+            if (current_pin == BLUE_LED)
+            {
+                HAL_GPIO_TogglePin(GPIOB,current_pin);
+            }
+            else
+            {
+                HAL_GPIO_TogglePin(GPIOD,current_pin);
+            }
+            vTaskDelay(delay);
+        }
     }
 }
 /* Private functions ---------------------------------------------------------*/
@@ -284,7 +319,6 @@ int main(void)
     configASSERT(status);
 
     vTaskStartScheduler();
-
     for (;;) { ; }
 }
 
@@ -367,9 +401,14 @@ static void SystemClock_Config(void)
   * @param  pin: Specifies the pins connected EXTI line
   * @retval None
   */
+
 void HAL_GPIO_EXTI_Callback(uint16_t pin)
 {
-    if (pin == RMII_PHY_INT_PIN)
+    if (pin == BLUE_BUTTON_DISCOVERY)
+    {
+        HAL_GPIO_TogglePin(GPIOD, RED_LED_DISCOVERY);
+    }
+    else if (pin == RMII_PHY_INT_PIN)
     {
         /* Get the IT status register value */
         ethernetif_phy_irq();
@@ -420,6 +459,30 @@ void Error_Handler(void)
     }
 }
 
+void EXTI0_IRQHandler(void){
+    HAL_GPIO_EXTI_IRQHandler(BLUE_BUTTON_DISCOVERY);
+}
 
+
+
+void initLeds()
+{
+    __HAL_RCC_GPIOD_CLK_ENABLE();
+    GPIO_InitTypeDef gpio;
+    gpio.Mode = GPIO_MODE_OUTPUT_PP;
+    gpio.Pull = GPIO_PULLUP;
+
+    gpio.Pin = RED_LED | GREEN_LED;
+    HAL_GPIO_Init(GPIOD, &gpio);
+    HAL_GPIO_WritePin(GPIOD,RED_LED |GREEN_LED,GPIO_PIN_RESET);
+
+    gpio.Pin = BLUE_LED;
+    HAL_GPIO_Init(GPIOB, &gpio);
+    HAL_GPIO_WritePin(GPIOB,BLUE_LED,GPIO_PIN_RESET);
+
+    gpio.Pin = RED_LED_DISCOVERY;
+    HAL_GPIO_Init(GPIOD, &gpio);
+    HAL_GPIO_WritePin(GPIOD,RED_LED_DISCOVERY,GPIO_PIN_RESET);
+}
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
