@@ -11,7 +11,7 @@ void WriteConfig(boxConfig cfg)
 
 boxConfig ReadConfig(void)
 {
-	boxConfig cfg_buffer={};
+	boxConfig boxConfig_S;
 	ReadDataArrayFromAddress(ADDRESS_CFG_START,&cfg_buffer,sizeof(boxConfig));
 	return cfg_buffer;
 }

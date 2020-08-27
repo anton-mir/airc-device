@@ -11,7 +11,7 @@ typedef struct boxConfig
   double longitude;
   double altitudeSet;
   uint8_t working_status;
-};
+}boxConfig_S;
 
 void WriteConfig(boxConfig cfg);
 boxConfig ReadConfig(void);

@@ -235,13 +235,13 @@ void init_task(void *arg)
             REED_SWITCH_PRIO,
             &reed_switch_handle);
     configASSERT(status);
-    boxConfig cfg_buffer={};
+    boxConfig_S cfg_buffer;
     cfg_buffer.id=1;
     cfg_buffer.type="test";
     cfg_buffer.description="test description";
-    cfg_buffer.latitude=50.5
-    cfg_buffer.longitude=50.5
-    cfg_buffer.altitudeSet=50.5
+    cfg_buffer.latitude=50.5;
+    cfg_buffer.longitude=50.5;
+    cfg_buffer.altitudeSet=50.5;
     cfg_buffer.working_status=1;
     WriteConfig(cfg_buffer);
     cfg_buffer=ReadConfig();
