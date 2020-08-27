@@ -244,7 +244,7 @@ void init_task(void *arg)
     cfg_buffer.altitudeSet=50.5
     cfg_buffer.working_status=1;
     WriteConfig(cfg_buffer);
-    ReadConfig(cfg_buffer);
+    cfg_buffer=ReadConfig();
 
     for(;;)
     {
