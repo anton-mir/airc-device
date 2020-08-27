@@ -1,7 +1,7 @@
 #include "flash_SST25VF016B.h"
 #include "config_board.h"
 
-void WriteConfig(boxConfig cfg)
+void WriteConfig(boxConfig_S cfg)
 {
 
 	ClearSector(ADDRESS_CFG_START);
@@ -9,9 +9,9 @@ void WriteConfig(boxConfig cfg)
 	return;
 }
 
-boxConfig ReadConfig(void)
+boxConfig_S ReadConfig(void)
 {
-	boxConfig boxConfig_S;
+    boxConfig_S cfg_buffer;
 	ReadDataArrayFromAddress(ADDRESS_CFG_START,&cfg_buffer,sizeof(boxConfig));
 	return cfg_buffer;
 }

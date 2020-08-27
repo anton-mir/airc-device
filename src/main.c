@@ -59,6 +59,7 @@
 #include "leds.h"
 #include "flash_SST25VF016B.h"
 #include "config_board.h"
+#include <string.h>
 
 
 TaskHandle_t init_handle = NULL;
@@ -237,8 +238,8 @@ void init_task(void *arg)
     configASSERT(status);
     boxConfig_S cfg_buffer;
     cfg_buffer.id=1;
-    cfg_buffer.type="test";
-    cfg_buffer.description="test description";
+    strcpy(cfg_buffer.type,"test");
+    strcpy(cfg_buffer.description,"test description");
     cfg_buffer.latitude=50.5;
     cfg_buffer.longitude=50.5;
     cfg_buffer.altitudeSet=50.5;
