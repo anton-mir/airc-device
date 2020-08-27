@@ -3,15 +3,14 @@
 
 void WriteConfig(boxConfig_S cfg)
 {
-
-	ClearSector(ADDRESS_CFG_START);
-	WriteDataArrayWithAAI(ADDRESS_CFG_START,&cfg,sizeof(boxConfig_S));
-	return;
+    WriteToStatusRegister(0);
+    ClearSector(ADDRESS_CFG_START);
+    WriteDataArrayWithAAI(ADDRESS_CFG_START,((uint8_t*)&cfg),sizeof(boxConfig_S));
+    return;
 }
 
-boxConfig_S ReadConfig(void)
+void ReadConfig(boxConfig_S* cfg)
 {
-    boxConfig_S cfg_buffer;
-	ReadDataArrayFromAddress(ADDRESS_CFG_START,&cfg_buffer,sizeof(boxConfig_S));
-	return cfg_buffer;
+    ReadDataArrayFromAddress(ADDRESS_CFG_START,(uint8_t*)cfg,sizeof(boxConfig_S));
+    return;
 }

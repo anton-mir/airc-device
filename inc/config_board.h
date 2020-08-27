@@ -4,16 +4,17 @@
 
 typedef struct boxConfig
 {
-  uint8_t id;
-  char type[20];
-  char description[500];
-  double latitude;
-  double longitude;
-  double altitudeSet;
-  uint8_t working_status;
+    uint8_t id;
+    char type[20];
+    char description[500];
+    double latitude;
+    double longitude;
+    double altitudeSet;
+    uint8_t working_status;
 }boxConfig_S;
 
+
 void WriteConfig(boxConfig_S cfg);
-boxConfig_S ReadConfig(void);
+void ReadConfig(boxConfig_S* cfg);
 
 #endif /* INC_CONFIG_BOARD_H_ */
