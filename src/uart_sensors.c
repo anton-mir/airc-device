@@ -42,7 +42,7 @@ static HAL_StatusTypeDef USART3_DMA_Init(void)
     huart3_dma_rx.Init.Direction = DMA_PERIPH_TO_MEMORY;
     huart3_dma_rx.Init.PeriphInc = DMA_PINC_DISABLE;
     huart3_dma_rx.Init.MemInc = DMA_MINC_ENABLE;
-    huart3_dma_rx.Init.Mode = DMA_CIRCULAR; //NORMAL?
+    huart3_dma_rx.Init.Mode = DMA_NORMAL;
     huart3_dma_rx.Init.Priority = DMA_PRIORITY_VERY_HIGH;
     huart3_dma_rx.Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE;
     huart3_dma_rx.Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
@@ -204,7 +204,7 @@ HAL_StatusTypeDef getSPEC(uint8_t tx, uint8_t rx, struct SPEC_values *SPEC_gas_v
     {
         char *pToNextValue;
 
-        SPEC_gas_values->specSN = strtoull(command, &pToNextValue, 10);
+        SPEC_gas_values->specSN = strtoull((const char*)command, &pToNextValue, 10);
 
         if (SPEC_gas_values->specSN == spec_sensor_sn) {
             SPEC_gas_values->specPPB = strtoul(pToNextValue + 2, &pToNextValue, 10);
