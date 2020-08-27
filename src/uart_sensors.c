@@ -25,6 +25,7 @@
 uint8_t spec_wake = '\n';
 uint8_t spec_get_data = '\r';
 uint8_t spec_sleep = 's';
+uint8_t spec_continuous = 'c';
 
 volatile char command[MAX_SPEC_BUF_LEN];
 
@@ -149,14 +150,6 @@ struct SPEC_values* get_O3(void){
     return &SPEC_O3_values;
 }
 
-static HAL_StatusTypeDef reset_dma_rx()
-{
-    if (HAL_UART_DMAStop(&huart3) == HAL_ERROR) return HAL_ERROR;
-    if (HAL_UART_Receive_DMA(&huart3, (unsigned char*)command, MAX_SPEC_BUF_LEN) == HAL_ERROR) return HAL_ERROR;
-
-    return HAL_OK;
-}
-
 void multiplexerSetState(uint8_t state)
 {
     if (state)
@@ -175,28 +168,26 @@ HAL_StatusTypeDef getSPEC(uint8_t tx, uint8_t rx, struct SPEC_values *SPEC_gas_v
     HAL_StatusTypeDef return_value = HAL_OK;
 
     activate_multiplexer_channel(tx);
-    multiplexerSetState(1);
+
+    multiplexerSetState(1); // Turn On multiplexer
+
     if (HAL_UART_Transmit_IT(&huart3, &spec_wake, 1) != HAL_OK)
     {
         return_value = HAL_ERROR;
     }
-    vTaskDelay((TickType_t)SPEC_RESPONSE_TIME/2);
+    vTaskDelay((TickType_t)SPEC_RESPONSE_TIME);
 
     if (HAL_UART_Transmit_IT(&huart3, &spec_get_data, 1) != HAL_OK)
     {
         return_value = HAL_ERROR;
     }
-    vTaskDelay((TickType_t)SPEC_RESPONSE_TIME/2);
-
-    if (HAL_UART_Transmit_IT(&huart3, &spec_get_data, 1) != HAL_OK)
-    {
-        return_value = HAL_ERROR;
-    }
-    vTaskDelay((TickType_t)SPEC_RESPONSE_TIME/2);
+    vTaskDelay((TickType_t)1);
 
     activate_multiplexer_channel(rx);
 
-    if (reset_dma_rx() != HAL_OK)
+    if (HAL_UART_DMAResume(&huart3) == HAL_ERROR) return HAL_ERROR;
+
+    if (HAL_UART_Receive_DMA(&huart3, (unsigned char*)command, MAX_SPEC_BUF_LEN) == HAL_ERROR)
     {
         return HAL_ERROR;
     }
@@ -205,7 +196,7 @@ HAL_StatusTypeDef getSPEC(uint8_t tx, uint8_t rx, struct SPEC_values *SPEC_gas_v
 
     if(ulTaskNotifyTake(pdTRUE, (TickType_t)SPEC_RESPONSE_TIME) >= MIN_SPEC_BUF_LEN)
     {
-        if(command[12] == ',' && command[13] == ' ') {
+        if(command[13] == ',' && command[14] == ' ') {
             char *pToNextValue;
 
             SPEC_gas_values->specSN = strtoull(command, &pToNextValue, 10);
@@ -220,18 +211,13 @@ HAL_StatusTypeDef getSPEC(uint8_t tx, uint8_t rx, struct SPEC_values *SPEC_gas_v
             SPEC_gas_values->specMinute = strtoul(pToNextValue + 2, &pToNextValue, 10);
             SPEC_gas_values->specSecond = strtoul(pToNextValue + 2, NULL, 10);
         }
-
-        memset((void*)command, '\0', MAX_SPEC_BUF_LEN);
     }
     else {
         return_value = HAL_ERROR;
     }
 
-    activate_multiplexer_channel(tx);
-    if (HAL_UART_Transmit_IT(&huart3, &spec_sleep, 1) != HAL_OK)
-    {
-        return_value = HAL_ERROR;
-    }
+    if (HAL_UART_DMAPause(&huart3) == HAL_ERROR) return HAL_ERROR;
+    memset((void*)command, '\0', MAX_SPEC_BUF_LEN);
     multiplexerSetState(0);
 
     return return_value;
@@ -253,9 +239,11 @@ void uart_sensors(void * const arg) {
         if (getSPEC(MULTIPLEXER_CH2_SO2_TX, MULTIPLEXER_CH3_SO2_RX, &SPEC_SO2_values) != HAL_OK){
             UART_sensors_error_handler();
         }
+
         if (getSPEC(MULTIPLEXER_CH4_NO2_TX, MULTIPLEXER_CH5_NO2_RX, &SPEC_NO2_values) != HAL_OK){
             UART_sensors_error_handler();
         }
+
         if (getSPEC(MULTIPLEXER_CH6_CO_TX, MULTIPLEXER_CH7_CO_RX, &SPEC_CO_values) != HAL_OK){
             UART_sensors_error_handler();
         }
