@@ -24,15 +24,14 @@ void data_collector(void *pvParameters)
     {
         packet.co=get_CO()->specPPB;
         packet.so2=get_SO2()->specPPB;
-        //packet.co2=;
-        //packet.hcho=;
-        //packet.humidity=;
         packet.no2=get_NO2()->specPPB;
         packet.o3=get_O3()->specPPB;
+        packet.temp=get_analog_temp();
+        //packet.hcho=;
+        //packet.humidity=;
         //packet.pm10=;
         //packet.pm2_5;
         //packet.pressure=;
-        packet.temp=get_analog_temp();
         //packet.tvoc=;
         //TODO: Do return value processing.
         xQueueSendToBack(QueueTransmitEthernet, &packet, xTicksToWait);

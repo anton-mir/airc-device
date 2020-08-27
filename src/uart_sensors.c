@@ -8,20 +8,6 @@
 #include "main.h"
 #include "string.h"
 
-#define  MAX_SPEC_BUF_LEN 70
-#define  MIN_SPEC_BUF_LEN 47
-
-#define MULTIPLEXER_CH2_SO2_TX 2
-#define MULTIPLEXER_CH3_SO2_RX 3
-#define MULTIPLEXER_CH4_NO2_TX 4
-#define MULTIPLEXER_CH5_NO2_RX 5
-#define MULTIPLEXER_CH6_CO_TX  6
-#define MULTIPLEXER_CH7_CO_RX  7
-#define MULTIPLEXER_CH8_O3_TX  8
-#define MULTIPLEXER_CH9_O3_RX  9
-
-#define SPEC_RESPONSE_TIME 1000
-
 uint8_t spec_wake = '\n';
 uint8_t spec_get_data = '\r';
 uint8_t spec_sleep = 's';
@@ -30,6 +16,11 @@ uint8_t spec_continuous = 'c';
 volatile char command[MAX_SPEC_BUF_LEN];
 
 struct SPEC_values SPEC_SO2_values, SPEC_NO2_values, SPEC_CO_values, SPEC_O3_values;
+
+const long long int SPEC_SO2_SN = 102219020326;
+const long long int SPEC_NO2_SN = 31120010317;
+const long long int SPEC_CO_SN = 60619020451;
+const long long int SPEC_O3_SN = 22620010208;
 
 static void USART3_UART_Init(void)
 {
@@ -51,7 +42,7 @@ static HAL_StatusTypeDef USART3_DMA_Init(void)
     huart3_dma_rx.Init.Direction = DMA_PERIPH_TO_MEMORY;
     huart3_dma_rx.Init.PeriphInc = DMA_PINC_DISABLE;
     huart3_dma_rx.Init.MemInc = DMA_MINC_ENABLE;
-    huart3_dma_rx.Init.Mode = DMA_NORMAL;
+    huart3_dma_rx.Init.Mode = DMA_CIRCULAR; //NORMAL?
     huart3_dma_rx.Init.Priority = DMA_PRIORITY_VERY_HIGH;
     huart3_dma_rx.Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE;
     huart3_dma_rx.Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
@@ -63,6 +54,7 @@ static HAL_StatusTypeDef USART3_DMA_Init(void)
     HAL_NVIC_SetPriority(DMA1_Stream1_IRQn, 5, 0U);
     HAL_NVIC_EnableIRQ(DMA1_Stream1_IRQn);
 
+    // Start DMA stream working
     if (HAL_UART_Receive_DMA(&huart3, (unsigned char*)command, MAX_SPEC_BUF_LEN) == HAL_ERROR) return HAL_ERROR;
 
     return HAL_OK;
@@ -127,11 +119,21 @@ static uint8_t chan_table[16][4] = {
         {1,  1,  1,  1}  // 15
 };
 
-static void activate_multiplexer_channel(uint8_t channel){
+static HAL_StatusTypeDef activate_multiplexer_channel(uint8_t channel){
+    HAL_StatusTypeDef return_value = HAL_OK;
+
     HAL_GPIO_WritePin(GPIOE, GPIO_PIN_6, chan_table[channel][0]);
     HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, chan_table[channel][1]);
     HAL_GPIO_WritePin(GPIOE, GPIO_PIN_5, chan_table[channel][2]);
     HAL_GPIO_WritePin(GPIOD, GPIO_PIN_6, chan_table[channel][3]);
+
+    // Start DMA receive data
+    if (HAL_UART_Receive_DMA(&huart3, (unsigned char*)command, MAX_SPEC_BUF_LEN) != HAL_OK)
+    {
+        return_value = HAL_ERROR;
+    }
+
+    return return_value;
 }
 
 struct SPEC_values* get_SO2(void){
@@ -162,8 +164,7 @@ void multiplexerSetState(uint8_t state)
     }
 }
 
-
-HAL_StatusTypeDef getSPEC(uint8_t tx, uint8_t rx, struct SPEC_values *SPEC_gas_values)
+HAL_StatusTypeDef getSPEC(uint8_t tx, uint8_t rx, struct SPEC_values *SPEC_gas_values, const long long int spec_sensor_sn)
 {
     HAL_StatusTypeDef return_value = HAL_OK;
 
@@ -183,23 +184,29 @@ HAL_StatusTypeDef getSPEC(uint8_t tx, uint8_t rx, struct SPEC_values *SPEC_gas_v
     }
     vTaskDelay((TickType_t)1);
 
-    activate_multiplexer_channel(rx);
-
-    if (HAL_UART_DMAResume(&huart3) == HAL_ERROR) return HAL_ERROR;
-
-    if (HAL_UART_Receive_DMA(&huart3, (unsigned char*)command, MAX_SPEC_BUF_LEN) == HAL_ERROR)
+    // Activate data receive mode and start DMA data gathering
+    if (activate_multiplexer_channel(rx) != HAL_OK)
     {
-        return HAL_ERROR;
+        return_value = HAL_ERROR;
     }
 
+    // Wait until add SPEC data will arraive (1 second timeout from SPEC sensor manual)
     vTaskDelay((TickType_t)SPEC_RESPONSE_TIME);
 
+    // Stop DMA data gathering
+    if (HAL_UART_DMAStop(&huart3) != HAL_OK)
+    {
+        return_value = HAL_ERROR;
+    }
+
+    // Check received data size
     if(ulTaskNotifyTake(pdTRUE, (TickType_t)SPEC_RESPONSE_TIME) >= MIN_SPEC_BUF_LEN)
     {
-        if(command[13] == ',' && command[14] == ' ') {
-            char *pToNextValue;
+        char *pToNextValue;
 
-            SPEC_gas_values->specSN = strtoull(command, &pToNextValue, 10);
+        SPEC_gas_values->specSN = strtoull(command, &pToNextValue, 10);
+
+        if (SPEC_gas_values->specSN == spec_sensor_sn) {
             SPEC_gas_values->specPPB = strtoul(pToNextValue + 2, &pToNextValue, 10);
             SPEC_gas_values->specTemp = strtoul(pToNextValue + 2, &pToNextValue, 10);
             SPEC_gas_values->specRH = strtoul(pToNextValue + 2, &pToNextValue, 10);
@@ -216,7 +223,6 @@ HAL_StatusTypeDef getSPEC(uint8_t tx, uint8_t rx, struct SPEC_values *SPEC_gas_v
         return_value = HAL_ERROR;
     }
 
-    if (HAL_UART_DMAPause(&huart3) == HAL_ERROR) return HAL_ERROR;
     memset((void*)command, '\0', MAX_SPEC_BUF_LEN);
     multiplexerSetState(0);
 
@@ -236,18 +242,18 @@ void uart_sensors(void * const arg) {
 
     while (1) {
 
-        if (getSPEC(MULTIPLEXER_CH2_SO2_TX, MULTIPLEXER_CH3_SO2_RX, &SPEC_SO2_values) != HAL_OK){
+        if (getSPEC(MULTIPLEXER_CH2_SO2_TX, MULTIPLEXER_CH3_SO2_RX, &SPEC_SO2_values, SPEC_SO2_SN) != HAL_OK){
             UART_sensors_error_handler();
         }
 
-        if (getSPEC(MULTIPLEXER_CH4_NO2_TX, MULTIPLEXER_CH5_NO2_RX, &SPEC_NO2_values) != HAL_OK){
+        if (getSPEC(MULTIPLEXER_CH4_NO2_TX, MULTIPLEXER_CH5_NO2_RX, &SPEC_NO2_values, SPEC_NO2_SN) != HAL_OK){
             UART_sensors_error_handler();
         }
 
-        if (getSPEC(MULTIPLEXER_CH6_CO_TX, MULTIPLEXER_CH7_CO_RX, &SPEC_CO_values) != HAL_OK){
+        if (getSPEC(MULTIPLEXER_CH6_CO_TX, MULTIPLEXER_CH7_CO_RX, &SPEC_CO_values, SPEC_CO_SN) != HAL_OK){
             UART_sensors_error_handler();
         }
-        if (getSPEC(MULTIPLEXER_CH8_O3_TX, MULTIPLEXER_CH9_O3_RX, &SPEC_O3_values) != HAL_OK){
+        if (getSPEC(MULTIPLEXER_CH8_O3_TX, MULTIPLEXER_CH9_O3_RX, &SPEC_O3_values, SPEC_O3_SN) != HAL_OK){
             UART_sensors_error_handler();
         }
 
