@@ -5,13 +5,13 @@ void WriteConfig(boxConfig_S cfg)
 {
 
 	ClearSector(ADDRESS_CFG_START);
-	WriteDataArrayWithAAI(ADDRESS_CFG_START,&cfg,sizeof(boxConfig));
+	WriteDataArrayWithAAI(ADDRESS_CFG_START,&cfg,sizeof(boxConfig_S));
 	return;
 }
 
 boxConfig_S ReadConfig(void)
 {
     boxConfig_S cfg_buffer;
-	ReadDataArrayFromAddress(ADDRESS_CFG_START,&cfg_buffer,sizeof(boxConfig));
+	ReadDataArrayFromAddress(ADDRESS_CFG_START,&cfg_buffer,sizeof(boxConfig_S));
 	return cfg_buffer;
 }

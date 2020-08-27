@@ -1,4 +1,5 @@
 #include "flash_SST25VF016B.h"
+#include "main.h"
 
 SPI_HandleTypeDef hspi1;
 
