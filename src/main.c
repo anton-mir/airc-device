@@ -124,7 +124,7 @@ void init_task(void *arg)
     ESP_InitDMA();
 
     //Init Flash_SPI
-    initFlash();
+    Flash_Init();
 
 
     /* Create TCP/IP stack thread */

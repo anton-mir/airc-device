@@ -3,7 +3,7 @@
 
 SPI_HandleTypeDef hspi1;
 
-void initFlash(void)
+void Flash_Init(void)
 {
     GPIO_InitTypeDef GPIO_InitStruct = {0};
 
