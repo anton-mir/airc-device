@@ -57,6 +57,8 @@
 #include "queue.h"
 #include "data_collector.h"
 #include "leds.h"
+#include "flash_SST25VF016B.h"
+#include "config_board.h"
 
 
 TaskHandle_t init_handle = NULL;
@@ -120,6 +122,10 @@ void init_task(void *arg)
     ESP_InitPins();
     ESP_InitUART();
     ESP_InitDMA();
+
+    //Init Flash_SPI
+    initFlash();
+
 
     /* Create TCP/IP stack thread */
     tcpip_init(NULL, NULL);
@@ -229,6 +235,16 @@ void init_task(void *arg)
             REED_SWITCH_PRIO,
             &reed_switch_handle);
     configASSERT(status);
+    boxConfig cfg_buffer={};
+    cfg_buffer.id=1;
+    cfg_buffer.type="test";
+    cfg_buffer.description="test description";
+    cfg_buffer.latitude=50.5
+    cfg_buffer.longitude=50.5
+    cfg_buffer.altitudeSet=50.5
+    cfg_buffer.working_status=1;
+    WriteConfig(cfg_buffer);
+    ReadConfig(cfg_buffer);
 
     for(;;)
     {
