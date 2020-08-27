@@ -59,6 +59,10 @@ extern volatile ETH_HandleTypeDef h_eth;
 extern UART_HandleTypeDef esp_uart;
 
 extern void ESP_UART_IRQHandler(UART_HandleTypeDef *huart);
+extern UART_HandleTypeDef huart3;
+extern DMA_HandleTypeDef huart3_dma_rx;
+
+extern void UART_SENSORS_IRQHandler(UART_HandleTypeDef *huart);
 /******************************************************************************/
 /*            Cortex-M4 Processor Exceptions Handlers                         */
 /******************************************************************************/
@@ -198,6 +202,17 @@ void USART6_IRQHandler(void)
 /*void PPP_IRQHandler(void)
 {
 }*/
+
+void USART3_IRQHandler(void)
+{
+    HAL_UART_IRQHandler((UART_HandleTypeDef *)&huart3);
+    UART_SENSORS_IRQHandler((UART_HandleTypeDef *)&huart3);
+}
+
+void DMA1_Stream1_IRQHandler(void)
+{
+    HAL_DMA_IRQHandler((DMA_HandleTypeDef *)&huart3_dma_rx);
+}
 
 
 /**

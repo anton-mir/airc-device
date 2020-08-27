@@ -42,6 +42,7 @@
 #include "lwip/tcpip.h"
 #include "netif/etharp.h"
 #include "ethernetif.h"
+#include "uart_sensors.h"
 #include "esp8266_wifi.h"
 #include "http_helper.h"
 #include "ksz8081rnd.h"
@@ -69,6 +70,7 @@ TaskHandle_t eth_server_handle = NULL;
 TaskHandle_t eth_sender_handle = NULL;
 TaskHandle_t data_collector_handle = NULL;
 TaskHandle_t reed_switch_handle = NULL;
+TaskHandle_t uart_sensors_handle = NULL;
 
 EventGroupHandle_t eg_task_started = NULL;
 
@@ -81,7 +83,6 @@ void Error_Handler(void);
 static void netif_setup();
 void init_task(void *arg);
 
-
 uint32_t rand_wrapper()
 {
     uint32_t random = 0;
@@ -90,10 +91,9 @@ uint32_t rand_wrapper()
     return random;
 }
 
-
-
 void init_task(void *arg)
 {
+    GPIO_InitTypeDef gpio;
     BaseType_t status;
     struct netif *netif = (struct netif *)arg;
 
@@ -101,6 +101,8 @@ void init_task(void *arg)
     __HAL_RCC_GPIOC_CLK_ENABLE();
     __HAL_RCC_USART6_CLK_ENABLE();
     __HAL_RCC_DMA2_CLK_ENABLE();
+
+    (void)HAL_RNG_Init(&rng_handle);
 
     (void)HAL_RNG_Init(&rng_handle);
     
@@ -158,6 +160,16 @@ void init_task(void *arg)
 
 
     status = xTaskCreate(
+            uart_sensors,
+            "uart_sensors",
+            UART_SENSORS_TASK_STACK_SIZE,
+            (void *)netif,
+            UART_SENSORS_TASK_PRIO,
+            &uart_sensors_handle);
+
+    configASSERT(status);
+
+    status = xTaskCreate(
             eth_server,
             "eth_server",
             ETH_SERVER_TASK_STACK_SIZE,
@@ -180,7 +192,9 @@ void init_task(void *arg)
     /* Wait for all tasks initialization */
     xEventGroupWaitBits(
             eg_task_started,
-            (EG_INIT_STARTED | EG_ETHERIF_IN_STARTED | EG_LINK_STATE_STARTED | 
+            (EG_INIT_STARTED | EG_ETHERIF_IN_STARTED | EG_LINK_STATE_STARTED |
+            EG_DHCP_FSM_STARTED | EG_UART_SENSORS_STARTED | EG_INIT_STARTED |
+            EG_ETHERIF_IN_STARTED | EG_LINK_STATE_STARTED |
                 EG_DHCP_FSM_STARTED | EG_WIFI_TSK_STARTED),
             pdFALSE,
             pdTRUE,
@@ -190,7 +204,6 @@ void init_task(void *arg)
         /* Start DHCP address request */
         ethernetif_dhcp_start();
     }
-
 
     status = xTaskCreate(
             analog_temp,
@@ -230,13 +243,26 @@ void init_task(void *arg)
             &reed_switch_handle);
     configASSERT(status);
 
-    for(;;)
-    {
+
+    gpio.Mode = GPIO_MODE_OUTPUT_PP;
+    gpio.Pull = GPIO_NOPULL;
+    gpio.Pin = GPIO_PIN_13;
+    HAL_GPIO_Init(GPIOD, &gpio);
+    HAL_GPIO_WritePin(GPIOD, GPIO_PIN_13, GPIO_PIN_SET);
+
+    // Multiplexer on/off pin - init to off state (pull-up)
+    gpio.Mode = GPIO_MODE_OUTPUT_PP;
+    gpio.Pull = GPIO_PULLUP;
+    gpio.Pin = GPIO_PIN_8;
+    HAL_GPIO_Init(GPIOA, &gpio);
+    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_SET);
+
+    for (;;) {
+
         uint16_t current_pin = choose_pin(current_mode);
         static uint8_t leds_turned_off = 0;
 
-        if (!netif_is_link_up(netif))
-        {
+        if (!netif_is_link_up(netif)) {
             lcd_clear();
             lcd_print_string_at("Link:", 0, 0);
             lcd_print_string_at("down", 0, 1);
@@ -281,6 +307,7 @@ int main(void)
 
     /* Configure the system clock to 168 MHz */
     SystemClock_Config();
+
     status = xTaskCreate(
                     init_task,
                     "init",
@@ -290,7 +317,7 @@ int main(void)
                     &init_handle);
 
     configASSERT(status);
-    
+
     vTaskStartScheduler();
     for (;;) { ; }
 }
