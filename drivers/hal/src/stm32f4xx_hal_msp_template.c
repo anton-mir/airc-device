@@ -17,7 +17,7 @@
   *                        opensource.org/licenses/BSD-3-Clause
   *
   ******************************************************************************
-  */ 
+  */
 
 /* Includes ------------------------------------------------------------------*/
 #include "stm32f4xx_hal.h"
@@ -66,7 +66,7 @@ void HAL_MspDeInit(void)
 
 /**
   * @brief  Initializes the PPP MSP.
-  * @note   This functiona is called from HAL_PPP_Init() function to perform 
+  * @note   This functiona is called from HAL_PPP_Init() function to perform
   *         peripheral(PPP) system level initialization (GPIOs, clock, DMA, interrupt)
   * @retval None
   */
@@ -77,7 +77,7 @@ void HAL_PPP_MspInit(void)
 
 /**
   * @brief  DeInitializes the PPP MSP.
-  * @note   This functiona is called from HAL_PPP_DeInit() function to perform 
+  * @note   This functiona is called from HAL_PPP_DeInit() function to perform
   *         peripheral(PPP) system level de-initialization (GPIOs, clock, DMA, interrupt)
   * @retval None
   */

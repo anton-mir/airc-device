@@ -34,5 +34,8 @@
 #define REED_SWITCH_PRIO            (tskIDLE_PRIORITY + 1)
 #define REED_SWITCH_STACK_SIZE      (configMINIMAL_STACK_SIZE * 2)
 
+#define UART_SENSORS_TASK_PRIO         (tskIDLE_PRIORITY + 1)
+#define UART_SENSORS_TASK_STACK_SIZE   (configMINIMAL_STACK_SIZE * 2)
+
 #endif /* TASKS_DEF_H */
 

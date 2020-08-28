@@ -34,6 +34,7 @@ set(LOCAL_SRCS
     "${CMAKE_CURRENT_SOURCE_DIR}/FreeRTOS-Kernel/timers.c"
     "${CMAKE_CURRENT_SOURCE_DIR}/FreeRTOS-Kernel/portable/GCC/ARM_CM4F/port.c"
     "${CMAKE_CURRENT_SOURCE_DIR}/FreeRTOS-Kernel/portable/MemMang/heap_4.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/FreeRTOS-openocd.c"
 )
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR} "../inc")
