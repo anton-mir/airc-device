@@ -27,7 +27,7 @@ static void USART3_UART_Init(void)
     huart3.Instance = USART3;
     huart3.Init.BaudRate = 9600;
     huart3.Init.WordLength = UART_WORDLENGTH_8B;
-    huart3.Init.StopBits = UART_STOPBITS_1;
+    huart3.Init.StopBits = UART_STOPBITS_2;
     huart3.Init.Parity = UART_PARITY_NONE;
     huart3.Init.Mode = UART_MODE_TX_RX;
     huart3.Init.HwFlowCtl = UART_HWCONTROL_NONE;
@@ -159,6 +159,8 @@ HAL_StatusTypeDef getSPEC(uint8_t tx, uint8_t rx, struct SPEC_values *SPEC_gas_v
 {
     HAL_StatusTypeDef return_value = HAL_OK;
 
+    HAL_HalfDuplex_EnableTransmitter(&huart3);
+
     activate_multiplexer_channel(tx);
 
     multiplexerSetState(1); // Turn On multiplexer
@@ -174,6 +176,8 @@ HAL_StatusTypeDef getSPEC(uint8_t tx, uint8_t rx, struct SPEC_values *SPEC_gas_v
         return_value = HAL_ERROR;
     }
     vTaskDelay((TickType_t)1);
+
+    HAL_HalfDuplex_EnableReceiver(&huart3);
 
     // Activate data receive mode and start DMA data gathering
     if (activate_multiplexer_channel(rx) != HAL_OK)
