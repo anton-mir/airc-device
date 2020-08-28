@@ -54,9 +54,6 @@ static HAL_StatusTypeDef USART3_DMA_Init(void)
     HAL_NVIC_SetPriority(DMA1_Stream1_IRQn, 5, 0U);
     HAL_NVIC_EnableIRQ(DMA1_Stream1_IRQn);
 
-    // Start DMA stream working
-    if (HAL_UART_Receive_DMA(&huart3, (unsigned char*)command, MAX_SPEC_BUF_LEN) == HAL_ERROR) return HAL_ERROR;
-
     return HAL_OK;
 }
 
@@ -127,12 +124,6 @@ static HAL_StatusTypeDef activate_multiplexer_channel(uint8_t channel){
     HAL_GPIO_WritePin(GPIOE, GPIO_PIN_5, chan_table[channel][2]);
     HAL_GPIO_WritePin(GPIOD, GPIO_PIN_6, chan_table[channel][3]);
 
-    // Start DMA receive data
-    if (HAL_UART_Receive_DMA(&huart3, (unsigned char*)command, MAX_SPEC_BUF_LEN) != HAL_OK)
-    {
-        return_value = HAL_ERROR;
-    }
-
     return return_value;
 }
 
@@ -190,14 +181,12 @@ HAL_StatusTypeDef getSPEC(uint8_t tx, uint8_t rx, struct SPEC_values *SPEC_gas_v
         return_value = HAL_ERROR;
     }
 
-    // Wait until add SPEC data will arraive (1 second timeout from SPEC sensor manual)
-    vTaskDelay((TickType_t)SPEC_RESPONSE_TIME);
-
-    // Stop DMA data gathering
-    if (HAL_UART_DMAStop(&huart3) != HAL_OK)
+    if (HAL_UART_Receive_DMA(&huart3, (unsigned char*)command, MAX_SPEC_BUF_LEN) != HAL_OK)
     {
         return_value = HAL_ERROR;
     }
+
+    vTaskDelay((TickType_t)SPEC_RESPONSE_TIME);
 
     // Check received data size
     if(ulTaskNotifyTake(pdTRUE, (TickType_t)SPEC_RESPONSE_TIME) >= MIN_SPEC_BUF_LEN)
@@ -220,6 +209,11 @@ HAL_StatusTypeDef getSPEC(uint8_t tx, uint8_t rx, struct SPEC_values *SPEC_gas_v
         }
     }
     else {
+        return_value = HAL_ERROR;
+    }
+
+    if (HAL_UART_DMAStop(&huart3) != HAL_OK)
+    {
         return_value = HAL_ERROR;
     }
 
