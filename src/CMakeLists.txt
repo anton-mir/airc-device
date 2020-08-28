@@ -6,6 +6,18 @@ project(airc_dev.elf NONE)
 set(LOCAL_SRCS "")
 set(LOCAL_HDRS "")
 
+set(HDRS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../inc")
+
+option(FLASH_ENABLED "Flash Enabled" ON)
+if(FLASH_ENABLED)
+  set(FLASH_START_PAGE 7)
+  set(FLASH_MAX_PAGE 11)
+  set(FLASH_PAGE_SIZE 0x20000)
+  set(FLASH_START_POS 0x08040000)
+  set(FLASH_END_POS 0x080E0000)
+endif()
+configure_file(${HDRS_DIR}/stm_flash_defs.h.in ${HDRS_DIR}/stm_flash_defs.h @ONLY)
+
 add_definitions(-DHSE_VALUE=8000000U)
 add_definitions(-DUSE_HAL_DRIVER)
 add_definitions(-DDEBUG)
@@ -39,12 +51,13 @@ set(LOCAL_SRCS
     "syscalls.c"
     "sysmem.c"
     "${CMAKE_CURRENT_SOURCE_DIR}/arch/sys_arch.c"
-	  "lm335z.c"
+	"lm335z.c"
     "main.c"
-	  "eth_server.c"
-	  "eth_sender.c"
-	  "data_collector.c"
+	"eth_server.c"
+	"eth_sender.c"
+	"data_collector.c"
     "leds.c"
+    "stm_flash.c"
     )
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR} "../drivers/CMSIS/core/inc")

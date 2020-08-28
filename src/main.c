@@ -244,9 +244,9 @@ void init_task(void *arg)
 
         if (!netif_is_link_up(netif))
         {
-            lcd_clear();
-            lcd_print_string_at("Link:", 0, 0);
-            lcd_print_string_at("down", 0, 1);
+            //lcd_clear();
+            //lcd_print_string_at("Link:", 0, 0);
+            //lcd_print_string_at("down", 0, 1);
         }
 
         if (current_pin == OFF_LEDS)

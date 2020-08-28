@@ -4,8 +4,9 @@
 #include "stm32f4xx_hal.h"
 
 #define ESP_UART_DELAY                 1000
-#define ESP_UART_BUFFER_SIZE           1472
+#define ESP_UART_BUFFER_SIZE           2920
 #define ESP_MAX_TCP_SIZE               2048
+#define ESP_MAX_TCP_CONN               5
 #define ESP_INT_PRIO                   9
 
 #define NUMBER_LENGTH(number) ((size_t)floor(log10(number) + 1))
@@ -29,7 +30,6 @@ typedef enum ESP8266_NOTIFICATIONS
 {
     ESP_COMMAND_ERROR = 0xA0,
     ESP_COMMAND_OK = 0xA1,
-    ESP_TCP_WAIT = 0xB0,
     ESP_TCP_READY = 0xB1,
     ESP_CONF_MODE= 0xC1
 } ESP8266_NOTIFICATION;
@@ -42,6 +42,13 @@ struct ESP8266
     char *ap_ssid, *ap_pass;
     uint8_t ap_chl;
     ESP8266_AP_ENC ap_enc;
+};
+
+struct ESP8266_TCP
+{
+    size_t length;
+    int open;
+    char buffer[ESP_MAX_TCP_SIZE];
 };
 
 struct ESP8266_TCP_PACKET
