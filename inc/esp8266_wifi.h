@@ -2,9 +2,12 @@
 #define ESP8266_WIFI_H
 
 #include "stm32f4xx_hal.h"
+#include "FreeRTOS.h"
+#include "FreeRTOSConfig.h"
+#include "task.h"
 
 #define ESP_UART_DELAY                 1000
-#define ESP_UART_BUFFER_SIZE           2920
+#define ESP_UART_BUFFER_SIZE           1472
 #define ESP_MAX_TCP_SIZE               2048
 #define ESP_MAX_TCP_CONN               5
 #define ESP_INT_PRIO                   9
@@ -26,12 +29,17 @@ typedef enum ESP8266_SERVER_HANDLERS
     ESP_CONNECT_WIFI
 } ESP8266_SERVER_HANDLER;
 
+typedef enum ESP8266_TCP_STATUSES
+{
+    ESP_TCP_CLOSED,
+    ESP_TCP_OPENED,
+    ESP_TCP_READED
+} ESP8266_TCP_STATUS;
+
 typedef enum ESP8266_NOTIFICATIONS
 {
-    ESP_COMMAND_ERROR = 0xA0,
-    ESP_COMMAND_OK = 0xA1,
-    ESP_TCP_READY = 0xB1,
-    ESP_CONF_MODE= 0xC1
+    ESP_COMMAND_OK,
+    ESP_SEND_OK
 } ESP8266_NOTIFICATION;
 
 struct ESP8266
@@ -44,25 +52,17 @@ struct ESP8266
     ESP8266_AP_ENC ap_enc;
 };
 
-struct ESP8266_TCP
-{
-    size_t length;
-    int open;
-    char buffer[ESP_MAX_TCP_SIZE];
-};
-
 struct ESP8266_TCP_PACKET
 {
+    int status, id;
     size_t length;
-    int id;
-    char *data;
+    char data[ESP_MAX_TCP_SIZE];
 };
 
 void esp_server_handler(ESP8266_SERVER_HANDLER handler);
 
 void esp_rx_task(void * const arg);
 void wifi_task(void * const arg);
-void notify_wifi_task(uint32_t value);
 void ESP_InitPins(void);
 HAL_StatusTypeDef ESP_InitUART(void);
 HAL_StatusTypeDef ESP_InitDMA(void);

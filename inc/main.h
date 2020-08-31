@@ -74,7 +74,9 @@
 #define ETH_SENDER_STARTED          (0x40)
 #define EG_DATA_COLLECTOR_STARTED   (0x80)
 #define EG_WIFI_TSK_STARTED         (0x100)
-#define EG_ESP_TX_TSK_STARTED       (0x200)
+#define EG_UART_SENSORS_STARTED     (0x200)
+#define EG_ESP_RX_TSK_STARTED       (0x400)
+
 
 /* Exported types ------------------------------------------------------------*/
 /* Exported constants --------------------------------------------------------*/
@@ -92,7 +94,7 @@ extern TaskHandle_t eth_server_handle;
 extern TaskHandle_t eth_sender_handle;
 extern TaskHandle_t data_collector_handle;
 extern TaskHandle_t reed_switch_handle;
-
+extern TaskHandle_t uart_sensors_handle;
 
 extern EventGroupHandle_t eg_task_started;
 

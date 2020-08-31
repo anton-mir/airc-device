@@ -71,7 +71,7 @@ struct HTTP_RESPONSE
     HTTP_METHOD http_method;
     HTTP_STATUS http_status;
     HTTP_CONTENT_TYPE http_content_type;
-    int version, route_index, availible;
+    int version, route_index, availible, ready;
 };
 
 void http_build_routes(void);

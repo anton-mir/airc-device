@@ -51,7 +51,7 @@ void http_build_response(char *buffer, struct HTTP_RESPONSE *response)
     switch (response->http_status)
     {
     case HTTP_200:
-        response->head_size += sprintf(buffer + response->head_size, (HTTP_200_TEXT "\r\n"));
+        response->head_size += sprintf(buffer + response->head_size, (HTTP_200_TEXT "\n"));
         if (ALLOWED_ROUTES[response->route_index].data != NULL)
         {
             response->message = ALLOWED_ROUTES[response->route_index].data;
@@ -60,28 +60,28 @@ void http_build_response(char *buffer, struct HTTP_RESPONSE *response)
         esp_server_handler(ALLOWED_ROUTES[response->route_index].handler);
         break;
     case HTTP_401:
-        response->head_size += sprintf(buffer + response->head_size, (HTTP_401_TEXT "\r\n"));
+        response->head_size += sprintf(buffer + response->head_size, (HTTP_401_TEXT "\n"));
         response->message = HTTP_401_TEXT;
         response->message_size = sizeof(HTTP_401_TEXT) - 1;
         break;
     case HTTP_404:
-        response->head_size += sprintf(buffer + response->head_size, (HTTP_404_TEXT "\r\n"));
+        response->head_size += sprintf(buffer + response->head_size, (HTTP_404_TEXT "\n"));
         response->message = HTTP_404_TEXT;
         response->message_size = sizeof(HTTP_404_TEXT) - 1;
         break;
     case HTTP_405:
-        response->head_size += sprintf(buffer + response->head_size, (HTTP_405_TEXT "\r\n"));
+        response->head_size += sprintf(buffer + response->head_size, (HTTP_405_TEXT "\n"));
         response->message = HTTP_405_TEXT;
         response->message_size = sizeof(HTTP_405_TEXT) - 1;
         break;
     case HTTP_415:
-        response->head_size += sprintf(buffer + response->head_size, (HTTP_415_TEXT "\r\n"));
+        response->head_size += sprintf(buffer + response->head_size, (HTTP_415_TEXT "\n"));
         response->message = HTTP_415_TEXT;
         response->message_size = sizeof(HTTP_415_TEXT) - 1;
         break;
     
     default:
-        response->head_size += sprintf(buffer + response->head_size, (HTTP_500_TEXT "\r\n"));
+        response->head_size += sprintf(buffer + response->head_size, (HTTP_500_TEXT "\n"));
         response->message = HTTP_500_TEXT;
         response->message_size = sizeof(HTTP_500_TEXT) - 1;
         break;
@@ -91,25 +91,25 @@ void http_build_response(char *buffer, struct HTTP_RESPONSE *response)
     switch (response->http_content_type)
     {
     case HTTP_HTML:
-        response->head_size += sprintf(buffer + response->head_size, ("Content-Type: " HTTP_HTML_TYPE_TEXT "\r\n"));
+        response->head_size += sprintf(buffer + response->head_size, ("Content-Type: " HTTP_HTML_TYPE_TEXT "\n"));
         break;
     case HTTP_CSS:
-        response->head_size += sprintf(buffer + response->head_size, ("Content-Type: " HTTP_CSS_TYPE_TEXT "\r\n"));
+        response->head_size += sprintf(buffer + response->head_size, ("Content-Type: " HTTP_CSS_TYPE_TEXT "\n"));
         break;
     case HTTP_JS:
-        response->head_size += sprintf(buffer + response->head_size, ("Content-Type: " HTTP_JS_TYPE_TEXT "\r\n"));
+        response->head_size += sprintf(buffer + response->head_size, ("Content-Type: " HTTP_JS_TYPE_TEXT "\n"));
         break;
     
     default:
-        response->head_size += sprintf(buffer + response->head_size, ("Content-Type: " HTTP_TEXT_TYPE_TEXT "\r\n"));
+        response->head_size += sprintf(buffer + response->head_size, ("Content-Type: " HTTP_TEXT_TYPE_TEXT "\n"));
         break;
     }
 
     // Build Content-Length header
-    response->head_size += sprintf(buffer + response->head_size, "Content-Length: %u\r\n", response->message_size);
+    response->head_size += sprintf(buffer + response->head_size, "Content-Length: %u\n", response->message_size);
     
     // End HTTP head
-    response->head_size += sprintf(buffer + response->head_size, "\r\n");
+    response->head_size += sprintf(buffer + response->head_size, "\n");
 }
 
 void http_check_method(struct HTTP_RESPONSE *http_response, const char *method, size_t method_size)
@@ -194,4 +194,5 @@ void http_response_clear(struct HTTP_RESPONSE *http_response)
     http_response->route_index = -1;
     http_response->version = 0;
     http_response->availible = 0;
+    http_response->ready = 0;
 }
