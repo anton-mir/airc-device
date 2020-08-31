@@ -6,8 +6,6 @@
 #include "task.h"
 #include "wh1602.h"
 
-#define I2CXC I2C1
-
 struct co2_tvoc co2_tvoc_t;
 
 I2C_HandleTypeDef  hi2cxc;
@@ -18,58 +16,72 @@ uint8_t mosetting=0;
 uint8_t dtvalue =0;	 
 uint8_t  Mode_CCS811=1;
 
-/**
- * @brief  Init_I2C_CCS811.
- * @param  NONE.
- * @retval None.
- */	
+static void MX_GPIO_Init(void)
+{
+
+  __HAL_RCC_GPIOH_CLK_ENABLE();
+  __HAL_RCC_GPIOB_CLK_ENABLE();
+
+}
+
+void HAL_I2C_MspInit(I2C_HandleTypeDef* hi2c)
+{
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
+  if(hi2c->Instance==I2C1)
+  {
+    __HAL_RCC_GPIOB_CLK_ENABLE();
+
+    /**I2C1 GPIO Configuration
+    PB6     ------> I2C1_SCL
+    PB9     ------> I2C1_SDA
+    */
+    GPIO_InitStruct.Pin = GPIO_PIN_6|GPIO_PIN_9;
+    GPIO_InitStruct.Mode = GPIO_MODE_AF_OD;
+    GPIO_InitStruct.Pull = GPIO_PULLUP;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+    GPIO_InitStruct.Alternate = GPIO_AF4_I2C1;
+    HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+    __HAL_RCC_I2C1_CLK_ENABLE();
+  }
+
+}
+
+void HAL_MspInit(void)
+{
+  __HAL_RCC_SYSCFG_CLK_ENABLE();
+  __HAL_RCC_PWR_CLK_ENABLE();
+}
+
 void Init_I2C_CCS811(void)
 {
-	 // Turn on clocking of the necessary modules
-        RCC_APB1PeriphClockCmd(RCC_APB1Periph_I2C1, ENABLE);
-        RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOB, ENABLE);
-
-        hi2cxc.Instance = I2CXC;
-        hi2cxc.Init.ClockSpeed = 100000;
-        hi2cxc.Init.OwnAddress1 = 0x5A; 
-        hi2cxc.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
-        hi2cxc.Init.DualAddressMode = I2C_DUALADDRESS_DISABLED;
-        hi2cxc.Init.OwnAddress2 = 0;
-        hi2cxc.Init.GeneralCallMode = I2C_GENERALCALL_DISABLED;
-        hi2cxc.Init.NoStretchMode = I2C_NOSTRETCH_DISABLED;
-
-
-        // Configure GPIO connection
-        gpio.GPIO_Pin = GPIO_Pin_6 | GPIO_Pin_9; // SCL/SDA
-        gpio.GPIO_Mode = GPIO_Mode_AF;
-        gpio.GPIO_Speed = GPIO_Speed_50MHz;
-        gpio.GPIO_OType = GPIO_OType_OD;
-        gpio.GPIO_PuPd = GPIO_PuPd_UP;
-        GPIO_Init(GPIOB, &gpio);
-
-        GPIO_PinAFConfig(GPIOB, GPIO_PinSource6, GPIO_AF_I2C1);
-        GPIO_PinAFConfig(GPIOB, GPIO_PinSource9, GPIO_AF_I2C1);
-        I2C_Cmd(I2C1, ENABLE);
-
+	hi2cxc.Instance = I2C1;
+	hi2cxc.Init.ClockSpeed = 100000;
+	hi2cxc.Init.OwnAddress1 = 0; 
+	hi2cxc.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
+	hi2cxc.Init.DualAddressMode = I2C_DUALADDRESS_DISABLED;
+	hi2cxc.Init.OwnAddress2 = 0;
+	hi2cxc.Init.GeneralCallMode = I2C_GENERALCALL_DISABLED;
+	hi2cxc.Init.NoStretchMode = I2C_NOSTRETCH_DISABLED;
 
 	if (HAL_I2C_Init(&hi2cxc) != HAL_OK)
 	{
 		lcd_print_string("Error: TODO");
 		while(1);
 	}
-/*
+#if 0
 	if (HAL_I2CEx_ConfigAnalogFilter(&hi2cxc, I2C_ANALOGFILTER_ENABLE) != HAL_OK)
 	{
 		lcd_print_string("Error: TODO");
 		while(1); 
 	}
-
 	if (HAL_I2CEx_ConfigDigitalFilter(&hi2cxc, 0) != HAL_OK)
 	{
 		lcd_print_string("Error: TODO");
 		while(1); 
 	}
-	*/
+#endif
+
 }	
 
 /*
@@ -108,7 +120,6 @@ void configureCCS811()
 	uint8_t hwID = readRegister(0x20); //Hardware ID should be 0x81
 	if (hwID != 0x81)
 	{
-		//Serial.println("CCS811 not found. Please check wiring.");
 		lcd_print_string("Error: TODO");
 		while (1); //Freeze!
 	}
@@ -128,13 +139,6 @@ void configureCCS811()
 		while (1); //Freeze!
 	}
 	//Set Drive Mode
-
-	//Check for errors
-	if (checkForError() == 1)
-	{
-		lcd_print_string("Error: TODO");
-		while (1); //Freeze!
-	}
 }
 
 //Checks to see if error bit is set
@@ -248,9 +252,9 @@ void sleep()
 uint8_t readRegister(uint8_t addr)
 {
 	uint8_t dt;
+	HAL_StatusTypeDef res;
 
-	HAL_I2C_Mem_Read( &hi2cxc, CCS811_ADDR, ( uint8_t )addr,1, &dt, 1,
-			300 );
+	res = HAL_I2C_Mem_Read( &hi2cxc, CCS811_ADDR, ( uint8_t )addr,1, &dt, 1, 300 );
 	while (HAL_I2C_GetState(&hi2cxc) != HAL_I2C_STATE_READY);
 
 
@@ -284,6 +288,7 @@ struct co2_tvoc get_co2_tvoc(void)
 
 void i2c_ccs811sensor(void *pvParameters) 
 {
+	MX_GPIO_Init();
 	Init_I2C_CCS811();
 	configureCCS811();
 
