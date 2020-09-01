@@ -51,7 +51,7 @@ struct HTTP_ROUTE
 {
     HTTP_METHOD method;
     const char *name;
-    int protect;
+    ESP8266_SERVER_PAGE_ACCESS access;
     char *data;
     size_t data_size;
     ESP8266_SERVER_HANDLER handler;
@@ -79,7 +79,7 @@ void http_build_routes(void);
 void http_get_form_field(char **field, size_t *field_size, const char *field_name, const char *data, size_t data_size);
 void http_build_response(char *buffer, struct HTTP_RESPONSE *response);
 void http_check_method(struct HTTP_RESPONSE *response, const char *method, size_t method_size);
-void http_check_route(struct HTTP_RESPONSE *response, const char *route, size_t route_size, int mode);
+void http_check_route(struct phr_header *headers, size_t headers_count, struct HTTP_RESPONSE *response, const char *route, size_t route_size, int mode);
 void http_check_content_type(struct HTTP_RESPONSE *response, struct phr_header *headers, size_t headers_count);
 void http_request_clear(struct HTTP_REQUEST *request);
 void http_response_clear(struct HTTP_RESPONSE *response);

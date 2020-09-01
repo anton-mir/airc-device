@@ -11,6 +11,7 @@
 #define ESP_MAX_TCP_SIZE               2048
 #define ESP_MAX_TCP_CONN               5
 #define ESP_INT_PRIO                   9
+#define ESP_SERVER_HOST                "192.168.4.1"
 
 #define NUMBER_LENGTH(number) ((size_t)floor(log10(number) + 1))
 
@@ -26,20 +27,30 @@ typedef enum ESP8266_SERVER_HANDLERS
 {
     ESP_VOID_HANDLER,
     ESP_GET_WIFI_LIST,
-    ESP_CONNECT_WIFI
+    ESP_CONNECT_WIFI,
+    ESP_WIFI_MODE,
+    ESP_CONF_MODE,
+    ESP_GET_DEVICE_CONF
 } ESP8266_SERVER_HANDLER;
+
+typedef enum ESP8266_SERVER_PAGE_ACCESSES
+{
+    ESP_PAGE_OPEN,
+    ESP_PAGE_HOST_REQUIRED,
+    ESP_PAGE_PIN_REQUIRED,
+    ESP_PAGE_PIN_HOST_REQUIRED
+} ESP8266_SERVER_PAGE_ACCESS;
 
 typedef enum ESP8266_TCP_STATUSES
 {
     ESP_TCP_CLOSED,
-    ESP_TCP_OPENED,
-    ESP_TCP_READED
+    ESP_TCP_OPENED
 } ESP8266_TCP_STATUS;
 
 typedef enum ESP8266_NOTIFICATIONS
 {
-    ESP_COMMAND_OK,
-    ESP_SEND_OK
+    ESP_ERROR,
+    ESP_OK
 } ESP8266_NOTIFICATION;
 
 struct ESP8266
@@ -54,9 +65,10 @@ struct ESP8266
 
 struct ESP8266_TCP_PACKET
 {
-    int status, id;
+    ESP8266_TCP_STATUS status;
+    int id;
     size_t length;
-    char data[ESP_MAX_TCP_SIZE];
+    char *data;
 };
 
 void esp_server_handler(ESP8266_SERVER_HANDLER handler);

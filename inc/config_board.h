@@ -15,6 +15,8 @@ typedef struct boxConfig
     unsigned long long int NO2_specSN;
     unsigned long long int CO_specSN;
     unsigned long long int O3_specSN;
+    char wifi_ssid[32];
+    char wifi_pass[64];
 }boxConfig_S;
 
 

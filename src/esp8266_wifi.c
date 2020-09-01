@@ -4,10 +4,11 @@
 #include "math.h"
 #include "esp8266_wifi.h"
 #include "http_helper.h"
+#include "config_board.h"
 #include "picohttpparser.h"
 #include "main.h"
 
-#include "wh1602.h"
+static boxConfig_S device_config = { 0 };
 
 static struct ESP8266 esp_module = { 0 }; // ESP8266 init struct
 volatile int esp_server_mode = 0;
@@ -20,12 +21,17 @@ static size_t uart_data_size = 0;
 static uint8_t uart_buffer[ESP_UART_BUFFER_SIZE];
 
 static struct ESP8266_TCP_PACKET tcp_packet = { 0 };
+static char tcp_buffer[ESP_MAX_TCP_SIZE];
+static char http_buffer[ESP_MAX_TCP_SIZE];
 
 static struct phr_header http_headers[HTTP_MAX_HEADERS];
+static struct HTTP_REQUEST http_request = { 0 };
+static struct HTTP_RESPONSE http_response = { 0 };
 
 static size_t get_uart_data_length();
 static void reset_dma_rx();
 
+static int esp_tcp_send(uint8_t id, size_t size, char *data);
 static uint32_t esp_send_data(uint8_t *data, size_t data_size);
 static uint32_t esp_start(void);
 
@@ -44,25 +50,33 @@ void esp_rx_task(void * const arg)
 
         if (strstr((char *)uart_buffer, "\r\nOK\r\n") != NULL)
         {
-            xTaskNotify(wifi_tsk_handle, ESP_COMMAND_OK, eSetValueWithOverwrite);
+            xTaskNotify(wifi_tsk_handle, ESP_OK, eSetValueWithOverwrite);
+        }
+        else if (strstr((char *)uart_buffer, "\r\nERROR\r\n") != NULL)
+        {
+            xTaskNotify(wifi_tsk_handle, ESP_ERROR, eSetValueWithOverwrite);
+        }
+        else if (strstr((char *)uart_buffer, "\r\nFAIL\r\n") != NULL)
+        {
+            xTaskNotify(wifi_tsk_handle, ESP_ERROR, eSetValueWithOverwrite);
         }
         else if (strstr((char *)uart_buffer, "\r\nSEND OK\r\n") != NULL)
         {
-            xTaskNotify(wifi_tsk_handle, ESP_SEND_OK, eSetValueWithOverwrite);
+            xTaskNotify(wifi_tsk_handle, ESP_OK, eSetValueWithOverwrite);
+        }
+        else if (strstr((char *)uart_buffer, "\r\nSEND FAIL\r\n") != NULL)
+        {
+            xTaskNotify(wifi_tsk_handle, ESP_ERROR, eSetValueWithOverwrite);
         }
         else if ((pos = strstr((char *)uart_buffer, "+IPD,")) != NULL)
         {
-            char str[16];
-            memcpy(str, pos, 16);
-            lcd_clear();
-            lcd_print_string(str);
-            if (tcp_packet.status == 0)
+            if (tcp_packet.status == ESP_TCP_CLOSED)
             {
                 int res = sscanf(pos, "+IPD,%d,%d:", &tcp_packet.id, &tcp_packet.length);
                 if (res == 2)
                 {
-                    memcpy(tcp_packet.data, pos + 9 + NUMBER_LENGTH(tcp_packet.length), tcp_packet.length);
-                    tcp_packet.status = 1; 
+                    memcpy(tcp_buffer, pos + 8 + NUMBER_LENGTH(tcp_packet.length), tcp_packet.length);
+                    tcp_packet.status = ESP_TCP_OPENED; 
                 }
             }
         }
@@ -77,22 +91,242 @@ void wifi_task(void * const arg)
     
     for (;;)
     {
-        if (tcp_packet.status == 1)
+        if (tcp_packet.status == ESP_TCP_OPENED && tcp_packet.length > 0)
         {
-            sprintf((char *)uart_buffer, "AT+CIPSEND=%d,5\r\n", tcp_packet.id);
-            esp_send_data(uart_buffer, 16);
-            tcp_packet.status = 2;
+            http_request.headers_count = HTTP_MAX_HEADERS;
+            int http_res = phr_parse_request(
+                tcp_buffer, tcp_packet.length, 
+                &http_request.method, &http_request.method_size, 
+                &http_request.route, &http_request.route_size, &http_request.version, 
+                http_headers, &http_request.headers_count
+            );
+            if (http_res < 0)
+            {
+                http_response.http_content_type = HTTP_HTML;
+                http_response.http_status = HTTP_500;
+            }
+            else
+            {
+                if ((http_request.body = strstr(tcp_buffer, "\r\n\r\n")) != NULL)
+                {
+                    http_request.body += 4;
+                    http_request.body_size = tcp_packet.length - ((intptr_t)http_request.body - (intptr_t)tcp_buffer);
+                }
+                http_check_content_type(&http_response, http_headers, http_request.headers_count);
+                if (http_response.http_content_type != HTTP_NOT_ALLOWED)
+                {
+                    http_check_method(&http_response, http_request.method, http_request.method_size);
+                    if (http_response.http_method != HTTP_NOT_ALLOWED)
+                    {
+                        http_check_route(http_headers, http_request.headers_count, &http_response, http_request.route, http_request.route_size, esp_server_mode);
+                        if (http_response.route_index < 0) http_response.http_status = HTTP_404;
+                        else if (!http_response.availible) http_response.http_status = HTTP_401;
+                        else http_response.http_status = HTTP_200;
+                    }
+                    else http_response.http_status = HTTP_405;
+                }
+                else
+                {
+                    http_response.http_content_type = HTTP_HTML;
+                    http_response.http_status = HTTP_415;
+                }
+            }
+
+            http_build_response(tcp_buffer, &http_response);
+
+            if (http_response.head_size > 0)
+            {
+                tcp_packet.length = http_response.head_size;
+
+                if (esp_tcp_send(tcp_packet.id, tcp_packet.length, tcp_buffer) >= 0)
+                {
+                    if (http_response.message_size > 0)
+                    {
+                        tcp_packet.length = http_response.message_size;
+                        if (http_response.message == NULL)
+                            tcp_packet.data = tcp_buffer + http_response.head_size;
+                        else
+                            tcp_packet.data = http_response.message;
+
+                        esp_tcp_send(tcp_packet.id, tcp_packet.length, tcp_packet.data);
+                    }
+                }
+            }
+            sprintf((char *)uart_buffer, "AT+CIPCLOSE=%d\r\n", tcp_packet.id);
+            esp_send_data(uart_buffer, 15);
+            tcp_packet.status = ESP_TCP_CLOSED;
         }
         vTaskDelay(500);
     }
 }
 
+void esp_server_handler(ESP8266_SERVER_HANDLER handler)
+{
+    switch (handler)
+    {
+    case ESP_GET_WIFI_LIST:
+        memcpy((char *)uart_buffer, "AT+CWLAP\r\n", 10);
+        if (esp_send_data(uart_buffer, 10) == ESP_OK)
+        {
+            http_response.message_size = uart_data_size - 6;
+            http_response.message = http_buffer;
+            memcpy(http_response.message, uart_buffer, http_response.message_size);
+        }
+        else
+        {
+            http_response.message = "ERROR";
+            http_response.message_size = 5;
+        }
+        break;
+    case ESP_GET_DEVICE_CONF:
+        http_response.message = "OK";
+        http_response.message_size = 2;
+        break;
+    case ESP_CONNECT_WIFI:
+        if (http_request.body_size > 0)
+        {
+            http_get_form_field(&esp_module.sta_ssid, &esp_module.sta_ssid_size, "ssid=", http_request.body, http_request.body_size);
+            http_get_form_field(&esp_module.sta_pass, &esp_module.sta_pass_size, "pass=", http_request.body, http_request.body_size);
+            
+            sprintf((char *)uart_buffer, "AT+CWJAP_DEF=\"%.*s\",\"%.*s\"\r\n", (int)esp_module.sta_ssid_size, esp_module.sta_ssid, (int)esp_module.sta_pass_size, esp_module.sta_pass);
+            if (esp_send_data(uart_buffer, 20 + esp_module.sta_ssid_size + esp_module.sta_pass_size) == ESP_OK)
+            {
+                http_response.message = "OK";
+                http_response.message_size = 2;
+            }
+            else
+            {
+                http_response.message = "ERROR";
+                http_response.message_size = 5;
+            }
+        }
+        else
+        {
+            http_response.message = "ERROR";
+            http_response.message_size = 5;
+        }
+        break;
+    case ESP_WIFI_MODE:
+        if (http_request.body_size > 0)
+        {
+            char *mode;
+            size_t mode_size;
+            http_get_form_field(&mode, &mode_size, "mode=", http_request.body, http_request.body_size);
+
+            if (memcmp(mode, "on", mode_size) == 0)
+            {
+                
+                http_response.message = "OK";
+                http_response.message_size = 2;
+            }
+            else if (memcmp(mode, "off", mode_size) == 0)
+            {
+                memcpy(uart_buffer, (uint8_t *)"AT+CWQAP\r\n", 10);
+                if (esp_send_data(uart_buffer, 10) == ESP_OK)
+                {
+                    http_response.message = "OK";
+                    http_response.message_size = 2;
+                }
+                else
+                {
+                    http_response.message = "ERROR";
+                    http_response.message_size = 5;
+                }
+            }
+            else
+            {
+                http_response.message = "ERROR";
+                http_response.message_size = 5;
+            }
+        }
+        else
+        {
+            http_response.message = "ERROR";
+            http_response.message_size = 5;
+        }
+        break;
+    case ESP_CONF_MODE:
+        if (http_request.body_size > 0)
+        {
+            char *mode;
+            size_t mode_size;
+            http_get_form_field(&mode, &mode_size, "mode=", http_request.body, http_request.body_size);
+
+            if (memcmp(mode, "on", mode_size) == 0)
+            {
+                esp_server_mode = 1;
+                http_response.message = "OK";
+                http_response.message_size = 2;
+            }
+            else if (memcmp(mode, "off", mode_size) == 0)
+            {
+                esp_server_mode = 0;
+                http_response.message = "OK";
+                http_response.message_size = 2;
+            }
+            else
+            {
+                http_response.message = "ERROR";
+                http_response.message_size = 5;
+            }
+        }
+        else
+        {
+            http_response.message = "ERROR";
+            http_response.message_size = 5;
+        }
+        break;
+    
+    default:
+        break;
+    }
+}
+
+static int esp_tcp_send(uint8_t id, size_t size, char *data)
+{
+    if (size <= ESP_MAX_TCP_SIZE)
+    {
+        sprintf((char *)uart_buffer, "AT+CIPSEND=%d,%d\r\n", id, size);
+        if (esp_send_data(uart_buffer, 15 + NUMBER_LENGTH(size)) == ESP_OK);
+        else return -1;
+
+        if (esp_send_data((uint8_t *)data, size) == ESP_OK);
+        else return -1;
+    }
+    else
+    {
+        size_t packets_count = size / ESP_MAX_TCP_SIZE;
+        for (uint16_t i = 0; i < packets_count; i++)
+        {
+            sprintf((char *)uart_buffer, "AT+CIPSEND=%d,%d\r\n", id, ESP_MAX_TCP_SIZE);
+            if (esp_send_data(uart_buffer, 15 + NUMBER_LENGTH(ESP_MAX_TCP_SIZE)) == ESP_OK);
+            else return -1;
+
+            if (esp_send_data((uint8_t *)(data+(i*ESP_MAX_TCP_SIZE)), ESP_MAX_TCP_SIZE) == ESP_OK);
+            else return -1;
+        }
+        if ((packets_count * ESP_MAX_TCP_SIZE) < size)
+        {
+            size_t tail = size - (packets_count * ESP_MAX_TCP_SIZE);
+            sprintf((char *)uart_buffer, "AT+CIPSEND=%d,%d\r\n", id, tail);
+            if (esp_send_data(uart_buffer, 15 + NUMBER_LENGTH(tail)) == ESP_OK);
+            else return -1;
+
+            if (esp_send_data((uint8_t *)(data+(packets_count * ESP_MAX_TCP_SIZE)), tail) == ESP_OK);
+            else return -1;
+        }
+    }
+    
+    return size;
+}
+
 static uint32_t esp_send_data(uint8_t *data, size_t data_size)
 {
+    uint32_t status = ESP_ERROR;
     HAL_UART_Transmit(&esp_uart, data, data_size, ESP_UART_DELAY);
 
     xTaskNotifyStateClear(wifi_tsk_handle);
-    uint32_t status = ulTaskNotifyTake(pdFALSE, portMAX_DELAY);
+    status = ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
     
     return status;
 }
@@ -104,46 +338,46 @@ static uint32_t esp_start(void)
     esp_module.ap_chl = 1;
     esp_module.ap_enc = WPA2_PSK;
 
+    //ReadConfig(&device_config);
+
     // Disable AT commands echo
     memcpy(uart_buffer, (uint8_t *)"ATE0\r\n", 6);
-    if (esp_send_data(uart_buffer, 6) == ESP_COMMAND_OK);
-    else return 0;
-
-    // Configure command for getting list of AP's
-    memcpy(uart_buffer, (uint8_t *)"AT+CWLAPOPT=0,15\r\n", 18);
-    if (esp_send_data(uart_buffer, 18) == ESP_COMMAND_OK);
+    if (esp_send_data(uart_buffer, 6) == ESP_OK);
     else return 0;
 
     // Set soft AP + station mode
     memcpy(uart_buffer, (uint8_t *)"AT+CWMODE_DEF=3\r\n", 17);
-    if (esp_send_data(uart_buffer, 17) == ESP_COMMAND_OK);
+    if (esp_send_data(uart_buffer, 17) == ESP_OK);
     else return 0;
 
     // Set auto connect to saved wifi network
     memcpy(uart_buffer, (uint8_t *)"AT+CWAUTOCONN=1\r\n", 17);
-    if (esp_send_data(uart_buffer, 17) == ESP_COMMAND_OK);
+    if (esp_send_data(uart_buffer, 17) == ESP_OK);
     else return 0;
 
+    memcpy(uart_buffer, (uint8_t *)"AT+CWJAP_DEF?\r\n", 15);
+    if (esp_send_data(uart_buffer, 15) == ESP_OK);
+
     // Set IP for soft AP
-    memcpy(uart_buffer, (uint8_t *)"AT+CIPAP_DEF=\"192.168.4.1\"\r\n", 28);
-    if (esp_send_data(uart_buffer, 28) == ESP_COMMAND_OK);
+    memcpy(uart_buffer, (uint8_t *)("AT+CIPAP_DEF=\"" ESP_SERVER_HOST "\"\r\n"), 17 + strlen(ESP_SERVER_HOST));
+    if (esp_send_data(uart_buffer, 17 + strlen(ESP_SERVER_HOST)) == ESP_OK);
     else return 0;
 
     // Configure soft AP
-    sprintf((char *)uart_buffer, "AT+CWSAP_DEF=\"%s\",\"%s\",%d,%d,5,1\r\n", 
+    sprintf((char *)uart_buffer, "AT+CWSAP_DEF=\"%s\",\"%s\",%d,%d\r\n", 
         esp_module.ap_ssid, esp_module.ap_pass, 
         esp_module.ap_chl, esp_module.ap_enc);
-    if (esp_send_data(uart_buffer, 28 + strlen(esp_module.ap_ssid) + strlen(esp_module.ap_pass)) == ESP_COMMAND_OK);
+    if (esp_send_data(uart_buffer, 24 + strlen(esp_module.ap_ssid) + strlen(esp_module.ap_pass)) == ESP_OK);
     else return 0;
 
     // Allow multiple TCP connections
     memcpy(uart_buffer, "AT+CIPMUX=1\r\n", 13);
-    if (esp_send_data(uart_buffer, 13) == ESP_COMMAND_OK);
+    if (esp_send_data(uart_buffer, 13) == ESP_OK);
     else return 0;
 
     // Start server
     sprintf((char *)uart_buffer, "AT+CIPSERVER=1,%d\r\n", HTTP_SERVER_PORT);
-    if (esp_send_data(uart_buffer, 17 + NUMBER_LENGTH(HTTP_SERVER_PORT)) == ESP_COMMAND_OK);
+    if (esp_send_data(uart_buffer, 17 + NUMBER_LENGTH(HTTP_SERVER_PORT)) == ESP_OK);
     else return 0;
 
     return 1;

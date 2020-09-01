@@ -7,10 +7,13 @@
 #include "main.h"
 
 static const struct HTTP_ROUTE ALLOWED_ROUTES[] = {
-    { HTTP_GET, "settings", 1, HTML_SETTINGS, 20534, ESP_VOID_HANDLER },
-    { HTTP_GET, "network", 1, NULL, 0, ESP_VOID_HANDLER },
-    { HTTP_POST, "network", 1, NULL, 0, ESP_CONNECT_WIFI },
-    { HTTP_GET, "networks", 1, NULL, 0, ESP_GET_WIFI_LIST }
+    { HTTP_GET, "settings", ESP_PAGE_PIN_HOST_REQUIRED, HTML_SETTINGS, 31188, ESP_VOID_HANDLER },
+    { HTTP_GET, "network", ESP_PAGE_PIN_HOST_REQUIRED, NULL, 0, ESP_VOID_HANDLER },
+    { HTTP_POST, "network", ESP_PAGE_PIN_HOST_REQUIRED, NULL, 0, ESP_CONNECT_WIFI },
+    { HTTP_GET, "networks", ESP_PAGE_PIN_HOST_REQUIRED, NULL, 0, ESP_GET_WIFI_LIST },
+    { HTTP_POST, "wifi-mode", ESP_PAGE_PIN_HOST_REQUIRED, NULL, 0, ESP_WIFI_MODE },
+    { HTTP_POST, "conf-mode", ESP_PAGE_HOST_REQUIRED, NULL, 0, ESP_CONF_MODE },
+    { HTTP_GET, "device-conf", ESP_PAGE_PIN_HOST_REQUIRED, NULL, 0, ESP_GET_DEVICE_CONF }
 };
 
 static const struct HTTP_CONTENT_TYPE ALLOWED_CONTENT_TYPES[] = {
@@ -24,6 +27,8 @@ static const struct HTTP_METHOD ALLOWED_METHODS[] = {
     { "GET", HTTP_GET },
     { "POST", HTTP_POST }
 };
+
+static int find_header(struct phr_header *headers, size_t headers_count, const char *header_name, const char *header_value);
 
 void http_get_form_field(char **field, size_t *field_size, const char *field_name, const char *data, size_t data_size)
 {
@@ -127,7 +132,7 @@ void http_check_method(struct HTTP_RESPONSE *http_response, const char *method, 
     http_response->http_method = HTTP_NOT_ALLOWED;
 }
 
-void http_check_route(struct HTTP_RESPONSE *http_response, const char *route, size_t route_size, int mode)
+void http_check_route(struct phr_header *headers, size_t headers_count, struct HTTP_RESPONSE *http_response, const char *route, size_t route_size, int mode)
 {
     size_t routes_count = sizeof(ALLOWED_ROUTES) / sizeof(ALLOWED_ROUTES[0]);
     for (size_t route_i = 0; route_i < routes_count; route_i++)
@@ -139,8 +144,28 @@ void http_check_route(struct HTTP_RESPONSE *http_response, const char *route, si
             http_response->route_index = route_i;
             if (http_response->http_method == ALLOWED_ROUTES[route_i].method)
             {
-                if (ALLOWED_ROUTES[route_i].protect && !mode) http_response->availible = 0;
-                else http_response->availible = 1;
+                switch (ALLOWED_ROUTES[route_i].access)
+                {
+                case ESP_PAGE_PIN_REQUIRED:
+                    if (mode == 1) http_response->availible = 1;
+                    else http_response->availible = 0;
+                    break;
+                case ESP_PAGE_HOST_REQUIRED:
+                    if (find_header(headers, headers_count, "Host", ESP_SERVER_HOST) >= 0) http_response->availible = 1;
+                    else http_response->availible = 0;
+                    break;
+                case ESP_PAGE_PIN_HOST_REQUIRED:
+                    if (mode == 1 && find_header(headers, headers_count, "Host", ESP_SERVER_HOST) >= 0) http_response->availible = 1;
+                    else http_response->availible = 0;
+                    break;
+                case ESP_PAGE_OPEN:
+                    http_response->availible = 1;
+                    break;
+                
+                default:
+                    http_response->availible = 0;
+                    break;
+                }
                 return;
             }
             else continue;
@@ -152,23 +177,28 @@ void http_check_route(struct HTTP_RESPONSE *http_response, const char *route, si
 void http_check_content_type(struct HTTP_RESPONSE *http_response, struct phr_header *headers, size_t headers_count)
 {
     size_t types_count = sizeof(ALLOWED_CONTENT_TYPES) / sizeof(ALLOWED_CONTENT_TYPES[0]);
-    for (size_t header_i = 0; header_i < headers_count; header_i++)
+    for (size_t type_i = 0; type_i < types_count; type_i++)
     {
-        if (memcmp(headers[header_i].name, "Accept", headers[header_i].name_len) == 0)
+        if (find_header(headers, headers_count, "Accept", ALLOWED_CONTENT_TYPES[type_i].name) >= 0)
         {
-            for (size_t type_i = 0; type_i < types_count; type_i++)
-            {
-                if (strstr(headers[header_i].value, ALLOWED_CONTENT_TYPES[type_i].name) != NULL)
-                {
-                    http_response->http_content_type = ALLOWED_CONTENT_TYPES[type_i].content_type;
-                    return;
-                }
-            }
-            break;
+            http_response->http_content_type = ALLOWED_CONTENT_TYPES[type_i].content_type;
+            return;
         }
     }
 
     http_response->http_content_type = HTTP_NOT_ALLOWED;
+}
+
+static int find_header(struct phr_header *headers, size_t headers_count, const char *header_name, const char *header_value)
+{
+    for (size_t header_i = 0; header_i < headers_count; header_i++)
+    {
+        if (memcmp(headers[header_i].name, header_name, headers[header_i].name_len) == 0)
+        {
+            if (strstr(headers[header_i].value, header_value) != NULL) return header_i;
+            else return -1;
+        }
+    }
 }
 
 void http_request_clear(struct HTTP_REQUEST *http_request)

@@ -6,18 +6,6 @@ project(airc_dev.elf NONE)
 set(LOCAL_SRCS "")
 set(LOCAL_HDRS "")
 
-set(HDRS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../inc")
-
-option(FLASH_ENABLED "Flash Enabled" ON)
-if(FLASH_ENABLED)
-  set(FLASH_START_PAGE 7)
-  set(FLASH_MAX_PAGE 11)
-  set(FLASH_PAGE_SIZE 0x20000)
-  set(FLASH_START_POS 0x08040000)
-  set(FLASH_END_POS 0x080E0000)
-endif()
-configure_file(${HDRS_DIR}/stm_flash_defs.h.in ${HDRS_DIR}/stm_flash_defs.h @ONLY)
-
 add_definitions(-DHSE_VALUE=8000000U)
 add_definitions(-DUSE_HAL_DRIVER)
 add_definitions(-DDEBUG)
@@ -58,7 +46,6 @@ set(LOCAL_SRCS
 	"eth_sender.c"
 	"data_collector.c"
     "leds.c"
-    "stm_flash.c"
 	"config_board.c"
 	"flash_SST25VF016B.c"
 	"${HAL_DIR}/src/stm32f4xx_hal_spi.c"
