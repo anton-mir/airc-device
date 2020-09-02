@@ -13,6 +13,8 @@ uint8_t spec_get_data = '\r';
 uint8_t spec_sleep = 's';
 uint8_t spec_continuous = 'c';
 
+volatile TickType_t prevtime;
+
 volatile char command[MAX_SPEC_BUF_LEN];
 
 struct SPEC_values SPEC_SO2_values, SPEC_NO2_values, SPEC_CO_values, SPEC_O3_values;
@@ -27,7 +29,7 @@ static void USART3_UART_Init(void)
     huart3.Instance = USART3;
     huart3.Init.BaudRate = 9600;
     huart3.Init.WordLength = UART_WORDLENGTH_8B;
-    huart3.Init.StopBits = UART_STOPBITS_2;
+    huart3.Init.StopBits = UART_STOPBITS_1;
     huart3.Init.Parity = UART_PARITY_NONE;
     huart3.Init.Mode = UART_MODE_TX_RX;
     huart3.Init.HwFlowCtl = UART_HWCONTROL_NONE;
@@ -190,8 +192,6 @@ HAL_StatusTypeDef getSPEC(uint8_t tx, uint8_t rx, struct SPEC_values *SPEC_gas_v
         return_value = HAL_ERROR;
     }
 
-    vTaskDelay((TickType_t)SPEC_RESPONSE_TIME);
-
     // Check received data size
     if(ulTaskNotifyTake(pdTRUE, (TickType_t)SPEC_RESPONSE_TIME) >= MIN_SPEC_BUF_LEN)
     {
@@ -308,12 +308,16 @@ void UART_SENSORS_IRQHandler(UART_HandleTypeDef *huart)
         {
             __HAL_UART_CLEAR_IDLEFLAG(huart);
 
-            BaseType_t uart_rx_task_woken = pdFALSE;
+            if(xTaskGetTickCountFromISR() - prevtime >= (TickType_t)SPEC_NOTIFY_DELAY) {
 
-            uint8_t data_len = MAX_SPEC_BUF_LEN - __HAL_DMA_GET_COUNTER(huart3.hdmarx);
-            xTaskNotifyAndQueryFromISR(uart_sensors_handle, data_len,
-                                       eSetValueWithOverwrite, NULL, &uart_rx_task_woken);
-            portYIELD_FROM_ISR(uart_rx_task_woken);
+                BaseType_t uart_rx_task_woken = pdFALSE;
+
+                uint8_t data_len = MAX_SPEC_BUF_LEN - __HAL_DMA_GET_COUNTER(huart3.hdmarx);
+                xTaskNotifyAndQueryFromISR(uart_sensors_handle, data_len,
+                                           eSetValueWithOverwrite, NULL, &uart_rx_task_woken);
+                portYIELD_FROM_ISR(uart_rx_task_woken);
+            }
+            prevtime = xTaskGetTickCountFromISR();
         }
     }
 }
