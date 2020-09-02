@@ -8,4 +8,4 @@ tags
 *.swo
 build_local.sh
 .idea/
-cmake-build-debug/
+cmake-build-*/

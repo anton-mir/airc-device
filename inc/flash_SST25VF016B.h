@@ -3,7 +3,7 @@
 
 #include "stm32f4xx_hal.h"
 
-void initFlash(void);
+void Flash_Init(void);
 
 void SendByte(uint8_t);
 uint8_t ReceiveByte(void);

@@ -11,6 +11,10 @@ typedef struct boxConfig
     double longitude;
     double altitudeSet;
     uint8_t working_status;
+    unsigned long long int SO2_specSN;
+    unsigned long long int NO2_specSN;
+    unsigned long long int CO_specSN;
+    unsigned long long int O3_specSN;
 }boxConfig_S;
 
 
