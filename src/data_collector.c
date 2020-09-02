@@ -22,18 +22,17 @@ void data_collector(void *pvParameters)
     xEventGroupSetBits(eg_task_started, EG_DATA_COLLECTOR_STARTED);
     for( ;; )
     {
-        packet.co=get_CO();
-        //packet.co2=;
+        packet.co=get_CO()->specPPB;
+        packet.so2=get_SO2()->specPPB;
+        packet.no2=get_NO2()->specPPB;
+        packet.o3=get_O3()->specPPB;
+        packet.temp=get_analog_temp();
         packet.hcho=get_HCHO();
         //packet.humidity=;
-        packet.no2=get_NO2();
-        packet.o3=get_O3();
         packet.pm10 = get_pm10();
         packet.pm2_5 = get_pm2_5();
         //packet.pressure=;
-        packet.temp=get_analog_temp();
         //packet.tvoc=;
-        packet.so2=get_SO2();
         //TODO: Do return value processing.
         xQueueSendToBack(QueueTransmitEthernet, &packet, xTicksToWait);
         //xQueueSendToBack for wifi

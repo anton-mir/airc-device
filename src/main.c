@@ -216,6 +216,13 @@ void init_task(void *arg)
     HAL_GPIO_Init(GPIOD, &gpio);
     HAL_GPIO_WritePin(GPIOD, GPIO_PIN_13, GPIO_PIN_SET);
 
+    // Multiplexer on/off pin - init to off state (pull-up)
+    gpio.Mode = GPIO_MODE_OUTPUT_PP;
+    gpio.Pull = GPIO_PULLUP;
+    gpio.Pin = GPIO_PIN_8;
+    HAL_GPIO_Init(GPIOA, &gpio);
+    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_SET);
+
     for (;;) {
         if (!netif_is_link_up(netif)) {
             lcd_clear();

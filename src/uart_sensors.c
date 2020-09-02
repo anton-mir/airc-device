@@ -8,28 +8,24 @@
 #include "main.h"
 #include "string.h"
 
-#define  BUF_LEN   64
-#define  TX_DELAY  100 / portTICK_RATE_MS
-#define  RX_DELAY  3000 / portTICK_RATE_MS
-#define SDS_HEADER1 0xAA
-#define SDS_HEADER2 0xC0
-#define SDS_TAIL 0xAB
+uint8_t spec_wake = '\n';
+uint8_t spec_get_data = '\r';
+uint8_t spec_sleep = 's';
+uint8_t spec_continuous = 'c';
 
-volatile uint8_t rx;
-volatile uint8_t command[BUF_LEN];
-volatile uint8_t* SO2_data;
-volatile uint8_t* NO2_data;
-volatile uint8_t* CO_data;
-volatile uint8_t* O3_data;
-volatile uint8_t* SDS011_data;
-volatile uint8_t* HCHO_data;
-double SO2_val = 0;
-double NO2_val = 0;
-double CO_val = 0;
-double O3_val = 0;
+volatile char command[MAX_SPEC_BUF_LEN];
+volatile char SDS011_data[MAX_SPEC_BUF_LEN];
+volatile char HCHO_data[MAX_SPEC_BUF_LEN];
 double pm2_5_val = 0;
 double pm10_val = 0;
 double HCHO_val = 0;
+
+struct SPEC_values SPEC_SO2_values, SPEC_NO2_values, SPEC_CO_values, SPEC_O3_values;
+
+const long long int SPEC_SO2_SN = 102219020326;
+const long long int SPEC_NO2_SN = 31120010317;
+const long long int SPEC_CO_SN = 60619020451;
+const long long int SPEC_O3_SN = 22620010208;
 
 static void USART3_UART_Init(void)
 {
@@ -63,7 +59,8 @@ static HAL_StatusTypeDef USART3_DMA_Init(void)
     HAL_NVIC_SetPriority(DMA1_Stream1_IRQn, 5, 0U);
     HAL_NVIC_EnableIRQ(DMA1_Stream1_IRQn);
 
-    if (HAL_UART_Receive_DMA(&huart3, command, BUF_LEN) == HAL_ERROR) return HAL_ERROR;
+    // Start DMA stream working
+    if (HAL_UART_Receive_DMA(&huart3, (unsigned char*)command, MAX_SPEC_BUF_LEN) == HAL_ERROR) return HAL_ERROR;
 
     return HAL_OK;
 }
@@ -111,14 +108,14 @@ static uint8_t chan_table[16][4] = {
         // s0, s1, s2, s3     channel
         {0,  0,  0,  0}, // 0 HCHO sensor RX
         {1,  0,  0,  0}, // 1 PM dust sensor RX
-        {0,  1,  0,  0}, // 2 SO2 spec sensor RX
-        {1,  1,  0,  0}, // 3 SO2 spec sensor TX
-        {0,  0,  1,  0}, // 4 NO2 spec sensor RX
-        {1,  0,  1,  0}, // 5 NO2 spec sensor TX
-        {0,  1,  1,  0}, // 6 CO spec sensor RX
-        {1,  1,  1,  0}, // 7 CO spec sensor TX
-        {0,  0,  0,  1}, // 8 O3 spec sensor RX
-        {1,  0,  0,  1}, // 9 O3 spec sensor TX
+        {0,  1,  0,  0}, // 2 SO2 spec sensor TX
+        {1,  1,  0,  0}, // 3 SO2 spec sensor RX
+        {0,  0,  1,  0}, // 4 NO2 spec sensor TX
+        {1,  0,  1,  0}, // 5 NO2 spec sensor RX
+        {0,  1,  1,  0}, // 6 CO spec sensor  TX
+        {1,  1,  1,  0}, // 7 CO spec sensor  RX
+        {0,  0,  0,  1}, // 8 O3 spec sensor  TX
+        {1,  0,  0,  1}, // 9 O3 spec sensor  RX
         {0,  1,  0,  1}, // 10
         {1,  1,  0,  1}, // 11
         {0,  0,  1,  1}, // 12
@@ -127,27 +124,37 @@ static uint8_t chan_table[16][4] = {
         {1,  1,  1,  1}  // 15
 };
 
-static void Set_chan(uint8_t channel){
+static HAL_StatusTypeDef activate_multiplexer_channel(uint8_t channel){
+    HAL_StatusTypeDef return_value = HAL_OK;
+
     HAL_GPIO_WritePin(GPIOE, GPIO_PIN_6, chan_table[channel][0]);
     HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, chan_table[channel][1]);
     HAL_GPIO_WritePin(GPIOE, GPIO_PIN_5, chan_table[channel][2]);
     HAL_GPIO_WritePin(GPIOD, GPIO_PIN_6, chan_table[channel][3]);
+
+    // Start DMA receive data
+    if (HAL_UART_Receive_DMA(&huart3, (unsigned char*)command, MAX_SPEC_BUF_LEN) != HAL_OK)
+    {
+        return_value = HAL_ERROR;
+    }
+
+    return return_value;
 }
 
-double get_SO2(void){
-    return SO2_val;
+struct SPEC_values* get_SO2(void){
+    return &SPEC_SO2_values;
 }
 
-double get_NO2(void){
-    return NO2_val;
+struct SPEC_values* get_NO2(void){
+    return &SPEC_NO2_values;
 }
 
-double get_CO(void){
-    return CO_val;
+struct SPEC_values* get_CO(void){
+    return &SPEC_CO_values;
 }
 
-double get_O3(void){
-    return O3_val;
+struct SPEC_values* get_O3(void){
+    return &SPEC_O3_values;
 }
 
 double get_pm2_5(void){
@@ -162,23 +169,155 @@ double get_HCHO(void){
     return HCHO_val;
 }
 
-static HAL_StatusTypeDef reset_dma_rx()
+void multiplexerSetState(uint8_t state)
 {
-    if (HAL_UART_DMAStop(&huart3) == HAL_ERROR) return HAL_ERROR;
-    if (HAL_UART_Receive_DMA(&huart3, command, BUF_LEN) == HAL_ERROR) return HAL_ERROR;
-
-    return HAL_OK;
+    if (state)
+    {
+        HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_RESET);
+    }
+    else
+    {
+        HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_SET);
+    }
 }
 
-static uint8_t *check_uart_flag(uint8_t *flag)
-{
-    static uint32_t uart_notify;
+HAL_StatusTypeDef getHCHO (uint8_t rx) {
+    HAL_StatusTypeDef return_value = HAL_OK;
 
-    uart_notify = ulTaskNotifyTake(pdFALSE, RX_DELAY);
-    if (!uart_notify) return NULL;
+    multiplexerSetState(1);
 
-    return strstr(command, flag);
+    if (activate_multiplexer_channel(rx) != HAL_OK)
+    {
+        return_value = HAL_ERROR;
+    }
+
+    // Stop DMA data gathering
+    if (HAL_UART_DMAStop(&huart3) != HAL_OK)
+    {
+        return_value = HAL_ERROR;
+    }
+
+    if(ulTaskNotifyTake(pdTRUE, (TickType_t)SPEC_RESPONSE_TIME) >= 10) {
+        if (command[0] != HCHO_STARTBYTE) {
+            return_value = HAL_ERROR; //error with packet
+        }
+        strtod(rx, &HCHO_data);
+        HCHO_val = (double) ((int)HCHO_data[4] << 8 | (int)HCHO_data[5]);
+    }
+
+    memset((void*)command, '\0', MAX_SPEC_BUF_LEN);
+
+    multiplexerSetState(0);
+
+    return return_value;
 }
+
+HAL_StatusTypeDef getSDS011(uint8_t rx) {
+    HAL_StatusTypeDef return_value = HAL_OK;
+
+    multiplexerSetState(1);
+
+    if (activate_multiplexer_channel(rx) != HAL_OK)
+    {
+        return_value = HAL_ERROR;
+    }
+
+    // Stop DMA data gathering
+    if (HAL_UART_DMAStop(&huart3) != HAL_OK)
+    {
+        return_value = HAL_ERROR;
+    }
+
+    if(ulTaskNotifyTake(pdTRUE, (TickType_t)SPEC_RESPONSE_TIME) >= 10) {
+         // packet format: AA C0 PM25_Low PM25_High PM10_Low PM10_High 0 0 CRC AB
+            if (command[0] != SDS_HEADER1 || command[1] != SDS_HEADER2 || command[9] != SDS_TAIL) {
+                return_value = HAL_ERROR; // error with packet
+            }
+            uint8_t crc = 0;
+            for (int i = 0; i < 6; ++i) {
+                crc += command[i + 2];
+            }
+            if (crc != command[8]) {
+                return_value = HAL_ERROR; //error with checksum
+            }
+            strtod(command, &SDS011_data);
+            pm2_5_val = (double) ((int)command[2] | (int)(command[3] << 8)) / 10;
+            pm10_val =  (double) ((int)command[4] | (int)(command[5] << 8)) / 10;
+    }
+
+    memset((void*)command, '\0', MAX_SPEC_BUF_LEN);
+
+    multiplexerSetState(0);
+
+    return return_value;
+}
+
+
+HAL_StatusTypeDef getSPEC(uint8_t tx, uint8_t rx, struct SPEC_values *SPEC_gas_values, const long long int spec_sensor_sn)
+{
+    HAL_StatusTypeDef return_value = HAL_OK;
+
+    activate_multiplexer_channel(tx);
+    multiplexerSetState(1); // Turn On multiplexer
+
+    if (HAL_UART_Transmit_IT(&huart3, &spec_wake, 1) != HAL_OK)
+    {
+        return_value = HAL_ERROR;
+    }
+    vTaskDelay((TickType_t)SPEC_RESPONSE_TIME);
+
+    if (HAL_UART_Transmit_IT(&huart3, &spec_get_data, 1) != HAL_OK)
+    {
+        return_value = HAL_ERROR;
+    }
+    vTaskDelay((TickType_t)1);
+
+    // Activate data receive mode and start DMA data gathering
+    if (activate_multiplexer_channel(rx) != HAL_OK)
+    {
+        return_value = HAL_ERROR;
+    }
+
+    // Wait until add SPEC data will arrive (1 second timeout from SPEC sensor manual)
+    vTaskDelay((TickType_t)SPEC_RESPONSE_TIME);
+
+    // Stop DMA data gathering
+    if (HAL_UART_DMAStop(&huart3) != HAL_OK)
+    {
+        return_value = HAL_ERROR;
+    }
+
+    // Check received data size
+    if(ulTaskNotifyTake(pdTRUE, (TickType_t)SPEC_RESPONSE_TIME) >= MIN_SPEC_BUF_LEN)
+    {
+        char *pToNextValue;
+
+        SPEC_gas_values->specSN = strtoull(command, &pToNextValue, 10);
+
+        if (SPEC_gas_values->specSN == spec_sensor_sn) {
+            SPEC_gas_values->specPPB = strtoul(pToNextValue + 2, &pToNextValue, 10);
+            SPEC_gas_values->specTemp = strtoul(pToNextValue + 2, &pToNextValue, 10);
+            SPEC_gas_values->specRH = strtoul(pToNextValue + 2, &pToNextValue, 10);
+            pToNextValue = strstr(pToNextValue + 2, ", ");
+            pToNextValue = strstr(pToNextValue + 2, ", ");
+            pToNextValue = strstr(pToNextValue + 2, ", ");
+            SPEC_gas_values->specDay = strtoul(pToNextValue + 2, &pToNextValue, 10);
+            SPEC_gas_values->specHour = strtoul(pToNextValue + 2, &pToNextValue, 10);
+            SPEC_gas_values->specMinute = strtoul(pToNextValue + 2, &pToNextValue, 10);
+            SPEC_gas_values->specSecond = strtoul(pToNextValue + 2, NULL, 10);
+        }
+    }
+    else {
+        return_value = HAL_ERROR;
+    }
+
+    memset((void*)command, '\0', MAX_SPEC_BUF_LEN);
+    multiplexerSetState(0);
+
+    return return_value;
+}
+
+static void UART_sensors_error_handler(){};
 
 void uart_sensors(void * const arg) {
 
@@ -189,170 +328,80 @@ void uart_sensors(void * const arg) {
     USART3_UART_Init();
     USART3_DMA_Init();
 
-    uint8_t spec_cmd = 'c';
-
-    Set_chan(1);
-    HAL_UART_Transmit_IT(&huart3, &Sds011_WorkingMode, 19);
-    ulTaskNotifyTake( pdTRUE, portMAX_DELAY);
-    HAL_Delay(100);
-
-    Set_chan(2);
-    HAL_UART_Transmit_IT(&huart3, &spec_cmd, 1);
-    ulTaskNotifyTake( pdTRUE, portMAX_DELAY);
-    vTaskDelay(TX_DELAY);
-    HAL_UART_Transmit_IT(&huart3, &spec_cmd, 1);
-    ulTaskNotifyTake( pdTRUE, portMAX_DELAY);
-
-    Set_chan(4);
-    HAL_UART_Transmit_IT(&huart3, &spec_cmd, 1);
-    ulTaskNotifyTake( pdTRUE, portMAX_DELAY);
-    vTaskDelay(TX_DELAY);
-    HAL_UART_Transmit_IT(&huart3, &spec_cmd, 1);
-    ulTaskNotifyTake( pdTRUE, portMAX_DELAY);
-
-    Set_chan(6);
-    HAL_UART_Transmit_IT(&huart3, &spec_cmd, 1);
-    ulTaskNotifyTake( pdTRUE, portMAX_DELAY);
-    vTaskDelay(TX_DELAY);
-    HAL_UART_Transmit_IT(&huart3, &spec_cmd, 1);
-    ulTaskNotifyTake( pdTRUE, portMAX_DELAY);
-
-    Set_chan(8);
-    HAL_UART_Transmit_IT(&huart3, &spec_cmd, 1);
-    ulTaskNotifyTake( pdTRUE, portMAX_DELAY);
-    vTaskDelay(TX_DELAY);
-    HAL_UART_Transmit_IT(&huart3, &spec_cmd, 1);
-    ulTaskNotifyTake( pdTRUE, portMAX_DELAY);
 
     while (1) {
 
-        Set_chan(0);
-        if (reset_dma_rx() == HAL_ERROR) continue;
-        if (check_uart_flag('\n') != NULL) {
-            strtod(command, &HCHO_data);
-            HCHO_val = (double) ((int)HCHO_data[5] | (int)HCHO_data[4] << 8);
-            memset(command, '\0', BUF_LEN);
+        if (getHCHO(MULTIPLEXER_CH0_HCHO_RX) != HAL_OK) {
+            UART_sensors_error_handler();
+        }
+        if (getSDS011(MULTIPLEXER_CH1_SDS011_RX) != HAL_OK) {
+            UART_sensors_error_handler();
         }
 
-        Set_chan(1);
-        if (reset_dma_rx() == HAL_ERROR) continue;
-        if (check_uart_flag('\n') != NULL){
-            // packet format: AA C0 PM25_Low PM25_High PM10_Low PM10_High 0 0 CRC AB
-            if (command[0] != SDS_HEADER1 || command[1] != SDS_HEADER2 || command[9] != SDS_TAIL) {
-                continue; // error with packet
-            }
-            uint8_t crc = 0;
-            for (int i = 0; i < 6; ++i) {
-                crc += command[i + 2];
-            }
-            if (crc != command[8]) {
-                continue; //error with checksum
-            }
-            strtod(command, &SDS011_data);
-            pm2_5_val = (double) ((int)SDS011_data[2] | (int)(SDS011_data[3] << 8)) / 10;
-            pm10_val =  (double) ((int)SDS011_data[4] | (int)(SDS011_data[5] << 8)) / 10;
-            memset(command, '\0', BUF_LEN);
+        if (getSPEC(MULTIPLEXER_CH2_SO2_TX, MULTIPLEXER_CH3_SO2_RX, &SPEC_SO2_values, SPEC_SO2_SN) != HAL_OK){
+            UART_sensors_error_handler();
         }
 
-
-//        Set_chan(3);
-//        if (reset_dma_rx() == HAL_ERROR) continue;
-//        if (check_uart_flag('\n') != NULL){
-//            strtod(command, &SO2_data);
-//            SO2_val = strtod(strtok(SO2_data, "- ,"), NULL) / 100;
-//            memset(command, '\0', BUF_LEN);
-//        }
-/*
-        Set_chan(5);
-        if (reset_dma_rx() == HAL_ERROR) continue;
-        if (check_uart_flag('\n') != NULL){
-            strtod(command, &NO2_data);
-            NO2_val = strtod(strtok(NO2_data, "- ,"), NULL) / 100;
-            memset(command, '\0', BUF_LEN);
+        if (getSPEC(MULTIPLEXER_CH4_NO2_TX, MULTIPLEXER_CH5_NO2_RX, &SPEC_NO2_values, SPEC_NO2_SN) != HAL_OK){
+            UART_sensors_error_handler();
         }
 
-        Set_chan(7);
-        if (reset_dma_rx() == HAL_ERROR) continue;
-        if (check_uart_flag('\n') != NULL){
-            strtod(command, &CO_data);
-            CO_val = strtod(strtok(CO_data, "- ,"), NULL);
-            memset(command, '\0', BUF_LEN);
+        if (getSPEC(MULTIPLEXER_CH6_CO_TX, MULTIPLEXER_CH7_CO_RX, &SPEC_CO_values, SPEC_CO_SN) != HAL_OK){
+            UART_sensors_error_handler();
         }
 
-        Set_chan(9);
-        if (reset_dma_rx() == HAL_ERROR) continue;
-        if (check_uart_flag('\n') != NULL){
-            strtod(command, &O3_data);
-            O3_val = strtod(strtok(O3_data, "- ,"), NULL) / 100;
-            memset(command, '\0', BUF_LEN);
-        }*/
+        if (getSPEC(MULTIPLEXER_CH8_O3_TX, MULTIPLEXER_CH9_O3_RX, &SPEC_O3_values, SPEC_O3_SN) != HAL_OK){
+            UART_sensors_error_handler();
+        }
 
         vTaskDelay(500);
     }
 }
-
-
-void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart) {
-if (huart->Instance == USART3) {
-
-    BaseType_t reschedule = pdFALSE;
-
-    vTaskNotifyGiveFromISR(uart_sensors_handle, &reschedule);
-    portYIELD_FROM_ISR(reschedule);
-}
-}
-
 void HAL_MspInit(void)
 {
-__HAL_RCC_SYSCFG_CLK_ENABLE();
-__HAL_RCC_PWR_CLK_ENABLE();
+    __HAL_RCC_SYSCFG_CLK_ENABLE();
+    __HAL_RCC_PWR_CLK_ENABLE();
 }
-
 void HAL_UART_MspInit(UART_HandleTypeDef* huart)
 {
-GPIO_InitTypeDef GPIO_InitStruct = {0};
-if(huart->Instance==USART3)
-{
-    __HAL_RCC_USART3_CLK_ENABLE();
-    __HAL_RCC_DMA1_CLK_ENABLE();
-    __HAL_RCC_GPIOD_CLK_ENABLE();
-
-    GPIO_InitStruct.Pin = GPIO_PIN_8;
-    GPIO_InitStruct.Mode = GPIO_MODE_AF_OD;
-    GPIO_InitStruct.Pull = GPIO_PULLUP;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
-    GPIO_InitStruct.Alternate = GPIO_AF7_USART3;
-    HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
-
-    HAL_NVIC_SetPriority(USART3_IRQn, 5, 0U);
-    HAL_NVIC_EnableIRQ(USART3_IRQn);
-    __HAL_UART_ENABLE_IT(&huart3, UART_IT_IDLE);
+    GPIO_InitTypeDef GPIO_InitStruct = {0};
+    if(huart->Instance==USART3)
+    {
+        __HAL_RCC_USART3_CLK_ENABLE();
+        __HAL_RCC_DMA1_CLK_ENABLE();
+        __HAL_RCC_GPIOD_CLK_ENABLE();
+        GPIO_InitStruct.Pin = GPIO_PIN_8;
+        GPIO_InitStruct.Mode = GPIO_MODE_AF_OD;
+        GPIO_InitStruct.Pull = GPIO_PULLUP;
+        GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+        GPIO_InitStruct.Alternate = GPIO_AF7_USART3;
+        HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
+        HAL_NVIC_SetPriority(USART3_IRQn, 5, 0U);
+        HAL_NVIC_EnableIRQ(USART3_IRQn);
+        __HAL_UART_ENABLE_IT(&huart3, UART_IT_IDLE);
+    }
 }
-
-}
-
 void HAL_UART_MspDeInit(UART_HandleTypeDef* huart)
 {
-if(huart->Instance==USART3)
-{
-    __HAL_RCC_USART3_CLK_DISABLE();
-    HAL_GPIO_DeInit(GPIOD, GPIO_PIN_8);
-    HAL_NVIC_DisableIRQ(USART3_IRQn);
+    if(huart->Instance==USART3)
+    {
+        __HAL_RCC_USART3_CLK_DISABLE();
+        HAL_GPIO_DeInit(GPIOD, GPIO_PIN_8);
+        HAL_NVIC_DisableIRQ(USART3_IRQn);
+    }
 }
-}
-
 void UART_SENSORS_IRQHandler(UART_HandleTypeDef *huart)
 {
     if (USART3 == huart->Instance)
     {
         configASSERT(uart_sensors_handle != NULL);
-
         if(RESET != __HAL_UART_GET_FLAG(huart, UART_FLAG_IDLE))
         {
             __HAL_UART_CLEAR_IDLEFLAG(huart);
-
             BaseType_t uart_rx_task_woken = pdFALSE;
-            vTaskNotifyGiveFromISR(uart_sensors_handle, &uart_rx_task_woken);
+            uint8_t data_len = MAX_SPEC_BUF_LEN - __HAL_DMA_GET_COUNTER(huart3.hdmarx);
+            xTaskNotifyAndQueryFromISR(uart_sensors_handle, data_len,
+                                       eSetValueWithOverwrite, NULL, &uart_rx_task_woken);
             portYIELD_FROM_ISR(uart_rx_task_woken);
         }
     }
