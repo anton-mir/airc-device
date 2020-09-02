@@ -93,7 +93,7 @@ void readResults()
 {
 
 	uint8_t data_rq[4];
-	HAL_I2C_Mem_Read( &hi2cxc, CCS811_ADDR, ( uint8_t )CSS811_ALG_RESULT_DATA, I2C_MEMADD_SIZE_8BIT, data_rq, 4, 100 );
+	HAL_I2C_Mem_Read( &hi2cxc, CCS811_ADDR<<1, ( uint8_t )CSS811_ALG_RESULT_DATA, I2C_MEMADD_SIZE_16BIT, data_rq, 4, 100 );
 
 	uint8_t co2MSB = data_rq[0];
 	uint8_t co2LSB = data_rq[1];
@@ -254,7 +254,7 @@ uint8_t readRegister(uint8_t addr)
 	uint8_t dt;
 	HAL_StatusTypeDef res;
 
-	res = HAL_I2C_Mem_Read( &hi2cxc, CCS811_ADDR, ( uint8_t )addr,1, &dt, 1, 300 );
+	res = HAL_I2C_Mem_Read( &hi2cxc, CCS811_ADDR<<1, ( uint8_t )addr,1, &dt, 1, 300 );
 	while (HAL_I2C_GetState(&hi2cxc) != HAL_I2C_STATE_READY);
 
 
