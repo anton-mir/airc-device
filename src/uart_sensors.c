@@ -13,7 +13,7 @@ uint8_t spec_get_data = '\r';
 uint8_t spec_sleep = 's';
 uint8_t spec_continuous = 'c';
 
-volatile TickType_t prevtime;
+xTimerHandle timer_SPEC_ISR;
 
 volatile char command[MAX_SPEC_BUF_LEN];
 
@@ -157,6 +157,18 @@ void multiplexerSetState(uint8_t state)
     }
 }
 
+static void vTimerCallback_SPEC_ISR(xTimerHandle pxTimer) {
+    BaseType_t uart_rx_task_woken = pdFALSE;
+
+    uint8_t data_len = MAX_SPEC_BUF_LEN - __HAL_DMA_GET_COUNTER(huart3.hdmarx);
+    xTaskNotifyAndQueryFromISR(uart_sensors_handle, data_len,
+                               eSetValueWithOverwrite, NULL, &uart_rx_task_woken);
+
+    xTimerStopFromISR( timer_SPEC_ISR, uart_rx_task_woken);
+
+    portYIELD_FROM_ISR(uart_rx_task_woken);
+}
+
 HAL_StatusTypeDef getSPEC(uint8_t tx, uint8_t rx, struct SPEC_values *SPEC_gas_values, const long long int spec_sensor_sn)
 {
     HAL_StatusTypeDef return_value = HAL_OK;
@@ -238,6 +250,10 @@ void uart_sensors(void * const arg) {
     USART3_UART_Init();
     USART3_DMA_Init();
 
+    timer_SPEC_ISR = xTimerCreate( "timer_SPEC_ISR",
+                                   (TickType_t)SPEC_NOTIFY_DELAY, pdFALSE,
+                                   (void*)0, vTimerCallback_SPEC_ISR);
+
     while (1) {
 
         if (getSPEC(MULTIPLEXER_CH2_SO2_TX, MULTIPLEXER_CH3_SO2_RX, &SPEC_SO2_values, SPEC_SO2_SN) != HAL_OK){
@@ -307,17 +323,12 @@ void UART_SENSORS_IRQHandler(UART_HandleTypeDef *huart)
         if(RESET != __HAL_UART_GET_FLAG(huart, UART_FLAG_IDLE))
         {
             __HAL_UART_CLEAR_IDLEFLAG(huart);
+            BaseType_t uart_rx_task_woken = pdFALSE;
 
-            if(xTaskGetTickCountFromISR() - prevtime >= (TickType_t)SPEC_NOTIFY_DELAY) {
+            xTimerResetFromISR( timer_SPEC_ISR, uart_rx_task_woken);
+            xTimerStartFromISR( timer_SPEC_ISR, uart_rx_task_woken);
 
-                BaseType_t uart_rx_task_woken = pdFALSE;
-
-                uint8_t data_len = MAX_SPEC_BUF_LEN - __HAL_DMA_GET_COUNTER(huart3.hdmarx);
-                xTaskNotifyAndQueryFromISR(uart_sensors_handle, data_len,
-                                           eSetValueWithOverwrite, NULL, &uart_rx_task_woken);
-                portYIELD_FROM_ISR(uart_rx_task_woken);
-            }
-            prevtime = xTaskGetTickCountFromISR();
+            portYIELD_FROM_ISR(uart_rx_task_woken);
         }
     }
 }

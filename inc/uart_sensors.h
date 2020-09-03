@@ -16,7 +16,7 @@
 #define MULTIPLEXER_CH9_O3_RX  9
 
 #define SPEC_RESPONSE_TIME 1000
-#define SPEC_NOTIFY_DELAY 20
+#define SPEC_NOTIFY_DELAY 80
 
 UART_HandleTypeDef huart3;
 DMA_HandleTypeDef huart3_dma_rx;
