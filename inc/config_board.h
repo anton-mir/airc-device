@@ -1,5 +1,8 @@
 #ifndef INC_CONFIG_BOARD_H_
 #define INC_CONFIG_BOARD_H_
+
+#include "main.h"
+
 #define ADDRESS_CFG_START 0x000000
 
 typedef struct boxConfig
@@ -9,7 +12,7 @@ typedef struct boxConfig
     char description[500];
     double latitude;
     double longitude;
-    double altitudeSet;
+    double altitude;
     uint8_t working_status;
     unsigned long long int SO2_specSN;
     unsigned long long int NO2_specSN;

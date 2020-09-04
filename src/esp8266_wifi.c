@@ -35,6 +35,8 @@ static int esp_tcp_send(uint8_t id, size_t size, char *data);
 static uint32_t esp_send_data(uint8_t *data, size_t data_size);
 static uint32_t esp_start(void);
 
+static char *double_to_str(double x, char *str, size_t str_size);
+
 void esp_rx_task(void * const arg)
 {
     char *pos;
@@ -179,8 +181,18 @@ void esp_server_handler(ESP8266_SERVER_HANDLER handler)
         }
         break;
     case ESP_GET_DEVICE_CONF:
-        http_response.message = "OK";
-        http_response.message_size = 2;
+        //ReadConfig(&device_config);
+        http_response.message_size = sprintf(http_buffer,
+        "{\"id\":%d,\"type\":\"%s\",\"desc\":\"%s\",\"lat\":%d}",
+        2, "AirC_Box", "AirC box", 50);
+        http_response.message = http_buffer;
+        /*http_response.message_size = sprintf(http_buffer, 
+        "{id:%d,type:\"%s\",desc:\"%s\",lat:%0.7f,long:%0.7f,alt:%0.7f,mode:%d,so2_id:%lld,no2_id:%lld,co_id:%lld,o3_id:%lld}",
+        device_config.id, device_config.type, device_config.description, device_config.latitude, device_config.longitude,
+        device_config.altitude, device_config.working_status, device_config.SO2_specSN, device_config.NO2_specSN, device_config.CO_specSN, device_config.O3_specSN);
+        */
+        //http_response.message = "{\"id\":3,\"type\":\"AirC_Car\",\"desc\":\"AirC Device\",\"lat\":50.447731,\"long\":30.542721,\"alt\":30.54,\"mode\":1,\"so2_id\":4321,\"no2_id\":1233,\"co_id\":5336,\"o3_id\":7542}";
+        //http_response.message_size = strlen(http_response.message);
         break;
     case ESP_CONNECT_WIFI:
         if (http_request.body_size > 0)
@@ -323,7 +335,7 @@ static int esp_tcp_send(uint8_t id, size_t size, char *data)
 static uint32_t esp_send_data(uint8_t *data, size_t data_size)
 {
     uint32_t status = ESP_ERROR;
-    HAL_UART_Transmit(&esp_uart, data, data_size, ESP_UART_DELAY);
+    HAL_UART_Transmit_DMA(&esp_uart, data, data_size);
 
     xTaskNotifyStateClear(wifi_tsk_handle);
     status = ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
@@ -468,4 +480,36 @@ void ESP_UART_IRQHandler(UART_HandleTypeDef *huart)
             portYIELD_FROM_ISR(task_woken);
         }
     }     
+}
+
+static char *double_to_str(double x, char *str, size_t str_size)
+{
+    char *str_end = str + str_size;
+    uint16_t decimals;
+    int units;
+    if (x < 0)
+    {
+        decimals = (uint16_t)(x * -100) % 100;
+        units = (int)(-1 * x);
+    }
+    else
+    {
+        decimals = (uint16_t)(x * 100) % 100;
+        units = (int)x;
+    }
+
+    *--str_end = (char)(decimals % 10) + '0';
+    decimals /= 10;
+    *--str_end = (char)(decimals % 10) + '0';
+    *--str_end = '.';
+
+    while (units > 0)
+    {
+        *--str_end = (char)(units % 10) + '0';
+        units /= 10;
+    }
+
+    if (x < 0) *--str_end = '-';
+    
+    return str_end;
 }

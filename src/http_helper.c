@@ -7,7 +7,7 @@
 #include "main.h"
 
 static const struct HTTP_ROUTE ALLOWED_ROUTES[] = {
-    { HTTP_GET, "settings", ESP_PAGE_PIN_HOST_REQUIRED, HTML_SETTINGS, 31188, ESP_VOID_HANDLER },
+    { HTTP_GET, "settings", ESP_PAGE_PIN_HOST_REQUIRED, HTML_SETTINGS, 32734, ESP_VOID_HANDLER },
     { HTTP_GET, "network", ESP_PAGE_PIN_HOST_REQUIRED, NULL, 0, ESP_VOID_HANDLER },
     { HTTP_POST, "network", ESP_PAGE_PIN_HOST_REQUIRED, NULL, 0, ESP_CONNECT_WIFI },
     { HTTP_GET, "networks", ESP_PAGE_PIN_HOST_REQUIRED, NULL, 0, ESP_GET_WIFI_LIST },
@@ -199,6 +199,7 @@ static int find_header(struct phr_header *headers, size_t headers_count, const c
             else return -1;
         }
     }
+    return -1;
 }
 
 void http_request_clear(struct HTTP_REQUEST *http_request)
