@@ -7,6 +7,8 @@
 #include "task.h"
 #include "main.h"
 #include "string.h"
+#include "main.h"
+#include"fans.h"
 
 uint8_t spec_wake = '\n';
 uint8_t spec_get_data = '\r';
@@ -256,7 +258,10 @@ void uart_sensors(void * const arg) {
         if (getSPEC(MULTIPLEXER_CH8_O3_TX, MULTIPLEXER_CH9_O3_RX, &SPEC_O3_values, SPEC_O3_SN) != HAL_OK){
             UART_sensors_error_handler();
         }
-
+        
+        xTaskNotify(fans_control_handle,NOTIFICATION_BIT_1,eSetBits);
+        // block this task until fans stop working
+        ulTaskNotifyTake( pdTRUE, portMAX_DELAY ); 
         vTaskDelay(500);
     }
 }

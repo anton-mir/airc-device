@@ -46,6 +46,7 @@ set(LOCAL_SRCS
 	  "eth_sender.c"
 	  "data_collector.c"
     "leds.c"
+    "fans.c"
 	"config_board.c"
 	"flash_SST25VF016B.c"
 	"${HAL_DIR}/src/stm32f4xx_hal_spi.c"
