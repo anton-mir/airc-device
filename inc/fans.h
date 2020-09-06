@@ -7,14 +7,10 @@
 #define SECOND_FAN_PIN GPIO_PIN_3
 #define SECOND_FAN_PORT GPIOA
 
-#define NOTIFICATION_BIT_1  0x1
-#define NOTIFICATION_BIT_2  0x2
-#define NOTIFICATION_BIT_4  0x4
 
-#define FANS_WORKING_TIME   2000 //ms
+#define FANS_WORKING_TIME   3000 //ms
 
 void init_fans();
-void fans_control_task(void *pvTaskParams);
 void fans_on();
 void fans_off();
 #endif

@@ -73,7 +73,6 @@ TaskHandle_t eth_sender_handle = NULL;
 TaskHandle_t data_collector_handle = NULL;
 TaskHandle_t reed_switch_handle = NULL;
 TaskHandle_t uart_sensors_handle = NULL;
-TaskHandle_t fans_control_handle = NULL;
 
 EventGroupHandle_t eg_task_started = NULL;
 
@@ -250,14 +249,6 @@ void init_task(void *arg)
             &reed_switch_handle);
     configASSERT(status);
 
-    status = xTaskCreate(
-            fans_control_task,
-            "fans_control_task",
-            FANS_CONTROL_TASK_STACK_SIZE,
-            NULL,
-            FANS_CONTROL_TASK_PRIO,
-            &fans_control_handle);
-    configASSERT(status);
 
     gpio.Mode = GPIO_MODE_OUTPUT_PP;
     gpio.Pull = GPIO_NOPULL;

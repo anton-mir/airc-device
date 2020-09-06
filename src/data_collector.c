@@ -4,7 +4,7 @@
 #include "eth_sender.h"
 #include "lm335z.h"
 #include "uart_sensors.h"
-
+#include "fans.h"
 
 void data_collector(void *pvParameters)
 {
@@ -22,6 +22,7 @@ void data_collector(void *pvParameters)
     xEventGroupSetBits(eg_task_started, EG_DATA_COLLECTOR_STARTED);
     for( ;; )
     {
+        
         packet.co=get_CO()->specPPB;
         packet.so2=get_SO2()->specPPB;
         packet.no2=get_NO2()->specPPB;
@@ -36,6 +37,12 @@ void data_collector(void *pvParameters)
         //TODO: Do return value processing.
         xQueueSendToBack(QueueTransmitEthernet, &packet, xTicksToWait);
         //xQueueSendToBack for wifi
-        vTaskDelay(1000);
+
+
+        fans_on();
+        vTaskDelay(FANS_WORKING_TIME);
+        fans_off();
+
+        // vTaskDelay(1000);
     }
 }
