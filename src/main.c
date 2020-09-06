@@ -58,6 +58,8 @@
 #include "queue.h"
 #include "data_collector.h"
 #include "leds.h"
+#include "flash_SST25VF016B.h"
+#include "config_board.h"
 
 
 TaskHandle_t init_handle = NULL;
@@ -122,6 +124,9 @@ void init_task(void *arg)
     ESP_InitPins();
     ESP_InitUART();
     ESP_InitDMA();
+
+    //Init Flash_SPI
+    Flash_Init();
 
     /* Create TCP/IP stack thread */
     tcpip_init(NULL, NULL);

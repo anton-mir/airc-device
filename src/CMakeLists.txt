@@ -46,6 +46,9 @@ set(LOCAL_SRCS
 	  "eth_sender.c"
 	  "data_collector.c"
     "leds.c"
+	"config_board.c"
+	"flash_SST25VF016B.c"
+	"${HAL_DIR}/src/stm32f4xx_hal_spi.c"
     )
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR} "../drivers/CMSIS/core/inc")
