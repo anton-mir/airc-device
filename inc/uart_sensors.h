@@ -4,7 +4,7 @@
 #include "stm32f4xx_hal.h"
 
 #define  MAX_SPEC_BUF_LEN 70
-#define  MIN_SPEC_BUF_LEN 65
+#define  MIN_SPEC_BUF_LEN 44
 
 #define MULTIPLEXER_CH2_SO2_TX 2
 #define MULTIPLEXER_CH3_SO2_RX 3
