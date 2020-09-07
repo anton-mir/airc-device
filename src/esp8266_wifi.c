@@ -4,11 +4,14 @@
 #include "math.h"
 #include "esp8266_wifi.h"
 #include "http_helper.h"
+#include "number_helper.h"
 #include "config_board.h"
 #include "picohttpparser.h"
 #include "main.h"
 
-static boxConfig_S device_config = { 0 };
+extern volatile boxConfig_S device_config;
+static char binary_buf;
+static char number_buf[ULL_STRING_LENGTH];
 
 static struct ESP8266 esp_module = { 0 }; // ESP8266 init struct
 volatile int esp_server_mode = 0;
@@ -27,19 +30,17 @@ static char http_buffer[ESP_MAX_TCP_SIZE];
 static struct phr_header http_headers[HTTP_MAX_HEADERS];
 static struct HTTP_REQUEST http_request = { 0 };
 static struct HTTP_RESPONSE http_response = { 0 };
-
-static size_t get_uart_data_length();
-static void reset_dma_rx();
+static struct HTTP_FORM_VALUE http_form_value = { 0 };
 
 static int esp_tcp_send(uint8_t id, size_t size, char *data);
 static uint32_t esp_send_data(uint8_t *data, size_t data_size);
 static uint32_t esp_start(void);
-
-static char *double_to_str(double x, char *str, size_t str_size);
+static uint32_t esp_connect_wifi();
 
 void esp_rx_task(void * const arg)
 {
     char *pos;
+    uint32_t status;
 
     xEventGroupSetBits(eg_task_started, EG_ESP_RX_TSK_STARTED);
 
@@ -47,7 +48,8 @@ void esp_rx_task(void * const arg)
     {
         HAL_UART_DMAStop(&esp_uart);
         HAL_UART_Receive_DMA(&esp_uart, uart_buffer, ESP_UART_BUFFER_SIZE);
-        ulTaskNotifyTake(pdFALSE, portMAX_DELAY);
+        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+
         uart_data_size = ESP_UART_BUFFER_SIZE - __HAL_DMA_GET_COUNTER(&esp_dma_rx);
 
         if (strstr((char *)uart_buffer, "\r\nOK\r\n") != NULL)
@@ -157,6 +159,7 @@ void wifi_task(void * const arg)
             sprintf((char *)uart_buffer, "AT+CIPCLOSE=%d\r\n", tcp_packet.id);
             esp_send_data(uart_buffer, 15);
             tcp_packet.status = ESP_TCP_CLOSED;
+            memset(tcp_buffer, 0, ESP_MAX_TCP_SIZE);
         }
         vTaskDelay(500);
     }
@@ -164,6 +167,14 @@ void wifi_task(void * const arg)
 
 void esp_server_handler(ESP8266_SERVER_HANDLER handler)
 {
+    char latitude_buffer[10], *latitude_str;
+    char longitude_buffer[11], *longitude_str;
+    char altitude_buffer[7], *altitude_str;
+    char so2_id_buffer[ULL_STRING_LENGTH], *so2_id_str;
+    char no2_id_buffer[ULL_STRING_LENGTH], *no2_id_str;
+    char co_id_buffer[ULL_STRING_LENGTH], *co_id_str;
+    char o3_id_buffer[ULL_STRING_LENGTH], *o3_id_str;
+
     switch (handler)
     {
     case ESP_GET_WIFI_LIST:
@@ -181,18 +192,85 @@ void esp_server_handler(ESP8266_SERVER_HANDLER handler)
         }
         break;
     case ESP_GET_DEVICE_CONF:
-        //ReadConfig(&device_config);
+        ReadConfig(&device_config);
+        latitude_str = ftoa(device_config.latitude, latitude_buffer, 6);
+        longitude_str = ftoa(device_config.longitude, longitude_buffer, 6);
+        altitude_str = ftoa(device_config.altitude, altitude_buffer, 2);
+        so2_id_str = ulltoa(device_config.SO2_specSN, so2_id_buffer);
+        no2_id_str = ulltoa(device_config.NO2_specSN, no2_id_buffer);
+        co_id_str = ulltoa(device_config.CO_specSN, co_id_buffer);
+        o3_id_str = ulltoa(device_config.O3_specSN, o3_id_buffer);
         http_response.message_size = sprintf(http_buffer,
-        "{\"id\":%d,\"type\":\"%s\",\"desc\":\"%s\",\"lat\":%d}",
-        2, "AirC_Box", "AirC box", 50);
+        "{\"id\":%d,\"type\":\"%s\",\"desc\":\"%s\",\"lat\":%s,\"long\":%s,\"alt\":%s,\"mode\":%d,\"so2_id\":%s,\"no2_id\":%s,\"co_id\":%s,\"o3_id\":%s}",
+        device_config.id, device_config.type, device_config.description, 
+        latitude_str, longitude_str, altitude_str, device_config.working_status,
+        so2_id_str, no2_id_str, co_id_str, o3_id_str);
         http_response.message = http_buffer;
-        /*http_response.message_size = sprintf(http_buffer, 
-        "{id:%d,type:\"%s\",desc:\"%s\",lat:%0.7f,long:%0.7f,alt:%0.7f,mode:%d,so2_id:%lld,no2_id:%lld,co_id:%lld,o3_id:%lld}",
-        device_config.id, device_config.type, device_config.description, device_config.latitude, device_config.longitude,
-        device_config.altitude, device_config.working_status, device_config.SO2_specSN, device_config.NO2_specSN, device_config.CO_specSN, device_config.O3_specSN);
-        */
-        //http_response.message = "{\"id\":3,\"type\":\"AirC_Car\",\"desc\":\"AirC Device\",\"lat\":50.447731,\"long\":30.542721,\"alt\":30.54,\"mode\":1,\"so2_id\":4321,\"no2_id\":1233,\"co_id\":5336,\"o3_id\":7542}";
-        //http_response.message_size = strlen(http_response.message);
+        break;
+    case ESP_SET_DEVICE_CONF:
+        if (http_request.body_size > 0)
+        {
+            http_get_form_field(&http_form_value.value, &http_form_value.size, "id=", http_request.body, http_request.body_size);
+            memcpy(number_buf, http_form_value.value, http_form_value.size);
+            device_config.id = atoi(number_buf);
+
+            http_get_form_field(&http_form_value.value, &http_form_value.size, "mode=", http_request.body, http_request.body_size);
+            memcpy(&binary_buf, http_form_value.value, 1);
+            device_config.working_status = binary_buf - '0';
+
+            http_get_form_field(&http_form_value.value, &http_form_value.size, "type=", http_request.body, http_request.body_size);
+            memset(device_config.type, 0, 20);
+            memcpy(device_config.type, http_form_value.value, http_form_value.size);
+
+            http_get_form_field(&http_form_value.value, &http_form_value.size, "desc=", http_request.body, http_request.body_size);
+            memset(device_config.description, 0, 500);
+            memcpy(device_config.description, http_form_value.value, http_form_value.size);
+
+            http_get_form_field(&http_form_value.value, &http_form_value.size, "lat=", http_request.body, http_request.body_size);
+            memset(latitude_buffer, 0, 10);
+            memcpy(latitude_buffer, http_form_value.value, http_form_value.size);
+            device_config.latitude = atof(latitude_buffer);
+
+            http_get_form_field(&http_form_value.value, &http_form_value.size, "long=", http_request.body, http_request.body_size);
+            memset(longitude_buffer, 0, 11);
+            memcpy(longitude_buffer, http_form_value.value, http_form_value.size);
+            device_config.longitude = atof(longitude_buffer);
+
+            http_get_form_field(&http_form_value.value, &http_form_value.size, "alt=", http_request.body, http_request.body_size);
+            memset(altitude_buffer, 0, 7);
+            memcpy(altitude_buffer, http_form_value.value, http_form_value.size);
+            device_config.altitude = atof(altitude_buffer);
+
+            http_get_form_field(&http_form_value.value, &http_form_value.size, "so2_id=", http_request.body, http_request.body_size);
+            memset(so2_id_buffer, 0, ULL_STRING_LENGTH);
+            memcpy(so2_id_buffer, http_form_value.value, http_form_value.size);
+            device_config.SO2_specSN = atoull(so2_id_buffer);
+
+            http_get_form_field(&http_form_value.value, &http_form_value.size, "no2_id=", http_request.body, http_request.body_size);
+            memset(no2_id_buffer, 0, ULL_STRING_LENGTH);
+            memcpy(no2_id_buffer, http_form_value.value, http_form_value.size);
+            device_config.NO2_specSN = atoull(no2_id_buffer);
+
+            http_get_form_field(&http_form_value.value, &http_form_value.size, "co_id=", http_request.body, http_request.body_size);
+            memset(co_id_buffer, 0, ULL_STRING_LENGTH);
+            memcpy(co_id_buffer, http_form_value.value, http_form_value.size);
+            device_config.CO_specSN = atoull(co_id_buffer);
+
+            http_get_form_field(&http_form_value.value, &http_form_value.size, "o3_id=", http_request.body, http_request.body_size);
+            memset(o3_id_buffer, 0, ULL_STRING_LENGTH);
+            memcpy(o3_id_buffer, http_form_value.value, http_form_value.size);
+            device_config.O3_specSN = atoull(o3_id_buffer);
+
+            WriteConfig(device_config);
+            
+            http_response.message = "OK";
+            http_response.message_size = 2;
+        }
+        else 
+        {
+            http_response.message = "ERROR";
+            http_response.message_size = 5;
+        }
         break;
     case ESP_CONNECT_WIFI:
         if (http_request.body_size > 0)
@@ -200,9 +278,17 @@ void esp_server_handler(ESP8266_SERVER_HANDLER handler)
             http_get_form_field(&esp_module.sta_ssid, &esp_module.sta_ssid_size, "ssid=", http_request.body, http_request.body_size);
             http_get_form_field(&esp_module.sta_pass, &esp_module.sta_pass_size, "pass=", http_request.body, http_request.body_size);
             
-            sprintf((char *)uart_buffer, "AT+CWJAP_DEF=\"%.*s\",\"%.*s\"\r\n", (int)esp_module.sta_ssid_size, esp_module.sta_ssid, (int)esp_module.sta_pass_size, esp_module.sta_pass);
-            if (esp_send_data(uart_buffer, 20 + esp_module.sta_ssid_size + esp_module.sta_pass_size) == ESP_OK)
+            if (esp_connect_wifi() == ESP_OK)
             {
+                memset(device_config.wifi_ssid, 0, 32);
+                memcpy(device_config.wifi_ssid, esp_module.sta_ssid, esp_module.sta_ssid_size);
+                esp_module.sta_ssid = device_config.wifi_ssid;
+                memset(device_config.wifi_pass, 0, 64);
+                memcpy(device_config.wifi_pass, esp_module.sta_pass, esp_module.sta_pass_size);
+                esp_module.sta_pass = device_config.wifi_pass;
+
+                WriteConfig(device_config);
+
                 http_response.message = "OK";
                 http_response.message_size = 2;
             }
@@ -227,9 +313,17 @@ void esp_server_handler(ESP8266_SERVER_HANDLER handler)
 
             if (memcmp(mode, "on", mode_size) == 0)
             {
+                if (esp_connect_wifi())
+                {
+                    http_response.message = "OK";
+                    http_response.message_size = 2;
+                }
+                else
+                {
+                    http_response.message = "ERROR";
+                    http_response.message_size = 5;
+                }
                 
-                http_response.message = "OK";
-                http_response.message_size = 2;
             }
             else if (memcmp(mode, "off", mode_size) == 0)
             {
@@ -336,21 +430,23 @@ static uint32_t esp_send_data(uint8_t *data, size_t data_size)
 {
     uint32_t status = ESP_ERROR;
     HAL_UART_Transmit_DMA(&esp_uart, data, data_size);
-
     xTaskNotifyStateClear(wifi_tsk_handle);
     status = ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-    
     return status;
 }
 
 static uint32_t esp_start(void)
 {
+    ReadConfig(&device_config);
+
     esp_module.ap_ssid = "AirC Device";
     esp_module.ap_pass = "314159265";
     esp_module.ap_chl = 1;
     esp_module.ap_enc = WPA2_PSK;
-
-    //ReadConfig(&device_config);
+    esp_module.sta_ssid = device_config.wifi_ssid;
+    esp_module.sta_ssid_size = strlen(device_config.wifi_ssid);
+    esp_module.sta_pass = device_config.wifi_pass;
+    esp_module.sta_pass_size = strlen(device_config.wifi_pass);
 
     // Disable AT commands echo
     memcpy(uart_buffer, (uint8_t *)"ATE0\r\n", 6);
@@ -362,13 +458,12 @@ static uint32_t esp_start(void)
     if (esp_send_data(uart_buffer, 17) == ESP_OK);
     else return 0;
 
+    esp_connect_wifi();
+
     // Set auto connect to saved wifi network
     memcpy(uart_buffer, (uint8_t *)"AT+CWAUTOCONN=1\r\n", 17);
     if (esp_send_data(uart_buffer, 17) == ESP_OK);
     else return 0;
-
-    memcpy(uart_buffer, (uint8_t *)"AT+CWJAP_DEF?\r\n", 15);
-    if (esp_send_data(uart_buffer, 15) == ESP_OK);
 
     // Set IP for soft AP
     memcpy(uart_buffer, (uint8_t *)("AT+CIPAP_DEF=\"" ESP_SERVER_HOST "\"\r\n"), 17 + strlen(ESP_SERVER_HOST));
@@ -393,6 +488,13 @@ static uint32_t esp_start(void)
     else return 0;
 
     return 1;
+}
+
+static uint32_t esp_connect_wifi()
+{
+    sprintf((char *)uart_buffer, "AT+CWJAP_DEF=\"%.*s\",\"%.*s\"\r\n", (int)esp_module.sta_ssid_size, esp_module.sta_ssid, (int)esp_module.sta_pass_size, esp_module.sta_pass);
+    if (esp_send_data(uart_buffer, 20 + esp_module.sta_ssid_size + esp_module.sta_pass_size) == ESP_OK) return 1;
+    else return 0;
 }
 
 void ESP_InitPins(void)
@@ -469,47 +571,15 @@ void ESP_UART_IRQHandler(UART_HandleTypeDef *huart)
 {
     if (USART6 == huart->Instance)
     {
-        configASSERT(esp_rx_tsk_handle != NULL);
-
         if(RESET != __HAL_UART_GET_FLAG(huart, UART_FLAG_IDLE))
         {
             __HAL_UART_CLEAR_IDLEFLAG(huart);
 
-            BaseType_t task_woken = pdFALSE;
+            configASSERT(esp_rx_tsk_handle != NULL);
+
+            BaseType_t task_woken = pdTRUE;
             vTaskNotifyGiveFromISR(esp_rx_tsk_handle, &task_woken);
             portYIELD_FROM_ISR(task_woken);
         }
     }     
-}
-
-static char *double_to_str(double x, char *str, size_t str_size)
-{
-    char *str_end = str + str_size;
-    uint16_t decimals;
-    int units;
-    if (x < 0)
-    {
-        decimals = (uint16_t)(x * -100) % 100;
-        units = (int)(-1 * x);
-    }
-    else
-    {
-        decimals = (uint16_t)(x * 100) % 100;
-        units = (int)x;
-    }
-
-    *--str_end = (char)(decimals % 10) + '0';
-    decimals /= 10;
-    *--str_end = (char)(decimals % 10) + '0';
-    *--str_end = '.';
-
-    while (units > 0)
-    {
-        *--str_end = (char)(units % 10) + '0';
-        units /= 10;
-    }
-
-    if (x < 0) *--str_end = '-';
-    
-    return str_end;
 }

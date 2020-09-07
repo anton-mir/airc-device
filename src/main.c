@@ -61,6 +61,7 @@
 #include "flash_SST25VF016B.h"
 #include "config_board.h"
 
+volatile boxConfig_S device_config = { 0 };
 
 TaskHandle_t init_handle = NULL;
 TaskHandle_t ethif_in_handle = NULL;
@@ -128,6 +129,8 @@ void init_task(void *arg)
 
     //Init Flash_SPI
     Flash_Init();
+
+    
 
     /* Create TCP/IP stack thread */
     tcpip_init(NULL, NULL);
@@ -279,9 +282,9 @@ void init_task(void *arg)
         static uint8_t leds_turned_off = 0;
 
         if (!netif_is_link_up(netif)) {
-            //lcd_clear();
-            //lcd_print_string_at("Link:", 0, 0);
-            //lcd_print_string_at("down", 0, 1);
+            lcd_clear();
+            lcd_print_string_at("Link:", 0, 0);
+            lcd_print_string_at("down", 0, 1);
         }
 
         if (current_pin == OFF_LEDS)

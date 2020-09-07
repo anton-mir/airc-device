@@ -74,6 +74,13 @@ struct HTTP_RESPONSE
     int version, route_index, availible, ready;
 };
 
+struct HTTP_FORM_VALUE
+{
+    char *value;
+    size_t size;
+};
+
+
 void http_build_routes(void);
 
 void http_get_form_field(char **field, size_t *field_size, const char *field_name, const char *data, size_t data_size);

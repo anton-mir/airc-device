@@ -6,7 +6,7 @@
 #include "FreeRTOSConfig.h"
 #include "task.h"
 
-#define ESP_UART_DELAY                 1000
+#define ESP_UART_DELAY                 0xFFFFFF
 #define ESP_UART_BUFFER_SIZE           1472
 #define ESP_MAX_TCP_SIZE               2048
 #define ESP_MAX_TCP_CONN               5
@@ -30,7 +30,8 @@ typedef enum ESP8266_SERVER_HANDLERS
     ESP_CONNECT_WIFI,
     ESP_WIFI_MODE,
     ESP_CONF_MODE,
-    ESP_GET_DEVICE_CONF
+    ESP_GET_DEVICE_CONF,
+    ESP_SET_DEVICE_CONF
 } ESP8266_SERVER_HANDLER;
 
 typedef enum ESP8266_SERVER_PAGE_ACCESSES
