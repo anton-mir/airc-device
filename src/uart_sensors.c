@@ -13,7 +13,9 @@ uint8_t spec_get_data = '\r';
 uint8_t spec_sleep = 's';
 uint8_t spec_continuous = 'c';
 
-volatile char command[MAX_SPEC_BUF_LEN];
+xTimerHandle timer_SPEC_ISR;
+
+volatile char specIncomingDataBuffer[MAX_SPEC_BUF_LEN];
 
 struct SPEC_values SPEC_SO2_values, SPEC_NO2_values, SPEC_CO_values, SPEC_O3_values;
 
@@ -53,9 +55,6 @@ static HAL_StatusTypeDef USART3_DMA_Init(void)
 
     HAL_NVIC_SetPriority(DMA1_Stream1_IRQn, 5, 0U);
     HAL_NVIC_EnableIRQ(DMA1_Stream1_IRQn);
-
-    // Start DMA stream working
-    if (HAL_UART_Receive_DMA(&huart3, (unsigned char*)command, MAX_SPEC_BUF_LEN) == HAL_ERROR) return HAL_ERROR;
 
     return HAL_OK;
 }
@@ -127,12 +126,6 @@ static HAL_StatusTypeDef activate_multiplexer_channel(uint8_t channel){
     HAL_GPIO_WritePin(GPIOE, GPIO_PIN_5, chan_table[channel][2]);
     HAL_GPIO_WritePin(GPIOD, GPIO_PIN_6, chan_table[channel][3]);
 
-    // Start DMA receive data
-    if (HAL_UART_Receive_DMA(&huart3, (unsigned char*)command, MAX_SPEC_BUF_LEN) != HAL_OK)
-    {
-        return_value = HAL_ERROR;
-    }
-
     return return_value;
 }
 
@@ -164,9 +157,25 @@ void multiplexerSetState(uint8_t state)
     }
 }
 
+static void vTimerCallback_SPEC_ISR(xTimerHandle pxTimer) {
+    BaseType_t uart_rx_task_woken = pdFALSE;
+
+    uint8_t data_left_in_dma_buffer = __HAL_DMA_GET_COUNTER(huart3.hdmarx);
+    uint8_t dma_data_length = MAX_SPEC_BUF_LEN - data_left_in_dma_buffer;
+
+    xTaskNotifyAndQueryFromISR(uart_sensors_handle, dma_data_length,
+                               eSetValueWithOverwrite, NULL, &uart_rx_task_woken);
+
+    xTimerStopFromISR( timer_SPEC_ISR, uart_rx_task_woken);
+
+    portYIELD_FROM_ISR(uart_rx_task_woken);
+}
+
 HAL_StatusTypeDef getSPEC(uint8_t tx, uint8_t rx, struct SPEC_values *SPEC_gas_values, const long long int spec_sensor_sn)
 {
     HAL_StatusTypeDef return_value = HAL_OK;
+
+    HAL_HalfDuplex_EnableTransmitter(&huart3);
 
     activate_multiplexer_channel(tx);
 
@@ -184,46 +193,69 @@ HAL_StatusTypeDef getSPEC(uint8_t tx, uint8_t rx, struct SPEC_values *SPEC_gas_v
     }
     vTaskDelay((TickType_t)1);
 
+    HAL_HalfDuplex_EnableReceiver(&huart3);
+
     // Activate data receive mode and start DMA data gathering
     if (activate_multiplexer_channel(rx) != HAL_OK)
     {
         return_value = HAL_ERROR;
     }
 
-    // Wait until add SPEC data will arraive (1 second timeout from SPEC sensor manual)
-    vTaskDelay((TickType_t)SPEC_RESPONSE_TIME);
-
-    // Stop DMA data gathering
-    if (HAL_UART_DMAStop(&huart3) != HAL_OK)
+    if (HAL_UART_Receive_DMA(&huart3, (unsigned char*)specIncomingDataBuffer, MAX_SPEC_BUF_LEN) != HAL_OK)
     {
         return_value = HAL_ERROR;
     }
 
+    uint32_t dmaBufferLength = ulTaskNotifyTake(pdTRUE, (TickType_t)SPEC_RESPONSE_TIME);
     // Check received data size
-    if(ulTaskNotifyTake(pdTRUE, (TickType_t)SPEC_RESPONSE_TIME) >= MIN_SPEC_BUF_LEN)
+    if(dmaBufferLength >= MIN_SPEC_BUF_LEN)
     {
         char *pToNextValue;
+        char *firstDeviderPtr;
+        const char devider[] = ", ";
 
-        SPEC_gas_values->specSN = strtoull((const char*)command, &pToNextValue, 10);
+        // Check if SPEC sensor eeprom is corrupt
+        firstDeviderPtr = strstr((const char*)specIncomingDataBuffer, devider);
+        int firstDeviderIndex = (int)(firstDeviderPtr - specIncomingDataBuffer);
+        uint8_t specEepromCorrupted = firstDeviderIndex < 9; // Means there is no proper sensor ID in packet
 
-        if (SPEC_gas_values->specSN == spec_sensor_sn) {
-            SPEC_gas_values->specPPB = strtoul(pToNextValue + 2, &pToNextValue, 10);
-            SPEC_gas_values->specTemp = strtoul(pToNextValue + 2, &pToNextValue, 10);
-            SPEC_gas_values->specRH = strtoul(pToNextValue + 2, &pToNextValue, 10);
-            pToNextValue = strstr(pToNextValue + 2, ", ");
-            pToNextValue = strstr(pToNextValue + 2, ", ");
-            pToNextValue = strstr(pToNextValue + 2, ", ");
-            SPEC_gas_values->specDay = strtoul(pToNextValue + 2, &pToNextValue, 10);
-            SPEC_gas_values->specHour = strtoul(pToNextValue + 2, &pToNextValue, 10);
-            SPEC_gas_values->specMinute = strtoul(pToNextValue + 2, &pToNextValue, 10);
-            SPEC_gas_values->specSecond = strtoul(pToNextValue + 2, NULL, 10);
+        if (specEepromCorrupted)
+            {
+                return_value = HAL_ERROR;
+            }
+        else
+            {
+            SPEC_gas_values->specSN = strtoull((const char *) specIncomingDataBuffer, &pToNextValue, 10);
+
+            if (SPEC_gas_values->specSN == spec_sensor_sn)
+                {
+                    SPEC_gas_values->specPPB = strtoul(pToNextValue + 2, &pToNextValue, 10);
+                    SPEC_gas_values->specTemp = strtoul(pToNextValue + 2, &pToNextValue, 10);
+                    SPEC_gas_values->specRH = strtoul(pToNextValue + 2, &pToNextValue, 10);
+                    pToNextValue = strstr(pToNextValue + 2, ", ");
+                    pToNextValue = strstr(pToNextValue + 2, ", ");
+                    pToNextValue = strstr(pToNextValue + 2, ", ");
+                    SPEC_gas_values->specDay = strtoul(pToNextValue + 2, &pToNextValue, 10);
+                    SPEC_gas_values->specHour = strtoul(pToNextValue + 2, &pToNextValue, 10);
+                    SPEC_gas_values->specMinute = strtoul(pToNextValue + 2, &pToNextValue, 10);
+                    SPEC_gas_values->specSecond = strtoul(pToNextValue + 2, NULL, 10);
+                }
+            else
+                {
+                return_value = HAL_ERROR;
+                }
         }
     }
     else {
         return_value = HAL_ERROR;
     }
 
-    memset((void*)command, '\0', MAX_SPEC_BUF_LEN);
+    if (HAL_UART_DMAStop(&huart3) != HAL_OK)
+    {
+        return_value = HAL_ERROR;
+    }
+
+    memset((void*)specIncomingDataBuffer, '\0', MAX_SPEC_BUF_LEN);
     multiplexerSetState(0);
 
     return return_value;
@@ -239,6 +271,10 @@ void uart_sensors(void * const arg) {
     GPIO_Init();
     USART3_UART_Init();
     USART3_DMA_Init();
+
+    timer_SPEC_ISR = xTimerCreate( "timer_SPEC_ISR",
+                                   (TickType_t)SPEC_NOTIFY_DELAY, pdFALSE,
+                                   (void*)0, vTimerCallback_SPEC_ISR);
 
     while (1) {
 
@@ -306,15 +342,16 @@ void UART_SENSORS_IRQHandler(UART_HandleTypeDef *huart)
     {
         configASSERT(uart_sensors_handle != NULL);
 
-        if(RESET != __HAL_UART_GET_FLAG(huart, UART_FLAG_IDLE))
+        // If UART is IDLE - no data at UART, so need to reset timer
+        // Only after timer will occur we will count packet as received
+        if(__HAL_UART_GET_FLAG(huart, UART_FLAG_IDLE) == SET)
         {
             __HAL_UART_CLEAR_IDLEFLAG(huart);
-
             BaseType_t uart_rx_task_woken = pdFALSE;
 
-            uint8_t data_len = MAX_SPEC_BUF_LEN - __HAL_DMA_GET_COUNTER(huart3.hdmarx);
-            xTaskNotifyAndQueryFromISR(uart_sensors_handle, data_len,
-                                       eSetValueWithOverwrite, NULL, &uart_rx_task_woken);
+            xTimerResetFromISR( timer_SPEC_ISR, uart_rx_task_woken);
+            xTimerStartFromISR( timer_SPEC_ISR, uart_rx_task_woken);
+
             portYIELD_FROM_ISR(uart_rx_task_woken);
         }
     }
