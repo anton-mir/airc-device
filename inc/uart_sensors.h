@@ -4,7 +4,9 @@
 #include "stm32f4xx_hal.h"
 
 #define  MAX_SPEC_BUF_LEN 70
-#define  MIN_SPEC_BUF_LEN 47
+#define  MIN_SPEC_BUF_LEN 44
+#define MIN_SDS_BUF_LEN 10
+#define MIN_HCHO_BUF_LEN 9
 
 #define MULTIPLEXER_CH0_HCHO_RX 0
 #define MULTIPLEXER_CH1_SDS011_RX 1
@@ -18,12 +20,15 @@
 #define MULTIPLEXER_CH9_O3_RX  9
 
 #define SPEC_RESPONSE_TIME 1000
+#define SPEC_NOTIFY_DELAY 80
 
 #define SDS_HEADER1 0xAA
 #define SDS_HEADER2 0xC0
 #define SDS_TAIL 0xAB
+#define HCHO_HEADER1 0XFF
+#define HCHO_HEADER2 0X23
+#define HCHO_UNIT_PPB 0X04
 
-#define HCHO_STARTBYTE 0XFF
 
 UART_HandleTypeDef huart3;
 DMA_HandleTypeDef huart3_dma_rx;
