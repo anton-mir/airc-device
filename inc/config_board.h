@@ -7,19 +7,20 @@
 
 typedef struct boxConfig
 {
-    uint8_t id;
-    char type[20];
-    char description[500];
     double latitude;
     double longitude;
     double altitude;
-    uint8_t working_status;
     unsigned long long int SO2_specSN;
     unsigned long long int NO2_specSN;
     unsigned long long int CO_specSN;
     unsigned long long int O3_specSN;
-    char wifi_ssid[32];
+    uint8_t id;
+    uint8_t working_status;
+    char description[500];
     char wifi_pass[64];
+    char wifi_ssid[32];
+    char type[19];
+    char ip[15];
 }boxConfig_S;
 
 

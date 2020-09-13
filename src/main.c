@@ -104,6 +104,7 @@ void init_task(void *arg)
     __HAL_RCC_GPIOD_CLK_ENABLE();
     __HAL_RCC_GPIOC_CLK_ENABLE();
     __HAL_RCC_USART6_CLK_ENABLE();
+    __HAL_RCC_UART4_CLK_ENABLE();
     __HAL_RCC_DMA2_CLK_ENABLE();
 
     (void)HAL_RNG_Init(&rng_handle);
@@ -129,9 +130,7 @@ void init_task(void *arg)
 
     //Init Flash_SPI
     Flash_Init();
-
     
-
     /* Create TCP/IP stack thread */
     tcpip_init(NULL, NULL);
 

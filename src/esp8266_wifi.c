@@ -10,6 +10,9 @@
 #include "main.h"
 
 extern volatile boxConfig_S device_config;
+
+static const TickType_t xWifiBlockTime = pdMS_TO_TICKS(200000);
+
 static char binary_buf;
 static char number_buf[ULL_STRING_LENGTH];
 
@@ -18,7 +21,9 @@ volatile int esp_server_mode = 0;
 
 UART_HandleTypeDef esp_uart = { 0 };
 DMA_HandleTypeDef esp_dma_rx = { 0 };
-DMA_HandleTypeDef esp_dma_tx = { 0 };
+//DMA_HandleTypeDef esp_dma_tx = { 0 };
+
+static UART_HandleTypeDef debug_uart = { 0 };
 
 static size_t uart_data_size = 0;
 static uint8_t uart_buffer[ESP_UART_BUFFER_SIZE];
@@ -36,6 +41,7 @@ static int esp_tcp_send(uint8_t id, size_t size, char *data);
 static uint32_t esp_send_data(uint8_t *data, size_t data_size);
 static uint32_t esp_start(void);
 static uint32_t esp_connect_wifi();
+static int check_ascii(char *str, size_t str_size);
 
 void esp_rx_task(void * const arg)
 {
@@ -201,8 +207,8 @@ void esp_server_handler(ESP8266_SERVER_HANDLER handler)
         co_id_str = ulltoa(device_config.CO_specSN, co_id_buffer);
         o3_id_str = ulltoa(device_config.O3_specSN, o3_id_buffer);
         http_response.message_size = sprintf(http_buffer,
-        "{\"id\":%d,\"type\":\"%s\",\"desc\":\"%s\",\"lat\":%s,\"long\":%s,\"alt\":%s,\"mode\":%d,\"so2_id\":%s,\"no2_id\":%s,\"co_id\":%s,\"o3_id\":%s}",
-        device_config.id, device_config.type, device_config.description, 
+        "{\"id\":%d,\"ip\":\"%s\",\"type\":\"%s\",\"desc\":\"%s\",\"lat\":%s,\"long\":%s,\"alt\":%s,\"mode\":%d,\"so2_id\":%s,\"no2_id\":%s,\"co_id\":%s,\"o3_id\":%s}",
+        device_config.id, device_config.ip, device_config.type, device_config.description, 
         latitude_str, longitude_str, altitude_str, device_config.working_status,
         so2_id_str, no2_id_str, co_id_str, o3_id_str);
         http_response.message = http_buffer;
@@ -219,11 +225,15 @@ void esp_server_handler(ESP8266_SERVER_HANDLER handler)
             device_config.working_status = binary_buf - '0';
 
             http_get_form_field(&http_form_value.value, &http_form_value.size, "type=", http_request.body, http_request.body_size);
-            memset(device_config.type, 0, 20);
+            memset(device_config.type, 0, sizeof(device_config.type));
             memcpy(device_config.type, http_form_value.value, http_form_value.size);
 
+            http_get_form_field(&http_form_value.value, &http_form_value.size, "ip=", http_request.body, http_request.body_size);
+            memset(device_config.ip, 0, sizeof(device_config.ip));
+            memcpy(device_config.ip, http_form_value.value, http_form_value.size);
+
             http_get_form_field(&http_form_value.value, &http_form_value.size, "desc=", http_request.body, http_request.body_size);
-            memset(device_config.description, 0, 500);
+            memset(device_config.description, 0, sizeof(device_config.description));
             memcpy(device_config.description, http_form_value.value, http_form_value.size);
 
             http_get_form_field(&http_form_value.value, &http_form_value.size, "lat=", http_request.body, http_request.body_size);
@@ -280,10 +290,10 @@ void esp_server_handler(ESP8266_SERVER_HANDLER handler)
             
             if (esp_connect_wifi() == ESP_OK)
             {
-                memset(device_config.wifi_ssid, 0, 32);
+                memset(device_config.wifi_ssid, 0, sizeof(device_config.wifi_ssid));
                 memcpy(device_config.wifi_ssid, esp_module.sta_ssid, esp_module.sta_ssid_size);
                 esp_module.sta_ssid = device_config.wifi_ssid;
-                memset(device_config.wifi_pass, 0, 64);
+                memset(device_config.wifi_pass, 0, sizeof(device_config.wifi_pass));
                 memcpy(device_config.wifi_pass, esp_module.sta_pass, esp_module.sta_pass_size);
                 esp_module.sta_pass = device_config.wifi_pass;
 
@@ -294,6 +304,8 @@ void esp_server_handler(ESP8266_SERVER_HANDLER handler)
             }
             else
             {
+                esp_module.sta_ssid = device_config.wifi_ssid;
+                esp_module.sta_pass = device_config.wifi_pass;
                 http_response.message = "ERROR";
                 http_response.message_size = 5;
             }
@@ -429,14 +441,48 @@ static int esp_tcp_send(uint8_t id, size_t size, char *data)
 static uint32_t esp_send_data(uint8_t *data, size_t data_size)
 {
     uint32_t status = ESP_ERROR;
-    HAL_UART_Transmit_DMA(&esp_uart, data, data_size);
+    HAL_UART_Transmit(&debug_uart, (uint8_t *)"\r\nESP UART start sending...\r\n", 29, 1000);
+    HAL_UART_Transmit(&debug_uart, (uint8_t *)" => ", 4, 1000);
+    HAL_UART_Transmit(&debug_uart, data, data_size, 1000);
+    HAL_UART_Transmit(&debug_uart, (uint8_t *)"\r\n", 2, 1000);
+    HAL_UART_Transmit(&esp_uart, data, data_size, ESP_UART_DELAY);
+    HAL_UART_Transmit(&debug_uart, (uint8_t *)"ESP UART data sent!\r\n", 21, 1000);
     xTaskNotifyStateClear(wifi_tsk_handle);
-    status = ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+    HAL_UART_Transmit(&debug_uart, (uint8_t *)"Notify state cleared!\r\n", 23, 1000);
+    HAL_UART_Transmit(&debug_uart, (uint8_t *)"Notify waiting started!\r\n", 25, 1000);
+    status = ulTaskNotifyTake(pdTRUE, xWifiBlockTime);
+    HAL_UART_Transmit(&debug_uart, (uint8_t *)" <= ", 4, 1000);
+    HAL_UART_Transmit(&debug_uart, uart_buffer, uart_data_size, 1000);
+    if (status)
+    {
+        HAL_UART_Transmit(&debug_uart, (uint8_t *)"Notify received - ESP_OK!\r\n", 27, 1000);
+    }
+    else 
+    {
+        HAL_UART_Transmit(&debug_uart, (uint8_t *)"Notify received - ESP_ERROR!\r\n", 30, 1000);
+    }
     return status;
 }
 
 static uint32_t esp_start(void)
 {
+    HAL_UART_Transmit(&debug_uart, (uint8_t *)"Start ESP Configuration...\r\n", 28, 1000);
+    /*device_config.id = 1;
+    memcpy(device_config.type, "AirC_Box", 8);
+    memcpy(device_config.description, "AirC Device", 11);
+    device_config.latitude = 50.122231;
+    device_config.longitude = 50.122231;
+    device_config.altitude = 20.12;
+    device_config.working_status = 1;
+    device_config.SO2_specSN = 102219020326;
+    device_config.NO2_specSN = 31120010317;
+    device_config.CO_specSN = 60619020451;
+    device_config.O3_specSN = 22620010208;
+    memset(device_config.wifi_ssid, 0, 32);
+    memset(device_config.wifi_pass, 0, 64);
+    WriteConfig(device_config);*/
+    //ClearSector(ADDRESS_CFG_START);
+
     ReadConfig(&device_config);
 
     esp_module.ap_ssid = "AirC Device";
@@ -492,9 +538,22 @@ static uint32_t esp_start(void)
 
 static uint32_t esp_connect_wifi()
 {
+    if (!check_ascii(esp_module.sta_ssid, esp_module.sta_ssid_size)) return 0;
+    if (!check_ascii(esp_module.sta_pass, esp_module.sta_pass_size)) return 0;
     sprintf((char *)uart_buffer, "AT+CWJAP_DEF=\"%.*s\",\"%.*s\"\r\n", (int)esp_module.sta_ssid_size, esp_module.sta_ssid, (int)esp_module.sta_pass_size, esp_module.sta_pass);
     if (esp_send_data(uart_buffer, 20 + esp_module.sta_ssid_size + esp_module.sta_pass_size) == ESP_OK) return 1;
     else return 0;
+}
+
+static int check_ascii(char *str, size_t str_size)
+{
+    if (str_size == 0) return 0;
+    for (size_t i = 0; i < str_size; i++)
+    {
+        if (str[i] > 0x7F)
+            return 0;
+    }
+    return 1;
 }
 
 void ESP_InitPins(void)
@@ -511,10 +570,27 @@ void ESP_InitPins(void)
     gpio.Pin = GPIO_PIN_7;
     gpio.Mode = GPIO_MODE_AF_OD;
     HAL_GPIO_Init(GPIOC, &gpio);
+
+    /* PINS: TX - PC10 */
+    gpio.Pin = GPIO_PIN_10;
+    gpio.Mode = GPIO_MODE_AF_OD;
+    gpio.Alternate = GPIO_AF8_UART4;
+    HAL_GPIO_Init(GPIOC, &gpio);
 }
 
 HAL_StatusTypeDef ESP_InitUART(void)
 {
+    debug_uart.Instance = UART4;
+    debug_uart.Init.BaudRate = 115200;
+    debug_uart.Init.WordLength = UART_WORDLENGTH_8B;
+    debug_uart.Init.StopBits = UART_STOPBITS_1;
+    debug_uart.Init.Parity = UART_PARITY_NONE;
+    debug_uart.Init.Mode = UART_MODE_TX;
+    debug_uart.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+    debug_uart.Init.OverSampling = UART_OVERSAMPLING_16;
+
+    if (HAL_HalfDuplex_Init(&debug_uart) == HAL_ERROR) return HAL_ERROR;
+
     /* USART 6 */
     esp_uart.Instance = USART6;
     esp_uart.Init.BaudRate = 115200;
@@ -536,7 +612,7 @@ HAL_StatusTypeDef ESP_InitUART(void)
 
 HAL_StatusTypeDef ESP_InitDMA(void)
 {
-    esp_dma_tx.Instance = DMA2_Stream6;
+    /*esp_dma_tx.Instance = DMA2_Stream6;
     esp_dma_tx.Init.Channel = DMA_CHANNEL_5;
     esp_dma_tx.Init.Direction = DMA_MEMORY_TO_PERIPH;
     esp_dma_tx.Init.PeriphInc = DMA_PINC_DISABLE;
@@ -548,7 +624,7 @@ HAL_StatusTypeDef ESP_InitDMA(void)
     esp_dma_tx.Init.FIFOMode = DMA_FIFOMODE_DISABLE;
 
     if (HAL_DMA_Init(&esp_dma_tx) == HAL_ERROR) return HAL_ERROR;
-    __HAL_LINKDMA(&esp_uart, hdmatx, esp_dma_tx);
+    __HAL_LINKDMA(&esp_uart, hdmatx, esp_dma_tx);*/
 
     esp_dma_rx.Instance = DMA2_Stream1;
     esp_dma_rx.Init.Channel = DMA_CHANNEL_5;

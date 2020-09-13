@@ -53,7 +53,10 @@ void reed_switch_task(void *pvParams)
             if(HAL_GPIO_ReadPin(GPIOB,REED_SWITCH) == GPIO_PIN_RESET)
             {
                 change_led(WIFI_MODE);
-                esp_server_mode = 1;
+                if (esp_server_mode == 1)
+                    esp_server_mode = 0;
+                else
+                    esp_server_mode = 1;
             }
         }
     }
