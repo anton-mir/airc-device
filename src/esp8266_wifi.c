@@ -207,8 +207,8 @@ void esp_server_handler(ESP8266_SERVER_HANDLER handler)
         co_id_str = ulltoa(device_config.CO_specSN, co_id_buffer);
         o3_id_str = ulltoa(device_config.O3_specSN, o3_id_buffer);
         http_response.message_size = sprintf(http_buffer,
-        "{\"id\":%d,\"ip\":\"%s\",\"type\":\"%s\",\"desc\":\"%s\",\"lat\":%s,\"long\":%s,\"alt\":%s,\"mode\":%d,\"so2_id\":%s,\"no2_id\":%s,\"co_id\":%s,\"o3_id\":%s}",
-        device_config.id, device_config.ip, device_config.type, device_config.description, 
+        "{\"id\":%d,\"ip\":\"%s\",\"fb_email\":\"%s\",\"fb_pass\":\"%s\",\"type\":\"%s\",\"desc\":\"%s\",\"lat\":%s,\"long\":%s,\"alt\":%s,\"mode\":%d,\"so2_id\":%s,\"no2_id\":%s,\"co_id\":%s,\"o3_id\":%s}",
+        device_config.id, device_config.ip, device_config.fb_email, device_config.fb_pass, device_config.type, device_config.description, 
         latitude_str, longitude_str, altitude_str, device_config.working_status,
         so2_id_str, no2_id_str, co_id_str, o3_id_str);
         http_response.message = http_buffer;
@@ -231,6 +231,14 @@ void esp_server_handler(ESP8266_SERVER_HANDLER handler)
             http_get_form_field(&http_form_value.value, &http_form_value.size, "ip=", http_request.body, http_request.body_size);
             memset(device_config.ip, 0, sizeof(device_config.ip));
             memcpy(device_config.ip, http_form_value.value, http_form_value.size);
+
+            http_get_form_field(&http_form_value.value, &http_form_value.size, "fb_email=", http_request.body, http_request.body_size);
+            memset(device_config.fb_email, 0, sizeof(device_config.fb_email));
+            memcpy(device_config.fb_email, http_form_value.value, http_form_value.size);
+
+            http_get_form_field(&http_form_value.value, &http_form_value.size, "fb_pass=", http_request.body, http_request.body_size);
+            memset(device_config.fb_pass, 0, sizeof(device_config.fb_pass));
+            memcpy(device_config.fb_pass, http_form_value.value, http_form_value.size);
 
             http_get_form_field(&http_form_value.value, &http_form_value.size, "desc=", http_request.body, http_request.body_size);
             memset(device_config.description, 0, sizeof(device_config.description));
@@ -571,16 +579,16 @@ void ESP_InitPins(void)
     gpio.Mode = GPIO_MODE_AF_OD;
     HAL_GPIO_Init(GPIOC, &gpio);
 
-    /* PINS: TX - PC10 */
-    gpio.Pin = GPIO_PIN_10;
+    /* PINS: TX - PD5 */
+    gpio.Pin = GPIO_PIN_5;
     gpio.Mode = GPIO_MODE_AF_OD;
-    gpio.Alternate = GPIO_AF8_UART4;
-    HAL_GPIO_Init(GPIOC, &gpio);
+    gpio.Alternate = GPIO_AF7_USART2;
+    HAL_GPIO_Init(GPIOD, &gpio);
 }
 
 HAL_StatusTypeDef ESP_InitUART(void)
 {
-    debug_uart.Instance = UART4;
+    debug_uart.Instance = USART2;
     debug_uart.Init.BaudRate = 115200;
     debug_uart.Init.WordLength = UART_WORDLENGTH_8B;
     debug_uart.Init.StopBits = UART_STOPBITS_1;

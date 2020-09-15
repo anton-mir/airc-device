@@ -18,7 +18,9 @@ typedef struct boxConfig
     uint8_t working_status;
     char description[500];
     char wifi_pass[64];
+    char fb_pass[64];
     char wifi_ssid[32];
+    char fb_email[32];
     char type[19];
     char ip[15];
 }boxConfig_S;
