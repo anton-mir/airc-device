@@ -25,8 +25,8 @@
 #define SDS_HEADER1 0xAA
 #define SDS_HEADER2 0xC0
 #define SDS_TAIL 0xAB
-#define HCHO_HEADER1 0XFF
-#define HCHO_HEADER2 0X23
+#define HCHO_HEADER1 0XFF //255
+#define HCHO_HEADER2 0X17 //23
 #define HCHO_UNIT_PPB 0X04
 
 

@@ -28,9 +28,9 @@ void data_collector(void *pvParameters)
         packet.o3=get_O3()->specPPB;
         packet.temp=get_analog_temp();
         packet.hcho=get_HCHO();
-        //packet.humidity=;
         packet.pm10 = get_pm10();
         packet.pm2_5 = get_pm2_5();
+        //packet.humidity=;
         //packet.pressure=;
         //packet.tvoc=;
         //TODO: Do return value processing.
