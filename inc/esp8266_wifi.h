@@ -15,7 +15,7 @@
 
 #define NUMBER_LENGTH(number) ((size_t)floor(log10(number) + 1))
 
-typedef enum ESP8266_AP_ENC 
+typedef enum ESP8266_AP_ENC
 {
     OPEN = 0,
     WPA_PSK = 2,
@@ -23,7 +23,7 @@ typedef enum ESP8266_AP_ENC
     WPA_WPA2_PSK
 } ESP8266_AP_ENC;
 
-typedef enum ESP8266_SERVER_HANDLERS 
+typedef enum ESP8266_SERVER_HANDLERS
 {
     ESP_VOID_HANDLER,
     ESP_GET_WIFI_LIST,

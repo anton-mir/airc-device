@@ -9,9 +9,9 @@
 #include "picohttpparser.h"
 #include "main.h"
 
-extern volatile boxConfig_S device_config;
+extern boxConfig_S device_config;
 
-static const TickType_t xWifiBlockTime = pdMS_TO_TICKS(200000);
+static const TickType_t xWifiBlockTime = pdMS_TO_TICKS(20000);
 
 static char binary_buf;
 static char number_buf[ULL_STRING_LENGTH];
@@ -46,7 +46,6 @@ static int check_ascii(char *str, size_t str_size);
 void esp_rx_task(void * const arg)
 {
     char *pos;
-    uint32_t status;
 
     xEventGroupSetBits(eg_task_started, EG_ESP_RX_TSK_STARTED);
 
@@ -86,7 +85,7 @@ void esp_rx_task(void * const arg)
                 if (res == 2)
                 {
                     memcpy(tcp_buffer, pos + 8 + NUMBER_LENGTH(tcp_packet.length), tcp_packet.length);
-                    tcp_packet.status = ESP_TCP_OPENED; 
+                    tcp_packet.status = ESP_TCP_OPENED;
                 }
             }
         }
@@ -98,16 +97,16 @@ void wifi_task(void * const arg)
     xEventGroupSetBits(eg_task_started, EG_WIFI_TSK_STARTED);
 
     esp_start();
-    
+
     for (;;)
     {
         if (tcp_packet.status == ESP_TCP_OPENED && tcp_packet.length > 0)
         {
             http_request.headers_count = HTTP_MAX_HEADERS;
             int http_res = phr_parse_request(
-                tcp_buffer, tcp_packet.length, 
-                &http_request.method, &http_request.method_size, 
-                &http_request.route, &http_request.route_size, &http_request.version, 
+                tcp_buffer, tcp_packet.length,
+                &http_request.method, &http_request.method_size,
+                &http_request.route, &http_request.route_size, &http_request.version,
                 http_headers, &http_request.headers_count
             );
             if (http_res < 0)
@@ -208,7 +207,7 @@ void esp_server_handler(ESP8266_SERVER_HANDLER handler)
         o3_id_str = ulltoa(device_config.O3_specSN, o3_id_buffer);
         http_response.message_size = sprintf(http_buffer,
         "{\"id\":%d,\"ip\":\"%s\",\"fb_email\":\"%s\",\"fb_pass\":\"%s\",\"type\":\"%s\",\"desc\":\"%s\",\"lat\":%s,\"long\":%s,\"alt\":%s,\"mode\":%d,\"so2_id\":%s,\"no2_id\":%s,\"co_id\":%s,\"o3_id\":%s}",
-        device_config.id, device_config.ip, device_config.fb_email, device_config.fb_pass, device_config.type, device_config.description, 
+        device_config.id, device_config.ip, device_config.fb_email, device_config.fb_pass, device_config.type, device_config.description,
         latitude_str, longitude_str, altitude_str, device_config.working_status,
         so2_id_str, no2_id_str, co_id_str, o3_id_str);
         http_response.message = http_buffer;
@@ -280,11 +279,11 @@ void esp_server_handler(ESP8266_SERVER_HANDLER handler)
             device_config.O3_specSN = atoull(o3_id_buffer);
 
             WriteConfig(device_config);
-            
+
             http_response.message = "OK";
             http_response.message_size = 2;
         }
-        else 
+        else
         {
             http_response.message = "ERROR";
             http_response.message_size = 5;
@@ -295,7 +294,7 @@ void esp_server_handler(ESP8266_SERVER_HANDLER handler)
         {
             http_get_form_field(&esp_module.sta_ssid, &esp_module.sta_ssid_size, "ssid=", http_request.body, http_request.body_size);
             http_get_form_field(&esp_module.sta_pass, &esp_module.sta_pass_size, "pass=", http_request.body, http_request.body_size);
-            
+
             if (esp_connect_wifi() == ESP_OK)
             {
                 memset(device_config.wifi_ssid, 0, sizeof(device_config.wifi_ssid));
@@ -343,7 +342,7 @@ void esp_server_handler(ESP8266_SERVER_HANDLER handler)
                     http_response.message = "ERROR";
                     http_response.message_size = 5;
                 }
-                
+
             }
             else if (memcmp(mode, "off", mode_size) == 0)
             {
@@ -402,7 +401,7 @@ void esp_server_handler(ESP8266_SERVER_HANDLER handler)
             http_response.message_size = 5;
         }
         break;
-    
+
     default:
         break;
     }
@@ -442,30 +441,33 @@ static int esp_tcp_send(uint8_t id, size_t size, char *data)
             else return -1;
         }
     }
-    
+
     return size;
 }
 
 static uint32_t esp_send_data(uint8_t *data, size_t data_size)
 {
-    uint32_t status = ESP_ERROR;
+    static uint32_t status = ESP_ERROR;
+
     HAL_UART_Transmit(&debug_uart, (uint8_t *)"\r\nESP UART start sending...\r\n", 29, 1000);
     HAL_UART_Transmit(&debug_uart, (uint8_t *)" => ", 4, 1000);
     HAL_UART_Transmit(&debug_uart, data, data_size, 1000);
     HAL_UART_Transmit(&debug_uart, (uint8_t *)"\r\n", 2, 1000);
+
     HAL_UART_Transmit(&esp_uart, data, data_size, ESP_UART_DELAY);
+
     HAL_UART_Transmit(&debug_uart, (uint8_t *)"ESP UART data sent!\r\n", 21, 1000);
-    xTaskNotifyStateClear(wifi_tsk_handle);
-    HAL_UART_Transmit(&debug_uart, (uint8_t *)"Notify state cleared!\r\n", 23, 1000);
     HAL_UART_Transmit(&debug_uart, (uint8_t *)"Notify waiting started!\r\n", 25, 1000);
+
     status = ulTaskNotifyTake(pdTRUE, xWifiBlockTime);
+
     HAL_UART_Transmit(&debug_uart, (uint8_t *)" <= ", 4, 1000);
     HAL_UART_Transmit(&debug_uart, uart_buffer, uart_data_size, 1000);
     if (status)
     {
         HAL_UART_Transmit(&debug_uart, (uint8_t *)"Notify received - ESP_OK!\r\n", 27, 1000);
     }
-    else 
+    else
     {
         HAL_UART_Transmit(&debug_uart, (uint8_t *)"Notify received - ESP_ERROR!\r\n", 30, 1000);
     }
@@ -475,21 +477,6 @@ static uint32_t esp_send_data(uint8_t *data, size_t data_size)
 static uint32_t esp_start(void)
 {
     HAL_UART_Transmit(&debug_uart, (uint8_t *)"Start ESP Configuration...\r\n", 28, 1000);
-    /*device_config.id = 1;
-    memcpy(device_config.type, "AirC_Box", 8);
-    memcpy(device_config.description, "AirC Device", 11);
-    device_config.latitude = 50.122231;
-    device_config.longitude = 50.122231;
-    device_config.altitude = 20.12;
-    device_config.working_status = 1;
-    device_config.SO2_specSN = 102219020326;
-    device_config.NO2_specSN = 31120010317;
-    device_config.CO_specSN = 60619020451;
-    device_config.O3_specSN = 22620010208;
-    memset(device_config.wifi_ssid, 0, 32);
-    memset(device_config.wifi_pass, 0, 64);
-    WriteConfig(device_config);*/
-    //ClearSector(ADDRESS_CFG_START);
 
     ReadConfig(&device_config);
 
@@ -515,7 +502,7 @@ static uint32_t esp_start(void)
     esp_connect_wifi();
 
     // Set auto connect to saved wifi network
-    memcpy(uart_buffer, (uint8_t *)"AT+CWAUTOCONN=1\r\n", 17);
+    memcpy(uart_buffer, (uint8_t *)"AT+CWAUTOCONN=0\r\n", 17);
     if (esp_send_data(uart_buffer, 17) == ESP_OK);
     else return 0;
 
@@ -525,8 +512,8 @@ static uint32_t esp_start(void)
     else return 0;
 
     // Configure soft AP
-    sprintf((char *)uart_buffer, "AT+CWSAP_DEF=\"%s\",\"%s\",%d,%d\r\n", 
-        esp_module.ap_ssid, esp_module.ap_pass, 
+    sprintf((char *)uart_buffer, "AT+CWSAP_DEF=\"%s\",\"%s\",%d,%d\r\n",
+        esp_module.ap_ssid, esp_module.ap_pass,
         esp_module.ap_chl, esp_module.ap_enc);
     if (esp_send_data(uart_buffer, 24 + strlen(esp_module.ap_ssid) + strlen(esp_module.ap_pass)) == ESP_OK);
     else return 0;
@@ -665,5 +652,5 @@ void ESP_UART_IRQHandler(UART_HandleTypeDef *huart)
             vTaskNotifyGiveFromISR(esp_rx_tsk_handle, &task_woken);
             portYIELD_FROM_ISR(task_woken);
         }
-    }     
+    }
 }

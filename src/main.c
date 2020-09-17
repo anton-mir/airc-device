@@ -110,10 +110,10 @@ void init_task(void *arg)
     (void)HAL_RNG_Init(&rng_handle);
 
     (void)HAL_RNG_Init(&rng_handle);
-    
+
     eg_task_started = xEventGroupCreate();
     configASSERT(eg_task_started);
-    
+
     xEventGroupSetBits(eg_task_started, EG_INIT_STARTED);
     initBlueButtonAndReedSwitch();
     initLeds();
@@ -130,7 +130,7 @@ void init_task(void *arg)
 
     //Init Flash_SPI
     Flash_Init();
-    
+
     /* Create TCP/IP stack thread */
     tcpip_init(NULL, NULL);
 
@@ -206,13 +206,13 @@ void init_task(void *arg)
                 &wifi_tsk_handle);
 
     configASSERT(status);
-    
+
     /* Wait for all tasks initialization */
     xEventGroupWaitBits(
             eg_task_started,
             (EG_INIT_STARTED | EG_ETHERIF_IN_STARTED | EG_LINK_STATE_STARTED |
             EG_DHCP_FSM_STARTED | EG_UART_SENSORS_STARTED | EG_INIT_STARTED |
-            EG_ETHERIF_IN_STARTED | EG_LINK_STATE_STARTED | EG_DHCP_FSM_STARTED | 
+            EG_ETHERIF_IN_STARTED | EG_LINK_STATE_STARTED | EG_DHCP_FSM_STARTED |
             EG_WIFI_TSK_STARTED | EG_ESP_RX_TSK_STARTED),
             pdFALSE,
             pdTRUE,
@@ -241,7 +241,7 @@ void init_task(void *arg)
             ETH_SENDER_TASK_PRIO,
             &data_collector_handle);
     configASSERT(status);
-        
+
     status = xTaskCreate(
             eth_sender,
             "eth_sender",
