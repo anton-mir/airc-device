@@ -181,8 +181,8 @@ void esp_server_handler(ESP8266_SERVER_HANDLER handler)
     switch (handler)
     {
     case ESP_GET_WIFI_LIST:
-        memcpy((char *)uart_buffer, "AT+CWLAP\r\n", 10);
-        if (esp_send_data(uart_buffer, 10) == ESP_OK)
+        memcpy((char *)uart_buffer, "AT+CWLAP=,,4,,,\r\n", 17);
+        if (esp_send_data(uart_buffer, 17) == ESP_OK)
         {
             http_response.message_size = uart_data_size - 6;
             http_response.message = http_buffer;
