@@ -23,8 +23,6 @@ UART_HandleTypeDef esp_uart = { 0 };
 DMA_HandleTypeDef esp_dma_rx = { 0 };
 //DMA_HandleTypeDef esp_dma_tx = { 0 };
 
-static UART_HandleTypeDef debug_uart = { 0 };
-
 static size_t uart_data_size = 0;
 static uint8_t uart_buffer[ESP_UART_BUFFER_SIZE];
 
@@ -449,35 +447,15 @@ static uint32_t esp_send_data(uint8_t *data, size_t data_size)
 {
     static uint32_t status = ESP_ERROR;
 
-    HAL_UART_Transmit(&debug_uart, (uint8_t *)"\r\nESP UART start sending...\r\n", 29, 1000);
-    HAL_UART_Transmit(&debug_uart, (uint8_t *)" => ", 4, 1000);
-    HAL_UART_Transmit(&debug_uart, data, data_size, 1000);
-    HAL_UART_Transmit(&debug_uart, (uint8_t *)"\r\n", 2, 1000);
-
     HAL_UART_Transmit(&esp_uart, data, data_size, ESP_UART_DELAY);
-
-    HAL_UART_Transmit(&debug_uart, (uint8_t *)"ESP UART data sent!\r\n", 21, 1000);
-    HAL_UART_Transmit(&debug_uart, (uint8_t *)"Notify waiting started!\r\n", 25, 1000);
 
     status = ulTaskNotifyTake(pdTRUE, xWifiBlockTime);
 
-    HAL_UART_Transmit(&debug_uart, (uint8_t *)" <= ", 4, 1000);
-    HAL_UART_Transmit(&debug_uart, uart_buffer, uart_data_size, 1000);
-    if (status)
-    {
-        HAL_UART_Transmit(&debug_uart, (uint8_t *)"Notify received - ESP_OK!\r\n", 27, 1000);
-    }
-    else
-    {
-        HAL_UART_Transmit(&debug_uart, (uint8_t *)"Notify received - ESP_ERROR!\r\n", 30, 1000);
-    }
     return status;
 }
 
 static uint32_t esp_start(void)
 {
-    HAL_UART_Transmit(&debug_uart, (uint8_t *)"Start ESP Configuration...\r\n", 28, 1000);
-
     ReadConfig(&device_config);
 
     esp_module.ap_ssid = "AirC Device";
@@ -565,27 +543,10 @@ void ESP_InitPins(void)
     gpio.Pin = GPIO_PIN_7;
     gpio.Mode = GPIO_MODE_AF_OD;
     HAL_GPIO_Init(GPIOC, &gpio);
-
-    /* PINS: TX - PD5 */
-    gpio.Pin = GPIO_PIN_5;
-    gpio.Mode = GPIO_MODE_AF_OD;
-    gpio.Alternate = GPIO_AF7_USART2;
-    HAL_GPIO_Init(GPIOD, &gpio);
 }
 
 HAL_StatusTypeDef ESP_InitUART(void)
 {
-    debug_uart.Instance = USART2;
-    debug_uart.Init.BaudRate = 115200;
-    debug_uart.Init.WordLength = UART_WORDLENGTH_8B;
-    debug_uart.Init.StopBits = UART_STOPBITS_1;
-    debug_uart.Init.Parity = UART_PARITY_NONE;
-    debug_uart.Init.Mode = UART_MODE_TX;
-    debug_uart.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-    debug_uart.Init.OverSampling = UART_OVERSAMPLING_16;
-
-    if (HAL_HalfDuplex_Init(&debug_uart) == HAL_ERROR) return HAL_ERROR;
-
     /* USART 6 */
     esp_uart.Instance = USART6;
     esp_uart.Init.BaudRate = 115200;
