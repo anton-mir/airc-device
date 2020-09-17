@@ -1,9 +1,9 @@
 #include<stdint.h>
-#include"FreeRTOS.h"
-#include"task.h"
-#include "leds.h"
 #include "stm32f407xx.h"
-#include "stm32f4xx_hal.h"
+#include "main.h"
+#include "leds.h"
+
+extern volatile int esp_server_mode;
 
 LEDs_mode current_mode = WORKING_MODE;
 const uint16_t reedSwitchHoldInterval = 3000;
@@ -53,6 +53,10 @@ void reed_switch_task(void *pvParams)
             if(HAL_GPIO_ReadPin(GPIOB,REED_SWITCH) == GPIO_PIN_RESET)
             {
                 change_led(WIFI_MODE);
+                if (esp_server_mode == 1)
+                    esp_server_mode = 0;
+                else
+                    esp_server_mode = 1;
             }
         }
     }

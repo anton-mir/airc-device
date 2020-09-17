@@ -103,4 +103,4 @@ To provide wifi connection used ESP8266: http://www.microchip.ua/wireless/esp01.
    - PASS: **314159265**.
 
 **Internal web-server information**
-   - HOST: **http://192.168.4.1**.
+   - Settings address: **http://192.168.4.1/settings**.
