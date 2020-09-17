@@ -108,8 +108,6 @@ void init_task(void *arg)
 
     (void)HAL_RNG_Init(&rng_handle);
 
-    (void)HAL_RNG_Init(&rng_handle);
-
     eg_task_started = xEventGroupCreate();
     configASSERT(eg_task_started);
 
