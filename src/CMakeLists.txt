@@ -37,6 +37,7 @@ set(LOCAL_SRCS
     "http_helper.c"
     "picohttpparser.c"
     "uart_sensors.c"
+		"bmp280.c"
     "syscalls.c"
     "sysmem.c"
     "${CMAKE_CURRENT_SOURCE_DIR}/arch/sys_arch.c"
