@@ -76,7 +76,7 @@
 #define EG_WIFI_TSK_STARTED         (0x100)
 #define EG_UART_SENSORS_STARTED     (0x200)
 #define EG_ESP_RX_TSK_STARTED       (0x400)
-
+#define EG_I2C_BME280_STARTED       (0x300)
 
 /* Exported types ------------------------------------------------------------*/
 /* Exported constants --------------------------------------------------------*/
@@ -95,6 +95,7 @@ extern TaskHandle_t eth_sender_handle;
 extern TaskHandle_t data_collector_handle;
 extern TaskHandle_t reed_switch_handle;
 extern TaskHandle_t uart_sensors_handle;
+extern TaskHandle_t i2c_bme280_sensor_handle;
 
 extern EventGroupHandle_t eg_task_started;
 
