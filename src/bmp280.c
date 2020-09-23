@@ -37,8 +37,10 @@ static void MX_GPIO_Init(void)
 
 }
 
-void MX_I2C1_Init(void)
+HAL_StatusTypeDef MX_I2C1_Init(void)
 {
+    HAL_StatusTypeDef i2c_init_status = HAL_ERROR;
+
     hi2cxc.Instance = I2C1;
     hi2cxc.Init.ClockSpeed = 100000;
     hi2cxc.Init.OwnAddress1 = 0;
@@ -47,6 +49,10 @@ void MX_I2C1_Init(void)
     hi2cxc.Init.OwnAddress2 = 0;
     hi2cxc.Init.GeneralCallMode = I2C_GENERALCALL_DISABLED;
     hi2cxc.Init.NoStretchMode = I2C_NOSTRETCH_DISABLED;
+
+    i2c_init_status = HAL_I2C_Init(&hi2cxc);
+
+    return i2c_init_status;
 }
 
 
@@ -58,6 +64,11 @@ void bmp280_init_default_params(bmp280_params_t *params) {
 	params->oversampling_humidity = BMP280_STANDARD;
 	params->standby = BMP280_STANDBY_250;
 }
+
+static void BME_sensor_error_handler()
+{
+    // TODO: process error
+};
 
 static bool read_register16(BMP280_HandleTypedef *dev, uint8_t addr, uint16_t *value) {
 	uint16_t tx_buff;
@@ -73,15 +84,23 @@ static bool read_register16(BMP280_HandleTypedef *dev, uint8_t addr, uint16_t *v
 
 }
 
-static inline int read_data(BMP280_HandleTypedef *dev, uint8_t addr, uint8_t *value,
-		uint8_t len) {
-	uint16_t tx_buff;
-	tx_buff = (dev->addr << 1);
-	if (HAL_I2C_Mem_Read(dev->i2c, tx_buff, addr, 1, value, len, 5000) == HAL_OK)
-		return 0;
-	else
-		return 1;
+static inline int read_data(BMP280_HandleTypedef *dev,
+                            uint8_t mem_address,
+                            uint8_t *read_buffer,
+                            uint8_t len)
+{
+    HAL_StatusTypeDef read_data_status = HAL_ERROR;
 
+    read_data_status = HAL_I2C_Mem_Read(
+                dev->i2c,
+                (uint8_t) (dev->addr << 1),
+                UINT8_C(mem_address),
+                I2C_MEMADD_SIZE_8BIT,
+                (uint8_t *) (&read_buffer),
+                len,
+                5000);
+
+    return read_data_status;
 }
 
 static bool read_calibration_data(BMP280_HandleTypedef *dev) {
@@ -348,18 +367,25 @@ bool bmp280_read_float(BMP280_HandleTypedef *dev, float *temperature, float *pre
 
 
 void bme280_sensor() {
-    HAL_Init();
-    MX_GPIO_Init();
-    MX_I2C1_Init();
+//    HAL_Init();
+//    MX_GPIO_Init();
+    if (MX_I2C1_Init() != HAL_OK)
+    {
+        BME_sensor_error_handler();
+    }
 
     xEventGroupSetBits(eg_task_started, EG_I2C_BME280_STARTED);
 
     bmp280_init_default_params(&bmp280.params);
     bmp280.addr = BMP280_I2C_ADDRESS_0;
     bmp280.i2c = &hi2cxc;
-    if (bmp280_init(&bmp280, &bmp280.params) == false) {
-        //todo:
+    const bool bmp_initialization_status = bmp280_init(&bmp280, &bmp280.params);
+
+    if (bmp_initialization_status == false)
+    {
+        BME_sensor_error_handler();
     }
+
     while (1) {
         bmp280_read_float(&bmp280, &temperature, &pressure, &humidity);
         vTaskDelay(1000);
@@ -402,3 +428,4 @@ void HAL_I2C_MspDeInit(I2C_HandleTypeDef* i2cHandle)
 
     }
 }
+
