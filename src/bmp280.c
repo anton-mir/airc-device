@@ -401,7 +401,7 @@ void bme280_sensor() {
 
     while (1) {
         bmp280_read_float(&bmp280, &temperature, &pressure, &humidity);
-        vTaskDelay(100);
+        vTaskDelay(1000);
     }
 }
 
