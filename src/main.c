@@ -123,58 +123,58 @@ void init_task(void *arg)
     lcd_print_string("Initializing...");
 
     // Init ESP8266
-    ESP_InitPins();
-    ESP_InitUART();
-    ESP_InitDMA();
-
-    //Init Flash_SPI
-    Flash_Init();
-
-    /* Create TCP/IP stack thread */
-    tcpip_init(NULL, NULL);
+//    ESP_InitPins();
+//    ESP_InitUART();
+//    ESP_InitDMA();
+//
+//    //Init Flash_SPI
+//    Flash_Init();
+//
+//    /* Create TCP/IP stack thread */
+//    tcpip_init(NULL, NULL);
 
     /* Initialize PHY */
-    netif_setup();
-    status = xTaskCreate(
-            link_state,
-            "link_st",
-            LINK_STATE_TASK_STACK_SIZE,
-            (void *) netif,
-            LINK_STATE_TASK_PRIO,
-            &link_state_handle);
-
-    configASSERT(status);
-
-    status = xTaskCreate(
-            dhcp_fsm,
-            "dhcp_fsm",
-            DHCP_FSM_TASK_STACK_SIZE,
-            (void *) netif,
-            DHCP_FSM_TASK_PRIO,
-            &dhcp_fsm_handle);
-
-    configASSERT(status);
-
-    status = xTaskCreate(
-            ethernetif_input,
-            "ethif_in",
-            ETHIF_IN_TASK_STACK_SIZE,
-            (void *) netif,
-            ETHIF_IN_TASK_PRIO,
-            &ethif_in_handle);
-
-    configASSERT(status);
-
-
-    status = xTaskCreate(
-            uart_sensors,
-            "uart_sensors",
-            UART_SENSORS_TASK_STACK_SIZE,
-            (void *)netif,
-            UART_SENSORS_TASK_PRIO,
-            &uart_sensors_handle);
-
-    configASSERT(status);
+//    netif_setup();
+//    status = xTaskCreate(
+//            link_state,
+//            "link_st",
+//            LINK_STATE_TASK_STACK_SIZE,
+//            (void *) netif,
+//            LINK_STATE_TASK_PRIO,
+//            &link_state_handle);
+//
+//    configASSERT(status);
+//
+//    status = xTaskCreate(
+//            dhcp_fsm,
+//            "dhcp_fsm",
+//            DHCP_FSM_TASK_STACK_SIZE,
+//            (void *) netif,
+//            DHCP_FSM_TASK_PRIO,
+//            &dhcp_fsm_handle);
+//
+//    configASSERT(status);
+//
+//    status = xTaskCreate(
+//            ethernetif_input,
+//            "ethif_in",
+//            ETHIF_IN_TASK_STACK_SIZE,
+//            (void *) netif,
+//            ETHIF_IN_TASK_PRIO,
+//            &ethif_in_handle);
+//
+//    configASSERT(status);
+//
+//
+//    status = xTaskCreate(
+//            uart_sensors,
+//            "uart_sensors",
+//            UART_SENSORS_TASK_STACK_SIZE,
+//            (void *)netif,
+//            UART_SENSORS_TASK_PRIO,
+//            &uart_sensors_handle);
+//
+//    configASSERT(status);
 
     status = xTaskCreate(
             bme280_sensor,
@@ -186,138 +186,138 @@ void init_task(void *arg)
 
     configASSERT(status);
 
-    status = xTaskCreate(
-            eth_server,
-            "eth_server",
-            ETH_SERVER_TASK_STACK_SIZE,
-            NULL,
-            ETH_SERVER_TASK_PRIO,
-            &eth_server_handle);
-
-    configASSERT(status);
-
-    status = xTaskCreate(
-                esp_rx_task,
-                "esp_rx_tsk",
-                ESP8266_RX_TASK_STACK_SIZE,
-                NULL,
-                ESP8266_RX_TASK_PRIO,
-                &esp_rx_tsk_handle);
-
-    configASSERT(status);
-
-    status = xTaskCreate(
-                wifi_task,
-                "wifi_tsk",
-                ESP8266_WIFI_TASK_STACK_SIZE,
-                NULL,
-                ESP8266_WIFI_TASK_PRIO,
-                &wifi_tsk_handle);
-
-    configASSERT(status);
-
-    /* Wait for all tasks initialization */
-    xEventGroupWaitBits(
-            eg_task_started,
-            (EG_INIT_STARTED | EG_ETHERIF_IN_STARTED | EG_LINK_STATE_STARTED |
-            EG_DHCP_FSM_STARTED | EG_UART_SENSORS_STARTED | EG_INIT_STARTED |
-            EG_ETHERIF_IN_STARTED | EG_LINK_STATE_STARTED | EG_DHCP_FSM_STARTED |
-            EG_WIFI_TSK_STARTED | EG_ESP_RX_TSK_STARTED),
-            pdFALSE,
-            pdTRUE,
-            portMAX_DELAY);
-
-    if (netif_is_up(netif)) {
-        /* Start DHCP address request */
-        ethernetif_dhcp_start();
-    }
-
-    status = xTaskCreate(
-            analog_temp,
-            "analog_temp",
-            ANALOG_TEMP_TASK_STACK_SIZE,
-            NULL,
-            ANALOG_TEMP_TASK_PRIO,
-            &analog_temp_handle);
-
-    configASSERT(status);
-
-    status = xTaskCreate(
-            data_collector,
-            "data_collector",
-            ETH_SENDER_TASK_STACK_SIZE,
-            NULL,
-            ETH_SENDER_TASK_PRIO,
-            &data_collector_handle);
-    configASSERT(status);
-
-    status = xTaskCreate(
-            eth_sender,
-            "eth_sender",
-            DATA_COLLECTOR_STACK_SIZE,
-            NULL,
-            DATA_COLLECTOR_PRIO,
-            &eth_sender_handle);
-
-    configASSERT(status);
-
-    status = xTaskCreate(
-            reed_switch_task,
-            "reed_switch_task",
-            REED_SWITCH_STACK_SIZE,
-            NULL,
-            REED_SWITCH_PRIO,
-            &reed_switch_handle);
-    configASSERT(status);
-
-
-    gpio.Mode = GPIO_MODE_OUTPUT_PP;
-    gpio.Pull = GPIO_NOPULL;
-    gpio.Pin = GPIO_PIN_13;
-    HAL_GPIO_Init(GPIOD, &gpio);
-    HAL_GPIO_WritePin(GPIOD, GPIO_PIN_13, GPIO_PIN_SET);
-
-    // Multiplexer on/off pin - init to off state (pull-up)
-    gpio.Mode = GPIO_MODE_OUTPUT_PP;
-    gpio.Pull = GPIO_PULLUP;
-    gpio.Pin = GPIO_PIN_8;
-    HAL_GPIO_Init(GPIOA, &gpio);
-    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_SET);
+//    status = xTaskCreate(
+//            eth_server,
+//            "eth_server",
+//            ETH_SERVER_TASK_STACK_SIZE,
+//            NULL,
+//            ETH_SERVER_TASK_PRIO,
+//            &eth_server_handle);
+//
+//    configASSERT(status);
+//
+//    status = xTaskCreate(
+//                esp_rx_task,
+//                "esp_rx_tsk",
+//                ESP8266_RX_TASK_STACK_SIZE,
+//                NULL,
+//                ESP8266_RX_TASK_PRIO,
+//                &esp_rx_tsk_handle);
+//
+//    configASSERT(status);
+//
+//    status = xTaskCreate(
+//                wifi_task,
+//                "wifi_tsk",
+//                ESP8266_WIFI_TASK_STACK_SIZE,
+//                NULL,
+//                ESP8266_WIFI_TASK_PRIO,
+//                &wifi_tsk_handle);
+//
+//    configASSERT(status);
+//
+//    /* Wait for all tasks initialization */
+//    xEventGroupWaitBits(
+//            eg_task_started,
+//            (EG_INIT_STARTED | EG_ETHERIF_IN_STARTED | EG_LINK_STATE_STARTED |
+//            EG_DHCP_FSM_STARTED | EG_UART_SENSORS_STARTED | EG_INIT_STARTED |
+//            EG_ETHERIF_IN_STARTED | EG_LINK_STATE_STARTED | EG_DHCP_FSM_STARTED |
+//            EG_WIFI_TSK_STARTED | EG_ESP_RX_TSK_STARTED),
+//            pdFALSE,
+//            pdTRUE,
+//            portMAX_DELAY);
+//
+//    if (netif_is_up(netif)) {
+//        /* Start DHCP address request */
+//        ethernetif_dhcp_start();
+//    }
+//
+//    status = xTaskCreate(
+//            analog_temp,
+//            "analog_temp",
+//            ANALOG_TEMP_TASK_STACK_SIZE,
+//            NULL,
+//            ANALOG_TEMP_TASK_PRIO,
+//            &analog_temp_handle);
+//
+//    configASSERT(status);
+//
+//    status = xTaskCreate(
+//            data_collector,
+//            "data_collector",
+//            ETH_SENDER_TASK_STACK_SIZE,
+//            NULL,
+//            ETH_SENDER_TASK_PRIO,
+//            &data_collector_handle);
+//    configASSERT(status);
+//
+//    status = xTaskCreate(
+//            eth_sender,
+//            "eth_sender",
+//            DATA_COLLECTOR_STACK_SIZE,
+//            NULL,
+//            DATA_COLLECTOR_PRIO,
+//            &eth_sender_handle);
+//
+//    configASSERT(status);
+//
+//    status = xTaskCreate(
+//            reed_switch_task,
+//            "reed_switch_task",
+//            REED_SWITCH_STACK_SIZE,
+//            NULL,
+//            REED_SWITCH_PRIO,
+//            &reed_switch_handle);
+//    configASSERT(status);
+//
+//
+//    gpio.Mode = GPIO_MODE_OUTPUT_PP;
+//    gpio.Pull = GPIO_NOPULL;
+//    gpio.Pin = GPIO_PIN_13;
+//    HAL_GPIO_Init(GPIOD, &gpio);
+//    HAL_GPIO_WritePin(GPIOD, GPIO_PIN_13, GPIO_PIN_SET);
+//
+//    // Multiplexer on/off pin - init to off state (pull-up)
+//    gpio.Mode = GPIO_MODE_OUTPUT_PP;
+//    gpio.Pull = GPIO_PULLUP;
+//    gpio.Pin = GPIO_PIN_8;
+//    HAL_GPIO_Init(GPIOA, &gpio);
+//    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_SET);
 
     for (;;) {
 
-        uint16_t current_pin = choose_pin(current_mode);
-        static uint8_t leds_turned_off = 0;
-
-        if (!netif_is_link_up(netif)) {
-            lcd_clear();
-            lcd_print_string_at("Link:", 0, 0);
-            lcd_print_string_at("down", 0, 1);
-        }
-
-        if (current_pin == OFF_LEDS)
-        {
-            if (!leds_turned_off) // Don't reset leds if they are already reset
-            {
-                HAL_GPIO_WritePin(GPIOD,RED_LED |GREEN_LED,GPIO_PIN_RESET);
-                HAL_GPIO_WritePin(GPIOB,BLUE_LED,GPIO_PIN_RESET);
-                leds_turned_off = 1;
-            }
-        }
-        else
-        {
-            leds_turned_off = 0;
-            TickType_t delay = (current_pin == RED_LED) ? 500u : 1500u;
-            if (current_pin == BLUE_LED)
-            {
-                HAL_GPIO_TogglePin(GPIOB,current_pin);
-            }
-            else
-            {
-                HAL_GPIO_TogglePin(GPIOD,current_pin);
-            }
-            vTaskDelay(delay);
-        }
+//        uint16_t current_pin = choose_pin(current_mode);
+//        static uint8_t leds_turned_off = 0;
+//
+//        if (!netif_is_link_up(netif)) {
+//            lcd_clear();
+//            lcd_print_string_at("Link:", 0, 0);
+//            lcd_print_string_at("down", 0, 1);
+//        }
+//
+//        if (current_pin == OFF_LEDS)
+//        {
+//            if (!leds_turned_off) // Don't reset leds if they are already reset
+//            {
+//                HAL_GPIO_WritePin(GPIOD,RED_LED |GREEN_LED,GPIO_PIN_RESET);
+//                HAL_GPIO_WritePin(GPIOB,BLUE_LED,GPIO_PIN_RESET);
+//                leds_turned_off = 1;
+//            }
+//        }
+//        else
+//        {
+//            leds_turned_off = 0;
+//            TickType_t delay = (current_pin == RED_LED) ? 500u : 1500u;
+//            if (current_pin == BLUE_LED)
+//            {
+//                HAL_GPIO_TogglePin(GPIOB,current_pin);
+//            }
+//            else
+//            {
+//                HAL_GPIO_TogglePin(GPIOD,current_pin);
+//            }
+            vTaskDelay(100);
+//        }
     }
 }
 /* Private functions ---------------------------------------------------------*/

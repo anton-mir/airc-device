@@ -108,7 +108,7 @@ static inline int read_data(BMP280_HandleTypedef *dev,
                 (uint8_t) (dev->addr << 1),
                 UINT8_C(mem_address),
                 I2C_MEMADD_SIZE_8BIT,
-                (uint8_t *) (&read_buffer),
+                read_buffer,
                 len,
                 5000);
 
@@ -398,9 +398,10 @@ void bme280_sensor() {
         BME_sensor_error_handler();
     }
 
+
     while (1) {
         bmp280_read_float(&bmp280, &temperature, &pressure, &humidity);
-        vTaskDelay(1000);
+        vTaskDelay(100);
     }
 }
 
