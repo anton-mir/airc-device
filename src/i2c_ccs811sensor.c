@@ -91,9 +91,9 @@ void Init_I2C_CCS811(void)
  */	
 void readResults()
 {
-
-	uint8_t data_rq[4];
-	HAL_I2C_Mem_Read( &hi2cxc, CCS811_ADDR<<1, ( uint8_t )CSS811_ALG_RESULT_DATA, I2C_MEMADD_SIZE_16BIT, data_rq, 4, 100 );
+	uint8_t data_rq[8];
+    uint8_t status_sensor = readRegister(0x0);
+	HAL_I2C_Mem_Read( &hi2cxc, CCS811_ADDR<<1, ( uint8_t )CSS811_ALG_RESULT_DATA, I2C_MEMADD_SIZE_8BIT, data_rq, 8, 100 );
 
 	uint8_t co2MSB = data_rq[0];
 	uint8_t co2LSB = data_rq[1];
@@ -113,10 +113,9 @@ void readResults()
  */
 void configureCCS811()
 {
-
 	HAL_Delay(69);
-	//Verify the hardware ID is what we expect
 
+	//Verify the hardware ID is what we expect
 	uint8_t hwID = readRegister(0x20); //Hardware ID should be 0x81
 	if (hwID != 0x81)
 	{
@@ -124,10 +123,9 @@ void configureCCS811()
 		while (1); //Freeze!
 	}
 
-	uint8_t    lodata[1];
-	lodata[0]= CSS811_APP_START;
+	uint8_t lodata[1];
 
-	HAL_I2C_Master_Transmit(&hi2cxc, 0xB6, lodata, 1, 100);
+    HAL_I2C_Mem_Write(&hi2cxc, CCS811_ADDR<<1, CSS811_APP_START, I2C_MEMADD_SIZE_8BIT, (uint8_t *) &lodata, 0, 300);
 
 	HAL_Delay(20);
 	setDriveMode(Mode_CCS811); //Read every second
@@ -148,8 +146,6 @@ int checkForError()
 	errvalue = readRegister(CSS811_STATUS);
 	return (errvalue & 1 << 0);
 }
-
-
 
 //Checks to see if DATA_READ flag is set in the status register
 int dataAvailable()
@@ -230,7 +226,6 @@ void softRest() {
 
 }	
 
-
 /*
  * @brief  sleep
  * @param  NONE.
@@ -242,8 +237,6 @@ void sleep()
 	writeRegister(CSS811_MEAS_MODE, 0);
 }
 
-
-
 /*
  * @brief  Reads from a give location from the CSS811
  * @param  addr  ADDRESS.
@@ -253,11 +246,7 @@ uint8_t readRegister(uint8_t addr)
 {
 	uint8_t dt;
 	HAL_StatusTypeDef res;
-
-	res = HAL_I2C_Mem_Read( &hi2cxc, CCS811_ADDR<<1, ( uint8_t )addr,1, &dt, 1, 300 );
-	while (HAL_I2C_GetState(&hi2cxc) != HAL_I2C_STATE_READY);
-
-
+	res = HAL_I2C_Mem_Read(&hi2cxc, CCS811_ADDR<<1, ( uint8_t )addr,1, &dt, 1, 300 );
 	return dt;
 }
 
@@ -270,14 +259,7 @@ uint8_t readRegister(uint8_t addr)
  */
 void writeRegister(uint8_t addr, uint8_t val)
 {
-	HAL_I2C_Mem_Write( &hi2cxc, CCS811_ADDWR, ( uint8_t )addr, I2C_MEMADD_SIZE_8BIT, &val, 1,300);
-	while (HAL_I2C_GetState(&hi2cxc) != HAL_I2C_STATE_READY)
-	{
-	} 
-	while (HAL_I2C_IsDeviceReady(&hi2cxc, CCS811_ADDR, 10, 300) == HAL_TIMEOUT);
-	while(HAL_I2C_GetState(&hi2cxc) != HAL_I2C_STATE_READY)
-	{
-	}
+	HAL_I2C_Mem_Write( &hi2cxc, CCS811_ADDR<<1, ( uint8_t )addr, I2C_MEMADD_SIZE_8BIT, &val, 1,300);
 }
 
 
