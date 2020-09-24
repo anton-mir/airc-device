@@ -31,10 +31,22 @@ float pressure;
 
 static void MX_GPIO_Init(void)
 {
+    GPIO_InitTypeDef GPIO_InitStruct = {0};
 
-    __HAL_RCC_GPIOH_CLK_ENABLE();
     __HAL_RCC_GPIOB_CLK_ENABLE();
 
+    /**I2C1 GPIO Configuration
+    PB6     ------> I2C1_SCL
+    PB9     ------> I2C1_SDA
+    */
+    GPIO_InitStruct.Pin = GPIO_PIN_6|GPIO_PIN_9;
+    GPIO_InitStruct.Mode = GPIO_MODE_AF_OD;
+    GPIO_InitStruct.Pull = GPIO_PULLUP;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+    GPIO_InitStruct.Alternate = GPIO_AF4_I2C1;
+    HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+    __HAL_RCC_I2C1_CLK_ENABLE();
 }
 
 HAL_StatusTypeDef MX_I2C1_Init(void)
@@ -367,8 +379,8 @@ bool bmp280_read_float(BMP280_HandleTypedef *dev, float *temperature, float *pre
 
 
 void bme280_sensor() {
-//    HAL_Init();
-//    MX_GPIO_Init();
+    MX_GPIO_Init();
+
     if (MX_I2C1_Init() != HAL_OK)
     {
         BME_sensor_error_handler();
