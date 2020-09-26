@@ -6,8 +6,8 @@
 #include "FreeRTOSConfig.h"
 #include "task.h"
 
-#define ESP_UART_DELAY                 0xFFFFFF
-#define ESP_UART_BUFFER_SIZE           1472
+#define ESP_UART_DELAY                 1000
+#define ESP_UART_BUFFER_SIZE           2048
 #define ESP_MAX_TCP_SIZE               2048
 #define ESP_MAX_TCP_CONN               5
 #define ESP_INT_PRIO                   9

@@ -73,9 +73,7 @@
 #define ETH_SERVER_STARTED          (0x20)
 #define ETH_SENDER_STARTED          (0x40)
 #define EG_DATA_COLLECTOR_STARTED   (0x80)
-#define EG_WIFI_TSK_STARTED         (0x100)
-#define EG_UART_SENSORS_STARTED     (0x200)
-#define EG_ESP_RX_TSK_STARTED       (0x400)
+#define EG_UART_SENSORS_STARTED     (0x100)
 
 
 /* Exported types ------------------------------------------------------------*/

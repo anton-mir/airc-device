@@ -211,8 +211,7 @@ void init_task(void *arg)
             eg_task_started,
             (EG_INIT_STARTED | EG_ETHERIF_IN_STARTED | EG_LINK_STATE_STARTED |
             EG_DHCP_FSM_STARTED | EG_UART_SENSORS_STARTED | EG_INIT_STARTED |
-            EG_ETHERIF_IN_STARTED | EG_LINK_STATE_STARTED | EG_DHCP_FSM_STARTED |
-            EG_WIFI_TSK_STARTED | EG_ESP_RX_TSK_STARTED),
+            EG_ETHERIF_IN_STARTED | EG_LINK_STATE_STARTED | EG_DHCP_FSM_STARTED),
             pdFALSE,
             pdTRUE,
             portMAX_DELAY);
