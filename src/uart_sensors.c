@@ -56,9 +56,6 @@ static HAL_StatusTypeDef USART3_DMA_Init(void)
     if (HAL_DMA_Init(&huart3_dma_rx) == HAL_ERROR) return HAL_ERROR;
     __HAL_LINKDMA(&huart3, hdmarx, huart3_dma_rx);
 
-    HAL_NVIC_SetPriority(DMA1_Stream1_IRQn, 5, 0U);
-    HAL_NVIC_EnableIRQ(DMA1_Stream1_IRQn);
-
     return HAL_OK;
 }
 
