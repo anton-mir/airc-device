@@ -29,7 +29,7 @@ typedef struct boxConfig_CRC16_CCITT
 {
     boxConfig_S cfg;
     unsigned short CRC16_CCITT;
-}boxConfig_CRC16_CCITT;
+}boxConfig_CRC16_CCITT_S;
 
 
 void WriteConfig(boxConfig_S cfg);
