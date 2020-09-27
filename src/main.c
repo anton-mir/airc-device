@@ -204,22 +204,6 @@ void init_task(void *arg)
 
     configASSERT(status);
 
-    /* Wait for all tasks initialization */
-    xEventGroupWaitBits(
-            eg_task_started,
-            (EG_INIT_STARTED | EG_ETHERIF_IN_STARTED | EG_LINK_STATE_STARTED |
-            EG_DHCP_FSM_STARTED | EG_UART_SENSORS_STARTED | EG_INIT_STARTED |
-            EG_ETHERIF_IN_STARTED | EG_LINK_STATE_STARTED | EG_DHCP_FSM_STARTED |
-            EG_WIFI_TSK_STARTED | EG_ESP_RX_TSK_STARTED),
-            pdFALSE,
-            pdTRUE,
-            portMAX_DELAY);
-
-    if (netif_is_up(netif)) {
-        /* Start DHCP address request */
-        ethernetif_dhcp_start();
-    }
-
     status = xTaskCreate(
             analog_temp,
             "analog_temp",
@@ -257,6 +241,22 @@ void init_task(void *arg)
             REED_SWITCH_PRIO,
             &reed_switch_handle);
     configASSERT(status);
+
+    /* Wait for all tasks initialization */
+    xEventGroupWaitBits(
+            eg_task_started,
+            (EG_INIT_STARTED | EG_ETHERIF_IN_STARTED | EG_LINK_STATE_STARTED |
+             EG_DHCP_FSM_STARTED | EG_UART_SENSORS_STARTED | EG_WIFI_TSK_STARTED |
+             EG_ESP_RX_TSK_STARTED | EG_ANALOG_TEMP_STARTED | EG_ETH_SENDER_STARTED |
+             EG_ETH_SERVER_STARTED | EG_DATA_COLLECTOR_STARTED| EG_REED_SWITCH_STARTED),
+            pdFALSE,
+            pdTRUE,
+            portMAX_DELAY);
+
+    if (netif_is_up(netif)) {
+        /* Start DHCP address request */
+        ethernetif_dhcp_start();
+    }
 
 
     gpio.Mode = GPIO_MODE_OUTPUT_PP;

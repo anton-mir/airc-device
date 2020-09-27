@@ -12,12 +12,12 @@ void eth_sender(void *pvParameters){
     xEventGroupWaitBits(
                 eg_task_started,
                 (EG_INIT_STARTED | EG_ETHERIF_IN_STARTED | EG_LINK_STATE_STARTED |
-                EG_DHCP_FSM_STARTED | ETH_SERVER_STARTED ),
+                EG_DHCP_FSM_STARTED | EG_ETH_SERVER_STARTED ),
                 pdFALSE,
                 pdTRUE,
                 portMAX_DELAY);
     QueueTransmitEthernet=xQueueCreate(1,sizeof(dataPacket_S));
-    xEventGroupSetBits(eg_task_started, ETH_SENDER_STARTED);
+    xEventGroupSetBits(eg_task_started, EG_ETH_SENDER_STARTED);
     for( ;; )
     {
             xStatus = xQueueReceive(QueueTransmitEthernet, &lReceivedValue, portMAX_DELAY);

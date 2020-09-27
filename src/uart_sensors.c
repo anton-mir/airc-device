@@ -403,7 +403,7 @@ static void UART_sensors_error_handler(){};
 
 void uart_sensors(void * const arg) {
 
-    /* Notify init task that CO sensor task has been started */
+    /* Notify init task that UART sensors task has been started */
     xEventGroupSetBits(eg_task_started, EG_UART_SENSORS_STARTED);
 
     GPIO_Init();

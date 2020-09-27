@@ -70,12 +70,13 @@
 #define EG_LINK_STATE_STARTED       (0x04)
 #define EG_DHCP_FSM_STARTED         (0x08)
 #define EG_ANALOG_TEMP_STARTED      (0x10)
-#define ETH_SERVER_STARTED          (0x20)
-#define ETH_SENDER_STARTED          (0x40)
+#define EG_ETH_SERVER_STARTED       (0x20)
+#define EG_ETH_SENDER_STARTED       (0x40)
 #define EG_DATA_COLLECTOR_STARTED   (0x80)
 #define EG_WIFI_TSK_STARTED         (0x100)
 #define EG_UART_SENSORS_STARTED     (0x200)
 #define EG_ESP_RX_TSK_STARTED       (0x400)
+#define EG_REED_SWITCH_STARTED      (0x800)
 
 
 /* Exported types ------------------------------------------------------------*/
