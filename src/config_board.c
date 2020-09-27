@@ -75,7 +75,7 @@ void ReadConfig(boxConfig_S* cfg)
         return;
     }else
     {
-        ReadDataArrayFromAddress(ADDRESS_CFG_START_RESERV,((uint8_t*)cfg_cr),sizeof(boxConfig_CRC16_CCITT_S));
+        ReadDataArrayFromAddress(ADDRESS_CFG_START_RESERV,((uint8_t*)cfg_crc),sizeof(boxConfig_CRC16_CCITT_S));
         if(cfg_crc.CRC16_CCITT==CRC16_CCITT(&(cfg_crc.cfg),sizeof(boxConfig_S)))
         {
             *(cfg)=cfg_crc.cfg;
