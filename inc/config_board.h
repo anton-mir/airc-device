@@ -25,6 +25,7 @@ typedef struct boxConfig
     char type[19];
     char ip[15];
 }boxConfig_S;
+
 typedef struct boxConfig_CRC16_CCITT
 {
     boxConfig_S cfg;

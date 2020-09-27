@@ -58,24 +58,24 @@ void WriteConfig(boxConfig_S cfg)
     cfg_crc.CRC16_CCITT=CRC16_CCITT(&cfg,sizeof(boxConfig_S));
     WriteToStatusRegister(0);
     ClearSector(ADDRESS_CFG_START);
-    WriteDataArrayWithAAI(ADDRESS_CFG_START,((uint8_t*)&cfg_crc),sizeof(cfg_crc));
+    WriteDataArrayWithAAI(ADDRESS_CFG_START,((uint8_t*)&cfg_crc),sizeof(boxConfig_CRC16_CCITT_S));
     WriteToStatusRegister(0);
     ClearSector(ADDRESS_CFG_START_RESERV);
-    WriteDataArrayWithAAI(ADDRESS_CFG_START_RESERV,((uint8_t*)&cfg_crc),sizeof(cfg_crc));
+    WriteDataArrayWithAAI(ADDRESS_CFG_START_RESERV,((uint8_t*)&cfg_crc),sizeof(boxConfig_CRC16_CCITT_S));
     return;
 }
 
 void ReadConfig(boxConfig_S* cfg)
 {
     boxConfig_CRC16_CCITT_S cfg_crc;
-    ReadDataArrayFromAddress(ADDRESS_CFG_START,(uint8_t*)cfg_crc,sizeof(cfg_crc));
+    ReadDataArrayFromAddress(ADDRESS_CFG_START,((uint8_t*)cfg_crc),sizeof(boxConfig_CRC16_CCITT_S));
     if(cfg_crc.CRC16_CCITT==CRC16_CCITT(&(cfg_crc.cfg),sizeof(boxConfig_S)))
     {
         *(cfg)=cfg_crc.cfg;
         return;
     }else
     {
-        ReadDataArrayFromAddress(ADDRESS_CFG_START_RESERV,(uint8_t*)cfg_crc,sizeof(cfg_crc));
+        ReadDataArrayFromAddress(ADDRESS_CFG_START_RESERV,((uint8_t*)cfg_cr),sizeof(boxConfig_CRC16_CCITT_S));
         if(cfg_crc.CRC16_CCITT==CRC16_CCITT(&(cfg_crc.cfg),sizeof(boxConfig_S)))
         {
             *(cfg)=cfg_crc.cfg;
