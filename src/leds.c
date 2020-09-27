@@ -44,6 +44,8 @@ void change_led(LEDs_mode mode)
 
 void reed_switch_task(void *pvParams)
 {
+    /* Notify init task that reed switch task has been started */
+    xEventGroupSetBits(eg_task_started, EG_REED_SWITCH_STARTED);
     for( ;; )
     {
         vTaskDelay(1);
