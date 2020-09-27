@@ -93,7 +93,7 @@ extern TaskHandle_t eth_sender_handle;
 extern TaskHandle_t data_collector_handle;
 extern TaskHandle_t reed_switch_handle;
 extern TaskHandle_t uart_sensors_handle;
-
+extern TaskHandle_t analog_temp_handle;
 
 
 extern EventGroupHandle_t eg_task_started;

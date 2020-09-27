@@ -9,7 +9,6 @@
 
 
 #define FANS_WORKING_TIME   3000 //ms
-
 void init_fans();
 void fans_on();
 void fans_off();

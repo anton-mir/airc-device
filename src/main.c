@@ -224,18 +224,18 @@ void init_task(void *arg)
     status = xTaskCreate(
             data_collector,
             "data_collector",
-            ETH_SENDER_TASK_STACK_SIZE,
+            DATA_COLLECTOR_STACK_SIZE,
             NULL,
-            ETH_SENDER_TASK_PRIO,
+            DATA_COLLECTOR_PRIO,
             &data_collector_handle);
     configASSERT(status);
         
     status = xTaskCreate(
             eth_sender,
             "eth_sender",
-            DATA_COLLECTOR_STACK_SIZE,
+            ETH_SENDER_TASK_STACK_SIZE,
             NULL,
-            DATA_COLLECTOR_PRIO,
+            ETHIF_IN_TASK_PRIO,
             &eth_sender_handle);
 
     configASSERT(status);
