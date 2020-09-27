@@ -61,12 +61,14 @@
 #include "flash_SST25VF016B.h"
 #include "config_board.h"
 
+volatile boxConfig_S device_config = { 0 };
 
 TaskHandle_t init_handle = NULL;
 TaskHandle_t ethif_in_handle = NULL;
 TaskHandle_t link_state_handle = NULL;
 TaskHandle_t dhcp_fsm_handle = NULL;
 TaskHandle_t wifi_tsk_handle = NULL;
+TaskHandle_t esp_rx_tsk_handle = NULL;
 TaskHandle_t analog_temp_handle = NULL;
 TaskHandle_t eth_server_handle = NULL;
 TaskHandle_t eth_sender_handle = NULL;
@@ -106,11 +108,9 @@ void init_task(void *arg)
 
     (void)HAL_RNG_Init(&rng_handle);
 
-    (void)HAL_RNG_Init(&rng_handle);
-    
     eg_task_started = xEventGroupCreate();
     configASSERT(eg_task_started);
-    
+
     xEventGroupSetBits(eg_task_started, EG_INIT_STARTED);
     initBlueButtonAndReedSwitch();
     initLeds();
@@ -185,6 +185,16 @@ void init_task(void *arg)
     configASSERT(status);
 
     status = xTaskCreate(
+                esp_rx_task,
+                "esp_rx_tsk",
+                ESP8266_RX_TASK_STACK_SIZE,
+                NULL,
+                ESP8266_RX_TASK_PRIO,
+                &esp_rx_tsk_handle);
+
+    configASSERT(status);
+
+    status = xTaskCreate(
                 wifi_task,
                 "wifi_tsk",
                 ESP8266_WIFI_TASK_STACK_SIZE,
@@ -193,14 +203,14 @@ void init_task(void *arg)
                 &wifi_tsk_handle);
 
     configASSERT(status);
-    
+
     /* Wait for all tasks initialization */
     xEventGroupWaitBits(
             eg_task_started,
             (EG_INIT_STARTED | EG_ETHERIF_IN_STARTED | EG_LINK_STATE_STARTED |
             EG_DHCP_FSM_STARTED | EG_UART_SENSORS_STARTED | EG_INIT_STARTED |
-            EG_ETHERIF_IN_STARTED | EG_LINK_STATE_STARTED |
-                EG_DHCP_FSM_STARTED | EG_WIFI_TSK_STARTED),
+            EG_ETHERIF_IN_STARTED | EG_LINK_STATE_STARTED | EG_DHCP_FSM_STARTED |
+            EG_WIFI_TSK_STARTED | EG_ESP_RX_TSK_STARTED),
             pdFALSE,
             pdTRUE,
             portMAX_DELAY);
@@ -228,7 +238,7 @@ void init_task(void *arg)
             ETH_SENDER_TASK_PRIO,
             &data_collector_handle);
     configASSERT(status);
-        
+
     status = xTaskCreate(
             eth_sender,
             "eth_sender",

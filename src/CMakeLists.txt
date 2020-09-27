@@ -14,9 +14,9 @@ add_definitions(-DETH_PHY_KSZ8081RND)
 
 set(LWIP_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../lib/lwip)
 set (LWIP_INCLUDE_DIRS
-    "${LWIP_DIR}/src/include"
-    "${CMAKE_CURRENT_SOURCE_DIR}/../inc"
-    "${CMAKE_CURRENT_SOURCE_DIR}/../inc/arch")
+		"${LWIP_DIR}/src/include"
+		"${CMAKE_CURRENT_SOURCE_DIR}/../inc"
+		"${CMAKE_CURRENT_SOURCE_DIR}/../inc/arch")
 
 include(${LWIP_DIR}/src/Filelists.cmake)
 
@@ -29,28 +29,29 @@ file(GLOB LOCAL_HDRS "${CMAKE_CURRENT_SOURCE_DIR}/../inc/*.h")
 set(HAL_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../drivers/hal)
 
 set(LOCAL_SRCS
-    "stm32f4xx_it.c"
-    "${HAL_DIR}/src/stm32f4xx_hal_uart.c"
-    "system_stm32f4xx.c"
-    "ethernetif.c"
-    "esp8266_wifi.c"
-    "http_helper.c"
-    "picohttpparser.c"
-        "uart_sensors.c"
-    "syscalls.c"
-    "sysmem.c"
-    "${CMAKE_CURRENT_SOURCE_DIR}/arch/sys_arch.c"
-	  "lm335z.c"
-    "main.c"
-	  "eth_server.c"
-	  "eth_sender.c"
-	  "data_collector.c"
-    "leds.c"
-	"config_board.c"
-	"flash_SST25VF016B.c"
-	"${HAL_DIR}/src/stm32f4xx_hal_spi.c"
-    "stm32f4xx_hal_msp.c"
-    )
+		"stm32f4xx_it.c"
+		"${HAL_DIR}/src/stm32f4xx_hal_uart.c"
+		"system_stm32f4xx.c"
+		"ethernetif.c"
+		"esp8266_wifi.c"
+		"http_helper.c"
+		"picohttpparser.c"
+		"uart_sensors.c"
+		"syscalls.c"
+		"sysmem.c"
+		"${CMAKE_CURRENT_SOURCE_DIR}/arch/sys_arch.c"
+		"lm335z.c"
+		"main.c"
+		"eth_server.c"
+		"eth_sender.c"
+		"data_collector.c"
+		"leds.c"
+		"config_board.c"
+		"flash_SST25VF016B.c"
+		"${HAL_DIR}/src/stm32f4xx_hal_spi.c"
+		"stm32f4xx_hal_msp.c"
+		"number_helper.c"
+		)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR} "../drivers/CMSIS/core/inc")
 include_directories(${CMAKE_CURRENT_SOURCE_DIR} "../drivers/dev/inc")
