@@ -31,7 +31,7 @@ void data_collector(void *pvParameters)
             dataPacket_S packet={0,0,0,0,0,0,0,0,0,0,0,0};
             current_packet = 0;
             avrg_data_packets(dataPacets_buffer,DATA_PACKET_BUFFER_SIZE,&packet);
-            xQueueSendToBack(QueueTransmitEthernet, &packet, xTicksToWait);
+            xQueueOverwrite(QueueTransmitEthernet, &packet);
             fans_on();
             vTaskDelay(FANS_WORKING_TIME);
             fans_off();

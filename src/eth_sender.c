@@ -20,8 +20,8 @@ void eth_sender(void *pvParameters){
     xEventGroupSetBits(eg_task_started, ETH_SENDER_STARTED);
     for( ;; )
     {
-            xStatus = xQueueReceive(QueueTransmitEthernet, &lReceivedValue, portMAX_DELAY);
-            if (xStatus == pdPASS)
+            xStatus = xQueuePeek(QueueTransmitEthernet, &lReceivedValue, portMAX_DELAY);
+            if (xStatus == pdTRUE)
             {
                 sender_ethernet(&lReceivedValue, sizeof(dataPacket_S));
             }
