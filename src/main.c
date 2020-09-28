@@ -277,11 +277,11 @@ void init_task(void *arg)
         uint16_t current_pin = choose_pin(current_mode);
         static uint8_t leds_turned_off = 0;
 
-        if (!netif_is_link_up(netif)) {
-            lcd_clear();
-            lcd_print_string_at("Link:", 0, 0);
-            lcd_print_string_at("down", 0, 1);
-        }
+//        if (!netif_is_link_up(netif)) {
+//            lcd_clear();
+//            lcd_print_string_at("Link:", 0, 0);
+//            lcd_print_string_at("down", 0, 1);
+//        }
 
         if (current_pin == OFF_LEDS)
         {

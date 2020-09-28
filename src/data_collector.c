@@ -59,7 +59,8 @@ void avrg_data_packets(dataPacket_S *buffer, int buf_size, dataPacket_S *result_
     for(int i = 0; i < buf_size; i++){
         result_packet->co       += (buffer[i].co); 
         result_packet->so2      += (buffer[i].so2); 
-        result_packet->o3       += (buffer[i].o3); 
+        result_packet->o3       += (buffer[i].o3);
+        result_packet->no2      += (buffer[i].no2);
         result_packet->temp     += (buffer[i].temp); 
         result_packet->hcho     += (buffer[i].hcho); 
         result_packet->pm10     += (buffer[i].pm10); 
@@ -68,13 +69,14 @@ void avrg_data_packets(dataPacket_S *buffer, int buf_size, dataPacket_S *result_
         // result_packet->pressure += (buffer[i].pressure); 
         // result_packet->tvoc     += (buffer[i].tvoc); 
     }
-        result_packet->co       /= buf_size; 
-        result_packet->so2      /= buf_size;
-        result_packet->o3       /= buf_size;
-        result_packet->temp     /= buf_size; 
-        result_packet->hcho     /= buf_size; 
-        result_packet->pm10     /= buf_size; 
-        result_packet->pm2_5    /= buf_size; 
+        result_packet->co != 0 ? result_packet->co /= buf_size : 0;
+        result_packet->so2 != 0 ? result_packet->so2 /= buf_size : 0;
+        result_packet->o3 != 0 ? result_packet->o3 /= buf_size : 0;
+        result_packet->no2 != 0 ? result_packet->no2 /= buf_size : 0;
+        result_packet->temp != 0 ? result_packet->temp /= buf_size : 0;
+        result_packet->hcho != 0 ? result_packet->hcho /= buf_size : 0;
+        result_packet->pm10 != 0 ? result_packet->pm10 /= buf_size : 0;
+        result_packet->pm2_5 != 0 ? result_packet->pm2_5 /= buf_size : 0;
         // result_packet->humidity /= buf_size; 
         // result_packet->pressure /= buf_size; 
         // result_packet->tvoc     /= buf_size; 
