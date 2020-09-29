@@ -3,10 +3,24 @@
 #include "data_collector.h"
 #include "data_structure.h"
 #include "eth_sender.h"
-#include"wh1602.h"
+#include "wh1602.h"
 #include "string.h"
 
-
+enum sensor_indexes
+{
+    TEMP = 0,
+    HUMIDITY,
+    CO2,
+    TVOC,
+    PRESSURE,
+    CO,
+    NO2,
+    SO2,
+    O3,
+    HCHO,
+    PM2_5,
+    PM10
+};
 
 void display_data_task(void *pvParams){
     char *sensors_names[] = 
@@ -58,9 +72,10 @@ void display_data_task(void *pvParams){
                 //print name
                 lcd_print_string_at(sensors_names[i],x,y);
                 //print value after name
-                char sensor_data[8];
+                char sensor_data[20];
                 x = strlen(sensors_names[i]);
-                sprintf(sensor_data,"%.2f",p_currnet_packet[i]);
+                double var_value = (double)*(p_currnet_packet+i);
+                sprintf(sensor_data,"%.2f",var_value);
                 lcd_print_string_at(sensor_data,x,y);
             }
         }
