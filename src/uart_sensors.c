@@ -187,6 +187,9 @@ HAL_StatusTypeDef getHCHO(uint8_t rx) {
 
     activate_multiplexer_channel(rx);
 
+    // Enable UART
+    USART3->CR1 |= USART_CR1_UE;
+
     // Start DMA transfer and getting data
     const HAL_StatusTypeDef uart_receive_return = HAL_UART_Receive_DMA(&huart3, (unsigned char*)uart3IncomingDataBuffer, MAX_SPEC_BUF_LEN);
 
@@ -198,6 +201,11 @@ HAL_StatusTypeDef getHCHO(uint8_t rx) {
     {
         return_value = HAL_ERROR;
     }
+
+    // Disable UART
+    USART3->CR1 &= ~USART_CR1_UE;
+
+    multiplexerSetState(0);
 
     if (uart_receive_return == HAL_OK)
     {
@@ -222,8 +230,6 @@ HAL_StatusTypeDef getHCHO(uint8_t rx) {
 
     memset((void*)uart3IncomingDataBuffer, '\0', MAX_SPEC_BUF_LEN);
 
-    multiplexerSetState(0);
-
     return return_value;
 }
 
@@ -236,6 +242,9 @@ HAL_StatusTypeDef getSDS011(uint8_t rx) {
 
     activate_multiplexer_channel(rx);
 
+    // Enable UART
+    USART3->CR1 |= USART_CR1_UE;
+
     // Start DMA transfer and getting data
     const HAL_StatusTypeDef uart_receive_return = HAL_UART_Receive_DMA(&huart3, (unsigned char*)uart3IncomingDataBuffer, MAX_SPEC_BUF_LEN);
 
@@ -247,6 +256,11 @@ HAL_StatusTypeDef getSDS011(uint8_t rx) {
     {
         return_value = HAL_ERROR;
     }
+
+    // Disable UART
+    USART3->CR1 &= ~USART_CR1_UE;
+
+    multiplexerSetState(0);
 
     if (uart_receive_return == HAL_OK)
     {
@@ -285,8 +299,6 @@ HAL_StatusTypeDef getSDS011(uint8_t rx) {
 
     memset((void*)uart3IncomingDataBuffer, '\0', MAX_SPEC_BUF_LEN);
 
-    multiplexerSetState(0);
-
     return return_value;
 }
 
@@ -295,11 +307,14 @@ HAL_StatusTypeDef getSPEC(uint8_t tx, uint8_t rx, struct SPEC_values *SPEC_gas_v
 {
     HAL_StatusTypeDef return_value = HAL_OK;
 
+    multiplexerSetState(1); // Turn On multiplexer
+
     HAL_HalfDuplex_EnableTransmitter(&huart3);
 
     activate_multiplexer_channel(tx);
 
-    multiplexerSetState(1); // Turn On multiplexer
+    // Enable UART
+    USART3->CR1 |= USART_CR1_UE;
 
     if (HAL_UART_Transmit_IT(&huart3, &spec_wake, 1) != HAL_OK)
     {
@@ -331,6 +346,10 @@ HAL_StatusTypeDef getSPEC(uint8_t tx, uint8_t rx, struct SPEC_values *SPEC_gas_v
     {
         return_value = HAL_ERROR;
     }
+    // Disable UART
+    USART3->CR1 &= ~USART_CR1_UE;
+
+    multiplexerSetState(0);
 
     // Check received data and its size
     if (uart_receive_return == HAL_OK && dmaBufferLength >= MIN_SPEC_BUF_LEN)
@@ -376,7 +395,6 @@ HAL_StatusTypeDef getSPEC(uint8_t tx, uint8_t rx, struct SPEC_values *SPEC_gas_v
     }
 
     memset((void*)uart3IncomingDataBuffer, '\0', MAX_SPEC_BUF_LEN);
-    multiplexerSetState(0);
 
     return return_value;
 }
