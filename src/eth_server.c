@@ -79,7 +79,7 @@ void eth_server(void * const arg)
                 pdTRUE,
                 portMAX_DELAY);
     /* Notify init task that server task has been started */
-    xEventGroupSetBits(eg_task_started, ETH_SERVER_STARTED);
+    xEventGroupSetBits(eg_task_started, EG_ETH_SERVER_STARTED);
 
     listenfd = lwip_socket(AF_INET, SOCK_STREAM, 0);
     LWIP_ASSERT("server(): socket create failed", listenfd >= 0);

@@ -70,11 +70,15 @@
 #define EG_LINK_STATE_STARTED       (0x04)
 #define EG_DHCP_FSM_STARTED         (0x08)
 #define EG_ANALOG_TEMP_STARTED      (0x10)
-#define ETH_SERVER_STARTED          (0x20)
-#define ETH_SENDER_STARTED          (0x40)
+#define EG_ETH_SERVER_STARTED       (0x20)
+#define EG_ETH_SENDER_STARTED       (0x40)
 #define EG_DATA_COLLECTOR_STARTED   (0x80)
 #define EG_WIFI_TSK_STARTED         (0x100)
 #define EG_UART_SENSORS_STARTED     (0x200)
+#define EG_ESP_RX_TSK_STARTED       (0x300)
+#define EG_REED_SWITCH_STARTED      (0x400)
+#define EG_I2C_BME280_STARTED       (0x500)
+#define EG_I2C_CCS811_STARTED       (0x600)
 
 
 /* Exported types ------------------------------------------------------------*/
@@ -86,16 +90,21 @@ extern TaskHandle_t init_handle;
 extern TaskHandle_t ethif_in_handle;
 extern TaskHandle_t link_state_handle;
 extern TaskHandle_t dhcp_fsm_handle;
-extern TaskHandle_t echo_server_handle;
 extern TaskHandle_t wifi_tsk_handle;
+extern TaskHandle_t esp_rx_tsk_handle;
 extern TaskHandle_t eth_server_handle;
 extern TaskHandle_t eth_sender_handle;
 extern TaskHandle_t data_collector_handle;
 extern TaskHandle_t reed_switch_handle;
 extern TaskHandle_t uart_sensors_handle;
+<<<<<<< HEAD
 extern TaskHandle_t analog_temp_handle;
 extern TaskHandle_t display_data_task_handle;
 
+=======
+extern TaskHandle_t i2c_bme280_sensor_handle;
+extern TaskHandle_t i2c_ccs811sensor_handle;
+>>>>>>> master
 
 extern EventGroupHandle_t eg_task_started;
 

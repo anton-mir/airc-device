@@ -62,9 +62,6 @@ static HAL_StatusTypeDef USART3_DMA_Init(void)
     if (HAL_DMA_Init(&huart3_dma_rx) == HAL_ERROR) return HAL_ERROR;
     __HAL_LINKDMA(&huart3, hdmarx, huart3_dma_rx);
 
-    HAL_NVIC_SetPriority(DMA1_Stream1_IRQn, 5, 0U);
-    HAL_NVIC_EnableIRQ(DMA1_Stream1_IRQn);
-
     return HAL_OK;
 }
 
@@ -244,6 +241,9 @@ HAL_StatusTypeDef getHCHO(uint8_t rx) {
 
     activate_multiplexer_channel(rx);
 
+    // Enable UART
+    USART3->CR1 |= USART_CR1_UE;
+
     // Start DMA transfer and getting data
     const HAL_StatusTypeDef uart_receive_return = HAL_UART_Receive_DMA(&huart3, (unsigned char*)uart3IncomingDataBuffer, MAX_SPEC_BUF_LEN);
 
@@ -255,6 +255,11 @@ HAL_StatusTypeDef getHCHO(uint8_t rx) {
     {
         return_value = HAL_ERROR;
     }
+
+    // Disable UART
+    USART3->CR1 &= ~USART_CR1_UE;
+
+    multiplexerSetState(0);
 
     if (uart_receive_return == HAL_OK)
     {
@@ -282,8 +287,6 @@ HAL_StatusTypeDef getHCHO(uint8_t rx) {
 
     memset((void*)uart3IncomingDataBuffer, '\0', MAX_SPEC_BUF_LEN);
 
-    multiplexerSetState(0);
-
     return return_value;
 }
 
@@ -296,6 +299,9 @@ HAL_StatusTypeDef getSDS011(uint8_t rx) {
 
     activate_multiplexer_channel(rx);
 
+    // Enable UART
+    USART3->CR1 |= USART_CR1_UE;
+
     // Start DMA transfer and getting data
     const HAL_StatusTypeDef uart_receive_return = HAL_UART_Receive_DMA(&huart3, (unsigned char*)uart3IncomingDataBuffer, MAX_SPEC_BUF_LEN);
 
@@ -307,6 +313,11 @@ HAL_StatusTypeDef getSDS011(uint8_t rx) {
     {
         return_value = HAL_ERROR;
     }
+
+    // Disable UART
+    USART3->CR1 &= ~USART_CR1_UE;
+
+    multiplexerSetState(0);
 
     if (uart_receive_return == HAL_OK)
     {
@@ -348,8 +359,6 @@ HAL_StatusTypeDef getSDS011(uint8_t rx) {
 
     memset((void*)uart3IncomingDataBuffer, '\0', MAX_SPEC_BUF_LEN);
 
-    multiplexerSetState(0);
-
     return return_value;
 }
 
@@ -358,11 +367,14 @@ HAL_StatusTypeDef getSPEC(uint8_t tx, uint8_t rx, struct SPEC_values *SPEC_gas_v
 {
     HAL_StatusTypeDef return_value = HAL_OK;
 
+    multiplexerSetState(1); // Turn On multiplexer
+
     HAL_HalfDuplex_EnableTransmitter(&huart3);
 
     activate_multiplexer_channel(tx);
 
-    multiplexerSetState(1); // Turn On multiplexer
+    // Enable UART
+    USART3->CR1 |= USART_CR1_UE;
 
     if (HAL_UART_Transmit_IT(&huart3, &spec_wake, 1) != HAL_OK)
     {
@@ -394,6 +406,10 @@ HAL_StatusTypeDef getSPEC(uint8_t tx, uint8_t rx, struct SPEC_values *SPEC_gas_v
     {
         return_value = HAL_ERROR;
     }
+    // Disable UART
+    USART3->CR1 &= ~USART_CR1_UE;
+
+    multiplexerSetState(0);
 
     // Check received data and its size
     if (uart_receive_return == HAL_OK && dmaBufferLength >= MIN_SPEC_BUF_LEN)
@@ -442,7 +458,6 @@ HAL_StatusTypeDef getSPEC(uint8_t tx, uint8_t rx, struct SPEC_values *SPEC_gas_v
     }
 
     memset((void*)uart3IncomingDataBuffer, '\0', MAX_SPEC_BUF_LEN);
-    multiplexerSetState(0);
 
     return return_value;
 }
@@ -451,7 +466,7 @@ static void UART_sensors_error_handler(){};
 
 void uart_sensors(void * const arg) {
 
-    /* Notify init task that CO sensor task has been started */
+    /* Notify init task that UART sensors task has been started */
     xEventGroupSetBits(eg_task_started, EG_UART_SENSORS_STARTED);
 
     GPIO_Init();
@@ -492,11 +507,7 @@ void uart_sensors(void * const arg) {
         vTaskDelay(500);
     }
 }
-void HAL_MspInit(void)
-{
-    __HAL_RCC_SYSCFG_CLK_ENABLE();
-    __HAL_RCC_PWR_CLK_ENABLE();
-}
+
 void HAL_UART_MspInit(UART_HandleTypeDef* huart)
 {
     GPIO_InitTypeDef GPIO_InitStruct = {0};
