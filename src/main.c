@@ -61,14 +61,11 @@
 #include "leds.h"
 #include "flash_SST25VF016B.h"
 #include "config_board.h"
-<<<<<<< HEAD
 #include"fans.h"
 #include "display_data.h"
-=======
 #include "bmp280.h"
 
 volatile boxConfig_S device_config = { 0 };
->>>>>>> master
 
 TaskHandle_t init_handle = NULL;
 TaskHandle_t ethif_in_handle = NULL;
@@ -83,12 +80,9 @@ TaskHandle_t eth_sender_handle = NULL;
 TaskHandle_t data_collector_handle = NULL;
 TaskHandle_t reed_switch_handle = NULL;
 TaskHandle_t uart_sensors_handle = NULL;
-<<<<<<< HEAD
 TaskHandle_t display_data_task_handle = NULL;
-=======
 TaskHandle_t i2c_bme280_sensor_handle = NULL;
 
->>>>>>> master
 EventGroupHandle_t eg_task_started = NULL;
 
 static RNG_HandleTypeDef rng_handle;
