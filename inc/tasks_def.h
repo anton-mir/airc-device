@@ -17,10 +17,10 @@
 #define ECHO_SERVER_TASK_STACK_SIZE         (configMINIMAL_STACK_SIZE * 2)
 
 #define ESP8266_WIFI_TASK_PRIO              (tskIDLE_PRIORITY + 1)
-#define ESP8266_WIFI_TASK_STACK_SIZE        (configMINIMAL_STACK_SIZE * 4)
+#define ESP8266_WIFI_TASK_STACK_SIZE        (configMINIMAL_STACK_SIZE * 6)
 
 #define ESP8266_RX_TASK_PRIO                (tskIDLE_PRIORITY + 1)
-#define ESP8266_RX_TASK_STACK_SIZE          (configMINIMAL_STACK_SIZE * 2)
+#define ESP8266_RX_TASK_STACK_SIZE          (configMINIMAL_STACK_SIZE * 4)
 
 #define ANALOG_TEMP_TASK_PRIO               (tskIDLE_PRIORITY + 1)
 #define ANALOG_TEMP_TASK_STACK_SIZE         (configMINIMAL_STACK_SIZE)

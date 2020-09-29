@@ -21,7 +21,6 @@ volatile int esp_server_mode = 0;
 
 UART_HandleTypeDef esp_uart = { 0 };
 DMA_HandleTypeDef esp_dma_rx = { 0 };
-//DMA_HandleTypeDef esp_dma_tx = { 0 };
 
 static size_t uart_data_size = 0;
 static uint8_t uart_buffer[ESP_UART_BUFFER_SIZE];
@@ -29,6 +28,7 @@ static uint8_t uart_buffer[ESP_UART_BUFFER_SIZE];
 static struct ESP8266_TCP_PACKET tcp_packet = { 0 };
 static char tcp_buffer[ESP_MAX_TCP_SIZE];
 static char http_buffer[ESP_MAX_TCP_SIZE];
+static char networks_list_buffer[ESP_UART_BUFFER_SIZE];
 
 static struct phr_header http_headers[HTTP_MAX_HEADERS];
 static struct HTTP_REQUEST http_request = { 0 };
@@ -44,8 +44,6 @@ static int check_ascii(char *str, size_t str_size);
 void esp_rx_task(void * const arg)
 {
     char *pos;
-
-    xEventGroupSetBits(eg_task_started, EG_ESP_RX_TSK_STARTED);
 
     for (;;)
     {
@@ -92,8 +90,6 @@ void esp_rx_task(void * const arg)
 
 void wifi_task(void * const arg)
 {
-    xEventGroupSetBits(eg_task_started, EG_WIFI_TSK_STARTED);
-
     esp_start();
 
     for (;;)
@@ -178,21 +174,13 @@ void esp_server_handler(ESP8266_SERVER_HANDLER handler)
     char co_id_buffer[ULL_STRING_LENGTH], *co_id_str;
     char o3_id_buffer[ULL_STRING_LENGTH], *o3_id_str;
 
+		size_t response_length = 0, length = 0;
+
     switch (handler)
     {
     case ESP_GET_WIFI_LIST:
-        memcpy((char *)uart_buffer, "AT+CWLAP=,,4,,,\r\n", 17);
-        if (esp_send_data(uart_buffer, 17) == ESP_OK)
-        {
-            http_response.message_size = uart_data_size - 6;
-            http_response.message = http_buffer;
-            memcpy(http_response.message, uart_buffer, http_response.message_size);
-        }
-        else
-        {
-            http_response.message = "ERROR";
-            http_response.message_size = 5;
-        }
+		http_response.message = networks_list_buffer;
+        http_response.message_size = strlen(http_response.message);
         break;
     case ESP_GET_DEVICE_CONF:
         ReadConfig(&device_config);
@@ -448,7 +436,7 @@ static uint32_t esp_send_data(uint8_t *data, size_t data_size)
     static uint32_t status = ESP_ERROR;
 
     HAL_UART_Transmit(&esp_uart, data, data_size, ESP_UART_DELAY);
-
+    memset(uart_buffer, 0, ESP_UART_BUFFER_SIZE);
     status = ulTaskNotifyTake(pdTRUE, xWifiBlockTime);
 
     return status;
@@ -460,7 +448,7 @@ static uint32_t esp_start(void)
 
     esp_module.ap_ssid = "AirC Device";
     esp_module.ap_pass = "314159265";
-    esp_module.ap_chl = 1;
+    esp_module.ap_chl = 3;
     esp_module.ap_enc = WPA2_PSK;
     esp_module.sta_ssid = device_config.wifi_ssid;
     esp_module.sta_ssid_size = strlen(device_config.wifi_ssid);
@@ -477,9 +465,17 @@ static uint32_t esp_start(void)
     if (esp_send_data(uart_buffer, 17) == ESP_OK);
     else return 0;
 
-    esp_connect_wifi();
+    memcpy(uart_buffer, (uint8_t *)"AT+CWLAP\r\n", 10);
+	if (esp_send_data(uart_buffer, 10) == ESP_OK)
+    {
+		memcpy(networks_list_buffer, uart_buffer, uart_data_size - 6);
+    }
+    else
+    {
+        memcpy(networks_list_buffer, "ERROR", 5);
+    }
 
-    // Set auto connect to saved wifi network
+	// Set auto connect to saved wifi network
     memcpy(uart_buffer, (uint8_t *)"AT+CWAUTOCONN=0\r\n", 17);
     if (esp_send_data(uart_buffer, 17) == ESP_OK);
     else return 0;
@@ -493,7 +489,7 @@ static uint32_t esp_start(void)
     sprintf((char *)uart_buffer, "AT+CWSAP_DEF=\"%s\",\"%s\",%d,%d\r\n",
         esp_module.ap_ssid, esp_module.ap_pass,
         esp_module.ap_chl, esp_module.ap_enc);
-    if (esp_send_data(uart_buffer, 24 + strlen(esp_module.ap_ssid) + strlen(esp_module.ap_pass)) == ESP_OK);
+    if (esp_send_data(uart_buffer, 23 + strlen(esp_module.ap_ssid) + strlen(esp_module.ap_pass) + NUMBER_LENGTH(esp_module.ap_chl)) == ESP_OK);
     else return 0;
 
     // Allow multiple TCP connections
@@ -505,6 +501,8 @@ static uint32_t esp_start(void)
     sprintf((char *)uart_buffer, "AT+CIPSERVER=1,%d\r\n", HTTP_SERVER_PORT);
     if (esp_send_data(uart_buffer, 17 + NUMBER_LENGTH(HTTP_SERVER_PORT)) == ESP_OK);
     else return 0;
+
+    esp_connect_wifi();
 
     return 1;
 }
@@ -520,7 +518,7 @@ static uint32_t esp_connect_wifi()
 
 static int check_ascii(char *str, size_t str_size)
 {
-    if (str_size == 0) return 0;
+    if (str_size == 0) return 1;
     for (size_t i = 0; i < str_size; i++)
     {
         if (str[i] > 0x7F)
@@ -568,20 +566,6 @@ HAL_StatusTypeDef ESP_InitUART(void)
 
 HAL_StatusTypeDef ESP_InitDMA(void)
 {
-    /*esp_dma_tx.Instance = DMA2_Stream6;
-    esp_dma_tx.Init.Channel = DMA_CHANNEL_5;
-    esp_dma_tx.Init.Direction = DMA_MEMORY_TO_PERIPH;
-    esp_dma_tx.Init.PeriphInc = DMA_PINC_DISABLE;
-    esp_dma_tx.Init.MemInc = DMA_MINC_ENABLE;
-    esp_dma_tx.Init.Mode = DMA_NORMAL;
-    esp_dma_tx.Init.Priority = DMA_PRIORITY_VERY_HIGH;
-    esp_dma_tx.Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE;
-    esp_dma_tx.Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
-    esp_dma_tx.Init.FIFOMode = DMA_FIFOMODE_DISABLE;
-
-    if (HAL_DMA_Init(&esp_dma_tx) == HAL_ERROR) return HAL_ERROR;
-    __HAL_LINKDMA(&esp_uart, hdmatx, esp_dma_tx);*/
-
     esp_dma_rx.Instance = DMA2_Stream1;
     esp_dma_rx.Init.Channel = DMA_CHANNEL_5;
     esp_dma_rx.Init.Direction = DMA_PERIPH_TO_MEMORY;
