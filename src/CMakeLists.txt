@@ -43,6 +43,7 @@ set(LOCAL_SRCS
     "${CMAKE_CURRENT_SOURCE_DIR}/arch/sys_arch.c"
 	"lm335z.c"
     "main.c"
+    	"i2c_ccs811sensor.c"
 	"eth_server.c"
 	"eth_sender.c"
 	"data_collector.c"

@@ -56,6 +56,7 @@
 #include "eth_server.h"
 #include "eth_sender.h"
 #include "queue.h"
+#include "i2c_ccs811sensor.h"
 #include "data_collector.h"
 #include "leds.h"
 #include "flash_SST25VF016B.h"
@@ -72,6 +73,7 @@ TaskHandle_t wifi_tsk_handle = NULL;
 TaskHandle_t esp_rx_tsk_handle = NULL;
 TaskHandle_t analog_temp_handle = NULL;
 TaskHandle_t eth_server_handle = NULL;
+TaskHandle_t i2c_ccs811sensor_handle = NULL;
 TaskHandle_t eth_sender_handle = NULL;
 TaskHandle_t data_collector_handle = NULL;
 TaskHandle_t reed_switch_handle = NULL;
@@ -109,10 +111,10 @@ void init_task(void *arg)
     __HAL_RCC_DMA2_CLK_ENABLE();
 
     (void)HAL_RNG_Init(&rng_handle);
-
+    
     eg_task_started = xEventGroupCreate();
     configASSERT(eg_task_started);
-
+    
     xEventGroupSetBits(eg_task_started, EG_INIT_STARTED);
     initBlueButtonAndReedSwitch();
     initLeds();
@@ -165,7 +167,6 @@ void init_task(void *arg)
 
     configASSERT(status);
 
-
     status = xTaskCreate(
             uart_sensors,
             "uart_sensors",
@@ -193,6 +194,16 @@ void init_task(void *arg)
             NULL,
             ETH_SERVER_TASK_PRIO,
             &eth_server_handle);
+
+    configASSERT(status);
+
+    status = xTaskCreate(
+	     i2c_ccs811sensor,
+ 	     "i2c_ccs811sensor",
+             ETH_SERVER_TASK_STACK_SIZE,
+             NULL,
+             ETH_SERVER_TASK_PRIO,
+             &i2c_ccs811sensor_handle);
 
     configASSERT(status);
 
@@ -249,7 +260,7 @@ void init_task(void *arg)
             ETH_SENDER_TASK_PRIO,
             &data_collector_handle);
     configASSERT(status);
-
+        
     status = xTaskCreate(
             eth_sender,
             "eth_sender",
@@ -268,7 +279,6 @@ void init_task(void *arg)
             REED_SWITCH_PRIO,
             &reed_switch_handle);
     configASSERT(status);
-
 
     gpio.Mode = GPIO_MODE_OUTPUT_PP;
     gpio.Pull = GPIO_NOPULL;
@@ -345,12 +355,40 @@ int main(void)
     configASSERT(status);
 
     vTaskStartScheduler();
+
     for (;;) { ; }
+}
+
+void HAL_MspInit(void)
+{
+    __HAL_RCC_SYSCFG_CLK_ENABLE();
+    __HAL_RCC_PWR_CLK_ENABLE();
 }
 
 uint32_t HAL_GetTick(void)
 {
     return xTaskGetTickCount();
+}
+
+void HAL_I2C_MspInit(I2C_HandleTypeDef* hi2c)
+{
+    GPIO_InitTypeDef GPIO_InitStruct = {0};
+    if (hi2c->Instance == I2C1) {
+        __HAL_RCC_GPIOB_CLK_ENABLE();
+
+        /**I2C1 GPIO Configuration
+        PB6     ------> I2C1_SCL
+        PB9     ------> I2C1_SDA
+        */
+        GPIO_InitStruct.Pin = GPIO_PIN_6 | GPIO_PIN_9;
+        GPIO_InitStruct.Mode = GPIO_MODE_AF_OD;
+        GPIO_InitStruct.Pull = GPIO_PULLUP;
+        GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+        GPIO_InitStruct.Alternate = GPIO_AF4_I2C1;
+        HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+        __HAL_RCC_I2C1_CLK_ENABLE();
+    }
 }
 
 /**
