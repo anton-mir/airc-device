@@ -60,6 +60,7 @@
 #include "leds.h"
 #include "flash_SST25VF016B.h"
 #include "config_board.h"
+#include "bmp280.h"
 
 volatile boxConfig_S device_config = { 0 };
 
@@ -75,6 +76,7 @@ TaskHandle_t eth_sender_handle = NULL;
 TaskHandle_t data_collector_handle = NULL;
 TaskHandle_t reed_switch_handle = NULL;
 TaskHandle_t uart_sensors_handle = NULL;
+TaskHandle_t i2c_bme280_sensor_handle = NULL;
 
 EventGroupHandle_t eg_task_started = NULL;
 
@@ -171,6 +173,16 @@ void init_task(void *arg)
             (void *)netif,
             UART_SENSORS_TASK_PRIO,
             &uart_sensors_handle);
+
+    configASSERT(status);
+
+    status = xTaskCreate(
+            bme280_sensor,
+            "i2c_bme280_sensor",
+            I2C_BME280_SENSOR_TASK_STACK_SIZE,
+            (void *)netif,
+            I2C_BME280_SENSOR_TASK_PRIO,
+            &i2c_bme280_sensor_handle);
 
     configASSERT(status);
 
