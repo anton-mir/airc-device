@@ -1,6 +1,7 @@
 #include<stdio.h>
 #include "main.h"
 #include "data_collector.h"
+#include "display_data.h"
 #include "data_structure.h"
 #include "eth_sender.h"
 #include "lm335z.h"
@@ -31,10 +32,13 @@ void data_collector(void *pvParameters)
             dataPacket_S packet={0,0,0,0,0,0,0,0,0,0,0,0};
             current_packet = 0;
             avrg_data_packets(dataPacets_buffer,DATA_PACKET_BUFFER_SIZE,&packet);
-            xQueueOverwrite(QueueTransmitEthernet, &packet);
-            fans_on();
-            vTaskDelay(FANS_WORKING_TIME);
-            fans_off();
+            //send data to ethernet task
+            xQueueSendToBack(QueueTransmitEthernet, &packet,portMAX_DELAY);
+            //send data to display task
+            xQueueSendToBack(displayQueueHandle,&packet,portMAX_DELAY);
+            // fans_on();
+            // vTaskDelay(FANS_WORKING_TIME);
+            // fans_off();
         }
         dataPacets_buffer[current_packet].co     = get_CO()->specPPB;
         dataPacets_buffer[current_packet].so2    = get_SO2()->specPPB;

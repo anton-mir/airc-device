@@ -1,11 +1,15 @@
+#include "FreeRTOS.h"
+#include "queue.h"
 #include "display_data.h"
-#include <stdio.h>
 #include "data_collector.h"
 #include "data_structure.h"
+#include "number_helper.h"
 #include "eth_sender.h"
 #include "wh1602.h"
 #include "string.h"
 
+
+xQueueHandle displayQueueHandle = NULL;
 enum sensor_indexes
 {
     TEMP = 0,
@@ -38,6 +42,8 @@ void display_data_task(void *pvParams){
       "PM2_5: ",
       "PM10: "
     };
+    displayQueueHandle = xQueueCreate(1,sizeof(dataPacket_S));
+    
     size_t sensors_names_size = sizeof(sensors_names)/sizeof(sensors_names[0]);
     for(;;){
         dataPacket_S current_packet = {0,0,0,0,0,0,0,0,0,0,0,0};
@@ -47,8 +53,8 @@ void display_data_task(void *pvParams){
             reads an item from ethernet queue, 
             but without removing the item from the queue
         */
-        if((QueueTransmitEthernet != NULL) &&
-           (xQueuePeek(QueueTransmitEthernet,&current_packet,portMAX_DELAY) == pdTRUE))
+        if((displayQueueHandle != NULL) &&
+           (xQueueReceive(displayQueueHandle,&current_packet,portMAX_DELAY) == pdTRUE))
          {
             uint8_t x = 0;
             uint8_t y = 0;
@@ -75,7 +81,7 @@ void display_data_task(void *pvParams){
                 char sensor_data[20];
                 x = strlen(sensors_names[i]);
                 double var_value = (double)*(p_currnet_packet+i);
-                sprintf(sensor_data,"%.2f",var_value);
+                ftoa(var_value,sensor_data,1);
                 lcd_print_string_at(sensor_data,x,y);
             }
         }
