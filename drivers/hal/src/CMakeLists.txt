@@ -10,6 +10,7 @@ set(LOCAL_HDRS "")
 
 add_definitions(-DHSE_VALUE=8000000U)
 add_definitions(-DUSE_HAL_DRIVER)
+add_definitions(-DHAL_I2C_MODULE_ENABLED)
 add_definitions(-DDEBUG)
 add_definitions(-DSTM32F407xx)
 add_definitions(-DETH_PHY_KSZ8081RND)
@@ -28,10 +29,12 @@ set(LOCAL_SRCS
     "stm32f4xx_hal_dma_ex.c"
     "stm32f4xx_hal_eth_ksz8081.c"
     "stm32f4xx_hal_exti.c"
+    "stm32f4xx_hal_i2c.c"
     "stm32f4xx_hal_flash.c"
     "stm32f4xx_hal_flash_ex.c"
     "stm32f4xx_hal_flash_ramfunc.c"
     "stm32f4xx_hal_gpio.c"
+    "stm32f4xx_hal_msp_template.c"
     "stm32f4xx_hal_pwr.c"
     "stm32f4xx_hal_pwr_ex.c"
     "stm32f4xx_hal_rcc.c"
@@ -39,8 +42,8 @@ set(LOCAL_SRCS
     "stm32f4xx_hal_sram.c"
     "stm32f4xx_hal_tim.c"
     "stm32f4xx_hal_tim_ex.c"
-        "stm32f4xx_hal_uart.c"
-        "stm32f4xx_hal_rng.c"
+    "stm32f4xx_hal_uart.c"
+    "stm32f4xx_hal_rng.c"
     "stm32f4xx_hal_tim_ex.c"
     "stm32f4xx_hal_adc.c"
     "stm32f4xx_hal_adc_ex.c"
