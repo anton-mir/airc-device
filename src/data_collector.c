@@ -9,7 +9,7 @@
 void data_collector(void *pvParameters)
 {
     const portTickType xTicksToWait = 0;
-    dataPacket_S packet={0,0,0,0,0,0,0,0,0,0,0,0};
+    dataPacket_S packet={0,0,0,"","","",0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
     //TODO: Add waiting for other sensors.
     xEventGroupWaitBits(
             eg_task_started,
@@ -22,6 +22,12 @@ void data_collector(void *pvParameters)
     xEventGroupSetBits(eg_task_started, EG_DATA_COLLECTOR_STARTED);
     for( ;; )
     {
+        //packet.id=;
+        //packet.working_status=;
+        //packet.messageId=;
+        //packet.description[500];
+        //packet.type[19];
+        //packet.messageDateTime[30];
         packet.co=get_CO()->specPPB;
         packet.so2=get_SO2()->specPPB;
         packet.no2=get_NO2()->specPPB;
@@ -30,6 +36,9 @@ void data_collector(void *pvParameters)
         packet.hcho=get_HCHO();
         packet.pm10 = get_pm10();
         packet.pm2_5 = get_pm2_5();
+        //packet.latitude=;
+        //packet.longitude=;
+        //packet.altitude=;
         //packet.humidity=;
         //packet.pressure=;
         //packet.tvoc=;
