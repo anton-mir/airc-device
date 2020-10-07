@@ -14,8 +14,8 @@ void data_collector(void *pvParameters)
     xEventGroupWaitBits(
             eg_task_started,
             (EG_INIT_STARTED | EG_ETHERIF_IN_STARTED | EG_LINK_STATE_STARTED |
-            EG_DHCP_FSM_STARTED | EG_ETH_SERVER_STARTED | EG_ETH_SENDER_STARTED |
-            EG_ANALOG_TEMP_STARTED | EG_UART_SENSORS_STARTED),
+             EG_DHCP_FSM_STARTED | EG_ETH_SERVER_STARTED | EG_ETH_SENDER_STARTED |
+             EG_ANALOG_TEMP_STARTED | EG_UART_SENSORS_STARTED),
             pdFALSE,
             pdTRUE,
             portMAX_DELAY);
