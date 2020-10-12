@@ -172,5 +172,6 @@ bool bmp280_read_float(BMP280_HandleTypedef *dev, float *temperature,
                        float *pressure, float *humidity);
 
 void bme280_sensor();
-
+double get_humidity_bme280();
+double get_pressure_bme280();
 #endif  // __BMP280_H__
