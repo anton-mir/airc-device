@@ -25,9 +25,9 @@
 I2C_HandleTypeDef hi2cxc;
 BMP280_HandleTypedef bmp280;
 
-float temperature;
-float humidity;
-float pressure;
+double temperature;
+double humidity;
+double pressure;
 
 static void MX_GPIO_Init(void)
 {
@@ -67,7 +67,13 @@ HAL_StatusTypeDef MX_I2C1_Init(void)
     return i2c_init_status;
 }
 
+double get_humidity_bme280() {
+    return humidity;
+}
 
+double get_pressure_bme280() {
+    return pressure;
+}
 void bmp280_init_default_params(bmp280_params_t *params) {
 	params->mode = BMP280_MODE_NORMAL;
 	params->filter = BMP280_FILTER_OFF;

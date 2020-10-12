@@ -4,6 +4,7 @@
 #include "eth_sender.h"
 #include "lm335z.h"
 #include "uart_sensors.h"
+#include "bmp280.h"
 
 
 void data_collector(void *pvParameters)
@@ -15,7 +16,7 @@ void data_collector(void *pvParameters)
             eg_task_started,
             (EG_INIT_STARTED | EG_ETHERIF_IN_STARTED | EG_LINK_STATE_STARTED |
             EG_DHCP_FSM_STARTED | ETH_SERVER_STARTED | ETH_SENDER_STARTED |
-            EG_ANALOG_TEMP_STARTED | EG_UART_SENSORS_STARTED),
+            EG_ANALOG_TEMP_STARTED | EG_UART_SENSORS_STARTED | EG_I2C_BME280_STARTED),
             pdFALSE,
             pdTRUE,
             portMAX_DELAY);
@@ -30,8 +31,8 @@ void data_collector(void *pvParameters)
         packet.hcho=get_HCHO();
         packet.pm10 = get_pm10();
         packet.pm2_5 = get_pm2_5();
-        //packet.humidity=;
-        //packet.pressure=;
+        packet.humidity= get_humidity_bme280();
+        packet.pressure= get_pressure_bme280();
         //packet.tvoc=;
         //TODO: Do return value processing.
         xQueueSendToBack(QueueTransmitEthernet, &packet, xTicksToWait);
