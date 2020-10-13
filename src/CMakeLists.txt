@@ -29,6 +29,8 @@ file(GLOB LOCAL_HDRS "${CMAKE_CURRENT_SOURCE_DIR}/../inc/*.h")
 set(HAL_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../drivers/hal)
 
 set(LOCAL_SRCS
+    "fans.c"
+    "display_data.c"
 		"stm32f4xx_it.c"
 		"${HAL_DIR}/src/stm32f4xx_hal_uart.c"
 		"system_stm32f4xx.c"

@@ -2,12 +2,15 @@
 #include "main.h"
 #include "task.h"
 #include "wh1602.h"
+#include "semphr.h"
 #define BUFFER_TEMP_SIZE (10)
 
 
 /* Private variables ---------------------------------------------------------*/
 ADC_HandleTypeDef hadc2;
 double avg_temp=0;
+SemaphoreHandle_t temp_semaphore = NULL;
+
 /**
  * @brief PHY GPIO init
  *
@@ -125,7 +128,13 @@ double Get_Analog_Temp_d(void)
 
 double get_analog_temp(void)
 {
-    return avg_temp;
+    //return 0 if semaphore is not yet created
+    if((temp_semaphore != NULL) && (xSemaphoreTake(temp_semaphore,portMAX_DELAY) == pdTRUE)){
+      double tmp_avg_temp = avg_temp;
+      xSemaphoreGive(temp_semaphore);
+      return tmp_avg_temp;
+    }
+    return 0;
 }
  
 void analog_temp(void *pvParameters) 
@@ -135,6 +144,8 @@ void analog_temp(void *pvParameters)
     ADC_Init();
     HAL_ADC_MspInit(&hadc2);
     xEventGroupSetBits(eg_task_started, EG_ANALOG_TEMP_STARTED);
+    temp_semaphore = xSemaphoreCreateMutex();
+
     double temp=0, buffer_temp[BUFFER_TEMP_SIZE], buffer_avg_temp;
     temp=Get_Analog_Temp_d();
     avg_temp=temp;
@@ -153,7 +164,10 @@ void analog_temp(void *pvParameters)
         }
         buffer_temp[0]=temp;
         buffer_avg_temp/=BUFFER_TEMP_SIZE;
-        avg_temp=buffer_avg_temp;
+        if(xSemaphoreTake(temp_semaphore,portMAX_DELAY) == pdTRUE){
+          avg_temp=buffer_avg_temp;
+          xSemaphoreGive(temp_semaphore);
+        }
         vTaskDelay(1000);
     }
 }

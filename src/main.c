@@ -61,6 +61,8 @@
 #include "leds.h"
 #include "flash_SST25VF016B.h"
 #include "config_board.h"
+#include"fans.h"
+#include "display_data.h"
 #include "bmp280.h"
 
 volatile boxConfig_S device_config = { 0 };
@@ -78,6 +80,7 @@ TaskHandle_t eth_sender_handle = NULL;
 TaskHandle_t data_collector_handle = NULL;
 TaskHandle_t reed_switch_handle = NULL;
 TaskHandle_t uart_sensors_handle = NULL;
+TaskHandle_t display_data_task_handle = NULL;
 TaskHandle_t i2c_bme280_sensor_handle = NULL;
 
 EventGroupHandle_t eg_task_started = NULL;
@@ -118,6 +121,7 @@ void init_task(void *arg)
     xEventGroupSetBits(eg_task_started, EG_INIT_STARTED);
     initBlueButtonAndReedSwitch();
     initLeds();
+    init_fans();
 
     /* Initialize LCD */
     lcd_init();
@@ -240,18 +244,18 @@ void init_task(void *arg)
     status = xTaskCreate(
             data_collector,
             "data_collector",
-            ETH_SENDER_TASK_STACK_SIZE,
+            DATA_COLLECTOR_STACK_SIZE,
             NULL,
-            ETH_SENDER_TASK_PRIO,
+            DATA_COLLECTOR_PRIO,
             &data_collector_handle);
     configASSERT(status);
 
     status = xTaskCreate(
             eth_sender,
             "eth_sender",
-            DATA_COLLECTOR_STACK_SIZE,
+            ETH_SENDER_TASK_STACK_SIZE,
             NULL,
-            DATA_COLLECTOR_PRIO,
+            ETHIF_IN_TASK_PRIO,
             &eth_sender_handle);
 
     configASSERT(status);
@@ -263,6 +267,14 @@ void init_task(void *arg)
             NULL,
             REED_SWITCH_PRIO,
             &reed_switch_handle);
+    configASSERT(status);
+    status = xTaskCreate(
+        display_data_task,
+        "displya_data_task",
+        DISPLAY_DATA_TASK_STACK_SIZE,
+        NULL,
+        DISPLAY_DATA_TASK_PRIO,
+        &display_data_task_handle);
     configASSERT(status);
 
     /* Wait for all tasks initialization */
@@ -301,11 +313,11 @@ void init_task(void *arg)
         uint16_t current_pin = choose_pin(current_mode);
         static uint8_t leds_turned_off = 0;
 
-        if (!netif_is_link_up(netif)) {
-            lcd_clear();
-            lcd_print_string_at("Link:", 0, 0);
-            lcd_print_string_at("down", 0, 1);
-        }
+//        if (!netif_is_link_up(netif)) {
+//            lcd_clear();
+//            lcd_print_string_at("Link:", 0, 0);
+//            lcd_print_string_at("down", 0, 1);
+//        }
 
         if (current_pin == OFF_LEDS)
         {
