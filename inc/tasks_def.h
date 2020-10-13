@@ -23,7 +23,7 @@
 #define ESP8266_RX_TASK_STACK_SIZE          (configMINIMAL_STACK_SIZE * 4)
 
 #define ANALOG_TEMP_TASK_PRIO               (tskIDLE_PRIORITY + 1)
-#define ANALOG_TEMP_TASK_STACK_SIZE         (configMINIMAL_STACK_SIZE)
+#define ANALOG_TEMP_TASK_STACK_SIZE         (configMINIMAL_STACK_SIZE * 3)
 
 #define ETH_SERVER_TASK_PRIO                (tskIDLE_PRIORITY + 1)
 #define ETH_SERVER_TASK_STACK_SIZE          (configMINIMAL_STACK_SIZE * 6)
@@ -32,7 +32,7 @@
 #define ETH_SENDER_TASK_STACK_SIZE          (configMINIMAL_STACK_SIZE * 2)
 
 #define DATA_COLLECTOR_PRIO                 (tskIDLE_PRIORITY + 1)
-#define DATA_COLLECTOR_STACK_SIZE           (configMINIMAL_STACK_SIZE * 2)
+#define DATA_COLLECTOR_STACK_SIZE           (configMINIMAL_STACK_SIZE * 4)
 
 #define REED_SWITCH_PRIO                    (tskIDLE_PRIORITY + 1)
 #define REED_SWITCH_STACK_SIZE              (configMINIMAL_STACK_SIZE * 2)

@@ -24,7 +24,7 @@ void data_collector(void *pvParameters)
             portMAX_DELAY);
     xEventGroupSetBits(eg_task_started, EG_DATA_COLLECTOR_STARTED);
     //if something isn't working try change the stack size of  this task
-    dataPacket_S dataPacets_buffer[DATA_PACKET_BUFFER_SIZE]; 
+    dataPacket_S dataPacets_buffer[DATA_PACKET_BUFFER_SIZE] = {0};
     for( ;; )
     {
         static int current_packet = 0;
