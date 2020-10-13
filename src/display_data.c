@@ -81,7 +81,7 @@ void display_data_task(void *pvParams){
                 char sensor_data[20];
                 x = strlen(sensors_names[i]);
                 double var_value = (double)*(p_currnet_packet+i);
-                ftoa(var_value,sensor_data,1);
+                ftoa(var_value,sensor_data,5);
                 lcd_print_string_at(sensor_data,x,y);
             }
         }
