@@ -4,6 +4,7 @@
 #include "main.h"
 
 #define ADDRESS_CFG_START 0x000000
+#define ADDRESS_CFG_START_RESERV 0x001000
 
 typedef struct boxConfig
 {
@@ -24,6 +25,12 @@ typedef struct boxConfig
     char type[19];
     char ip[15];
 }boxConfig_S;
+
+typedef struct boxConfig_CRC16_CCITT
+{
+    boxConfig_S cfg;
+    unsigned short CRC16_CCITT;
+}boxConfig_CRC16_CCITT_S;
 
 
 void WriteConfig(boxConfig_S cfg);
