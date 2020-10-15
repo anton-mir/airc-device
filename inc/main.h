@@ -97,6 +97,9 @@ extern TaskHandle_t eth_sender_handle;
 extern TaskHandle_t data_collector_handle;
 extern TaskHandle_t reed_switch_handle;
 extern TaskHandle_t uart_sensors_handle;
+extern TaskHandle_t analog_temp_handle;
+extern TaskHandle_t display_data_task_handle;
+
 extern TaskHandle_t i2c_bme280_sensor_handle;
 extern TaskHandle_t i2c_ccs811sensor_handle;
 

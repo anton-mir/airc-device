@@ -7,6 +7,9 @@
 #include "task.h"
 #include "main.h"
 #include "string.h"
+#include "semphr.h"
+
+
 
 uint8_t spec_wake = '\n';
 uint8_t spec_get_data = '\r';
@@ -14,6 +17,9 @@ uint8_t spec_sleep = 's';
 uint8_t spec_continuous = 'c';
 
 xTimerHandle timer_SPEC_ISR;
+SemaphoreHandle_t HCHO_mutex = NULL;
+SemaphoreHandle_t PMS_mutex = NULL;
+SemaphoreHandle_t SPECS_mutex = NULL;
 
 volatile char uart3IncomingDataBuffer[MAX_SPEC_BUF_LEN];
 double pm2_5_val = 0;
@@ -126,33 +132,81 @@ static void activate_multiplexer_channel(uint8_t channel){
 }
 
 struct SPEC_values* get_SO2(void){
-    return &SPEC_SO2_values;
+    if((SPECS_mutex != NULL) && 
+    (xSemaphoreTake(SPECS_mutex,portMAX_DELAY) == pdTRUE))
+    {
+        struct SPEC_values* tmp_SPEC_SO2_values = &SPEC_SO2_values;
+        xSemaphoreGive(SPECS_mutex);
+        return tmp_SPEC_SO2_values;
+    }
+    return 0;
 }
 
 struct SPEC_values* get_NO2(void){
-    return &SPEC_NO2_values;
+    if(( SPECS_mutex != NULL) &&
+       (xSemaphoreTake(SPECS_mutex,portMAX_DELAY) == pdTRUE))
+    {
+        struct SPEC_values* tmp_SPEC_NO2_values= &SPEC_NO2_values;
+        xSemaphoreGive(SPECS_mutex);
+        return tmp_SPEC_NO2_values;
+    }
+    return 0;
 }
 
-struct SPEC_values* get_CO(void){
-    return &SPEC_CO_values;
+struct SPEC_values* get_CO(void){   
+    if((SPECS_mutex != NULL) &&
+       (xSemaphoreTake(SPECS_mutex,portMAX_DELAY) == pdTRUE))
+    {
+        struct SPEC_values* tmp_SPEC_CO_values = &SPEC_CO_values;
+        xSemaphoreGive(SPECS_mutex);
+        return tmp_SPEC_CO_values;
+    }
+    return 0;
 }
 
 struct SPEC_values* get_O3(void){
-    return &SPEC_O3_values;
+    if((SPECS_mutex != NULL) &&
+       (xSemaphoreTake(SPECS_mutex,portMAX_DELAY) == pdTRUE))
+    {
+        struct SPEC_values *tmp_SPEC_O3_values = &SPEC_O3_values;
+        xSemaphoreGive(SPECS_mutex);
+        return tmp_SPEC_O3_values;
+    }
+    return 0;
 }
 
 double get_pm2_5(void){
-    return pm2_5_val;
+    if((PMS_mutex != NULL) &&
+       (xSemaphoreTake(PMS_mutex,portMAX_DELAY) == pdTRUE))
+    {
+        double tmp_pm2_5_val = pm2_5_val;   
+        xSemaphoreGive(PMS_mutex);
+        return tmp_pm2_5_val;
+    }
+    return 0;
 }
 
 double get_pm10(void){
-    return pm10_val;
+    if((PMS_mutex != NULL) &&
+       (xSemaphoreTake(PMS_mutex,portMAX_DELAY) == pdTRUE))
+    {
+        double tmp_pm10_val = pm10_val;     
+        xSemaphoreGive(PMS_mutex);
+        return tmp_pm10_val;
+    }
+    return 0;
 }
 
 double get_HCHO(void){
-    return HCHO_val;
+    if((HCHO_mutex != NULL) &&
+       (xSemaphoreTake(HCHO_mutex,portMAX_DELAY) == pdTRUE))
+    {
+        double tmp_hcho_val = HCHO_val;
+        xSemaphoreGive(HCHO_mutex);
+        return tmp_hcho_val;
+    }
+    return 0;
 }
-
 void multiplexerSetState(uint8_t state)
 {
     if (state)
@@ -219,7 +273,10 @@ HAL_StatusTypeDef getHCHO(uint8_t rx) {
             }
             else
             {
-                HCHO_val = ((double) ((unsigned int) uart3IncomingDataBuffer[4] << 8 | uart3IncomingDataBuffer[5])) / 1000;
+                if(xSemaphoreTake(HCHO_mutex,portMAX_DELAY) == pdTRUE){
+                    HCHO_val = ((double) ((unsigned int) uart3IncomingDataBuffer[4] << 8 | uart3IncomingDataBuffer[5])) / 1000;
+                    xSemaphoreGive(HCHO_mutex);
+                }
             }
         }
     }
@@ -286,8 +343,11 @@ HAL_StatusTypeDef getSDS011(uint8_t rx) {
                 }
                 else
                 {
-                    pm2_5_val = (double) ((int) uart3IncomingDataBuffer[2] | (int) (uart3IncomingDataBuffer[3] << 8)) / 10;
-                    pm10_val = (double) ((int) uart3IncomingDataBuffer[4] | (int) (uart3IncomingDataBuffer[5] << 8)) / 10;
+                    if(xSemaphoreTake(PMS_mutex,portMAX_DELAY) == pdTRUE){
+                        pm2_5_val = (double) ((int) uart3IncomingDataBuffer[2] | (int) (uart3IncomingDataBuffer[3] << 8)) / 10;
+                        pm10_val = (double) ((int) uart3IncomingDataBuffer[4] | (int) (uart3IncomingDataBuffer[5] << 8)) / 10;
+                        xSemaphoreGive(PMS_mutex);
+                    }
                 }
             }
         }
@@ -373,7 +433,10 @@ HAL_StatusTypeDef getSPEC(uint8_t tx, uint8_t rx, struct SPEC_values *SPEC_gas_v
 
             if (SPEC_gas_values->specSN == spec_sensor_sn)
             {
-                SPEC_gas_values->specPPB = strtoul(pToNextValue + 2, &pToNextValue, 10);
+                if(xSemaphoreTake(SPECS_mutex,portMAX_DELAY) == pdTRUE){
+                    SPEC_gas_values->specPPB = strtoul(pToNextValue + 2, &pToNextValue, 10);
+                    xSemaphoreGive(SPECS_mutex);
+                }
                 SPEC_gas_values->specTemp = strtoul(pToNextValue + 2, &pToNextValue, 10);
                 SPEC_gas_values->specRH = strtoul(pToNextValue + 2, &pToNextValue, 10);
                 pToNextValue = strstr(pToNextValue + 2, ", ");
@@ -409,7 +472,9 @@ void uart_sensors(void * const arg) {
     GPIO_Init();
     USART3_UART_Init();
     USART3_DMA_Init();
-
+    HCHO_mutex = xSemaphoreCreateMutex();
+    PMS_mutex = xSemaphoreCreateMutex();
+    SPECS_mutex = xSemaphoreCreateMutex();
     timer_SPEC_ISR = xTimerCreate( "timer_SPEC_ISR",
                                    (TickType_t)SPEC_NOTIFY_DELAY, pdFALSE,
                                    (void*)0, vTimerCallback_SPEC_ISR);
