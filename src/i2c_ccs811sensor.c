@@ -6,7 +6,8 @@
 #include "task.h"
 #include "wh1602.h"
 
-struct co2_tvoc co2_tvoc_t;
+double co2;
+double tvoc2;
 
 I2C_HandleTypeDef  hi2cxc;
 
@@ -73,8 +74,8 @@ void readResults()
 
 	/*	TVOC value, in parts per billion (ppb)
 		eC02 value, in parts per million (ppm) */
-	co2_tvoc_t.co2 = ((unsigned int)co2MSB << 8) | co2LSB;
-	co2_tvoc_t.tvoc = ((unsigned int)tvocMSB << 8) | tvocLSB;
+	co2 = ((unsigned int)co2MSB << 8) | co2LSB;
+	tvoc = ((unsigned int)tvocMSB << 8) | tvocLSB;
 }
 
 /*
@@ -234,9 +235,14 @@ void writeRegister(uint8_t addr, uint8_t val)
 }
 
 
-struct co2_tvoc get_co2_tvoc(void)
+double get_tvoc(void)
 {
-	return co2_tvoc_t;
+	return tvoc;
+}
+
+double get_co2_tvoc(void)
+{
+	return co2;
 }
 
 void i2c_ccs811sensor(void *pvParameters) 

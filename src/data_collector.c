@@ -5,6 +5,7 @@
 #include "data_structure.h"
 #include "eth_sender.h"
 #include "lm335z.h"
+#include "i2c_ccs811sensor.h"
 #include "uart_sensors.h"
 #include "fans.h"
 
@@ -48,6 +49,10 @@ void data_collector(void *pvParameters)
         dataPacets_buffer[current_packet].hcho   = get_HCHO(); 
         dataPacets_buffer[current_packet].pm10   = get_pm10();
         dataPacets_buffer[current_packet].pm2_5  = get_pm2_5();
+
+        dataPacets_buffer[current_packet].co2   = get_co2();
+        dataPacets_buffer[current_packet].tvoc  = get_tvoc();
+
         //dataPacets_buffer[current_packet].humidity=;
         //dataPacets_buffer[current_packet].pressure=;
         //dataPacets_buffer[current_packet].tvoc=;
@@ -71,7 +76,8 @@ void avrg_data_packets(dataPacket_S *buffer, int buf_size, dataPacket_S *result_
         result_packet->pm2_5    += (buffer[i].pm2_5); 
         // result_packet->humidity += (buffer[i].humidity); 
         // result_packet->pressure += (buffer[i].pressure); 
-        // result_packet->tvoc     += (buffer[i].tvoc); 
+         result_packet->tvoc     += (buffer[i].tvoc); 
+         result_packet->co2     += (buffer[i].co2); 
     }
         result_packet->co != 0 ? result_packet->co /= buf_size : 0;
         result_packet->so2 != 0 ? result_packet->so2 /= buf_size : 0;
@@ -83,5 +89,6 @@ void avrg_data_packets(dataPacket_S *buffer, int buf_size, dataPacket_S *result_
         result_packet->pm2_5 != 0 ? result_packet->pm2_5 /= buf_size : 0;
         // result_packet->humidity /= buf_size; 
         // result_packet->pressure /= buf_size; 
-        // result_packet->tvoc     /= buf_size; 
+        result_packet->tvoc     /= buf_size; 
+        result_packet->co2     /= buf_size; 
 }

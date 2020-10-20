@@ -6,11 +6,9 @@
 
 #include "FreeRTOS.h"
 
-struct co2_tvoc {
-	double co2, tvoc;
-};
+double get_tvoc(void);
+double get_co2(void);
 
-struct co2_tvoc get_co2_tvoc(void);
 void i2c_ccs811sensor(void *pvParameters);
 
 #endif 
