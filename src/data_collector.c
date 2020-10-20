@@ -7,7 +7,9 @@
 #include "lm335z.h"
 #include "uart_sensors.h"
 #include "fans.h"
+#include "i2c_ccs811sensor.h"
 
+#include "bmp280.h"
 
 
 void data_collector(void *pvParameters)
@@ -18,7 +20,7 @@ void data_collector(void *pvParameters)
             eg_task_started,
             (EG_INIT_STARTED | EG_ETHERIF_IN_STARTED | EG_LINK_STATE_STARTED |
             EG_DHCP_FSM_STARTED | EG_ETH_SERVER_STARTED | EG_ETH_SENDER_STARTED |
-            EG_ANALOG_TEMP_STARTED | EG_UART_SENSORS_STARTED),
+            EG_ANALOG_TEMP_STARTED | EG_UART_SENSORS_STARTED | EG_I2C_BME280_STARTED),
             pdFALSE,
             pdTRUE,
             portMAX_DELAY);
@@ -48,9 +50,10 @@ void data_collector(void *pvParameters)
         dataPacets_buffer[current_packet].hcho   = get_HCHO(); 
         dataPacets_buffer[current_packet].pm10   = get_pm10();
         dataPacets_buffer[current_packet].pm2_5  = get_pm2_5();
-        //dataPacets_buffer[current_packet].humidity=;
-        //dataPacets_buffer[current_packet].pressure=;
-        //dataPacets_buffer[current_packet].tvoc=;
+        dataPacets_buffer[current_packet].humidity = get_humidity_bme280();
+        dataPacets_buffer[current_packet].pressure = get_pressure_bme280();
+        dataPacets_buffer[current_packet].tvoc = get_co2_tvoc().tvoc;
+        dataPacets_buffer[current_packet].co2 = get_co2_tvoc().co2;
         //TODO: Do return value processing.
         ++current_packet;
         //xQueueSendToBack for wifi
@@ -69,19 +72,21 @@ void avrg_data_packets(dataPacket_S *buffer, int buf_size, dataPacket_S *result_
         result_packet->hcho     += (buffer[i].hcho); 
         result_packet->pm10     += (buffer[i].pm10); 
         result_packet->pm2_5    += (buffer[i].pm2_5); 
-        // result_packet->humidity += (buffer[i].humidity); 
-        // result_packet->pressure += (buffer[i].pressure); 
-        // result_packet->tvoc     += (buffer[i].tvoc); 
+        result_packet->humidity += (buffer[i].humidity); 
+        result_packet->pressure += (buffer[i].pressure); 
+        result_packet->tvoc     += (buffer[i].tvoc); 
+        result_packet->co2      += (buffer[i].co2);
     }
-        result_packet->co != 0 ? result_packet->co /= buf_size : 0;
-        result_packet->so2 != 0 ? result_packet->so2 /= buf_size : 0;
-        result_packet->o3 != 0 ? result_packet->o3 /= buf_size : 0;
-        result_packet->no2 != 0 ? result_packet->no2 /= buf_size : 0;
+        result_packet->co   != 0 ? result_packet->co /= buf_size : 0;
+        result_packet->so2  != 0 ? result_packet->so2 /= buf_size : 0;
+        result_packet->o3   != 0 ? result_packet->o3 /= buf_size : 0;
+        result_packet->no2  != 0 ? result_packet->no2 /= buf_size : 0;
         result_packet->temp != 0 ? result_packet->temp /= buf_size : 0;
         result_packet->hcho != 0 ? result_packet->hcho /= buf_size : 0;
         result_packet->pm10 != 0 ? result_packet->pm10 /= buf_size : 0;
         result_packet->pm2_5 != 0 ? result_packet->pm2_5 /= buf_size : 0;
-        // result_packet->humidity /= buf_size; 
-        // result_packet->pressure /= buf_size; 
-        // result_packet->tvoc     /= buf_size; 
+        result_packet->humidity != 0 ? result_packet->humidity /= buf_size : 0;
+        result_packet->pressure != 0 ? result_packet->pressure /= buf_size : 0;
+        result_packet->tvoc != 0 ? result_packet->tvoc /= buf_size : 0;
+        result_packet->co2 != 0 ? result_packet->co2 /= buf_size : 0;
 }

@@ -2,6 +2,7 @@
 #include "main.h"
 #include "task.h"
 #include "wh1602.h"
+#include "semphr.h"
 
 #define BMP280_REG_TEMP_XLSB   0xFC /* bits: 7-4 */
 #define BMP280_REG_TEMP_LSB    0xFB
@@ -24,10 +25,11 @@
 
 I2C_HandleTypeDef hi2cxc;
 BMP280_HandleTypedef bmp280;
+SemaphoreHandle_t BME_mutex = NULL;
 
-float temperature;
-float humidity;
-float pressure;
+double temperature;
+double humidity;
+double pressure;
 
 static void MX_GPIO_Init(void)
 {
@@ -67,7 +69,27 @@ HAL_StatusTypeDef MX_I2C1_Init(void)
     return i2c_init_status;
 }
 
+double get_humidity_bme280() {
+    if((BME_mutex != NULL) &&
+       (xSemaphoreTake(BME_mutex,portMAX_DELAY) == pdTRUE))
+    {
+        double tmp_humidity = humidity;
+        xSemaphoreGive(BME_mutex);
+        return tmp_humidity;
+    }
+    return 0;
+}
 
+double get_pressure_bme280() {
+    if((BME_mutex != NULL) &&
+       (xSemaphoreTake(BME_mutex,portMAX_DELAY) == pdTRUE))
+    {
+        double tmp_pressure = pressure;
+        xSemaphoreGive(BME_mutex);
+        return tmp_pressure;
+    }
+    return 0;
+}
 void bmp280_init_default_params(bmp280_params_t *params) {
 	params->mode = BMP280_MODE_NORMAL;
 	params->filter = BMP280_FILTER_OFF;

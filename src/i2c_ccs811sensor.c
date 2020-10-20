@@ -5,6 +5,7 @@
 #include "main.h"
 #include "task.h"
 #include "wh1602.h"
+#include "semphr.h"
 
 struct co2_tvoc co2_tvoc_t;
 
@@ -16,6 +17,7 @@ uint8_t mosetting=0;
 uint8_t dtvalue =0;	 
 uint8_t  Mode_CCS811=1;
 
+SemaphoreHandle_t TVOC_CO2_MUTEX = NULL;
 static void MX_GPIO_Init(void)
 {
 
@@ -73,8 +75,11 @@ void readResults()
 
 	/*	TVOC value, in parts per billion (ppb)
 		eC02 value, in parts per million (ppm) */
-	co2_tvoc_t.co2 = ((unsigned int)co2MSB << 8) | co2LSB;
-	co2_tvoc_t.tvoc = ((unsigned int)tvocMSB << 8) | tvocLSB;
+	if((xSemaphoreTake(TVOC_CO2_MUTEX,portMAX_DELAY) == pdTRUE)){
+		co2_tvoc_t.co2 = ((unsigned int)co2MSB << 8) | co2LSB;
+		co2_tvoc_t.tvoc = ((unsigned int)tvocMSB << 8) | tvocLSB;
+		xSemaphoreGive(TVOC_CO2_MUTEX);
+	}
 }
 
 /*
@@ -236,7 +241,14 @@ void writeRegister(uint8_t addr, uint8_t val)
 
 struct co2_tvoc get_co2_tvoc(void)
 {
-	return co2_tvoc_t;
+	struct co2_tvoc co2_tvoc_vals = {0,0};
+	if((TVOC_CO2_MUTEX != NULL) &&
+		(xSemaphoreTake(TVOC_CO2_MUTEX,portMAX_DELAY) == pdTRUE))
+    {
+        co2_tvoc_vals = co2_tvoc_t;
+        xSemaphoreGive(TVOC_CO2_MUTEX);
+    }
+    return co2_tvoc_vals;
 }
 
 void i2c_ccs811sensor(void *pvParameters) 
@@ -246,7 +258,7 @@ void i2c_ccs811sensor(void *pvParameters)
 	configureCCS811();
 
 	xEventGroupSetBits(eg_task_started, EG_I2C_CCS811_STARTED);
-
+	TVOC_CO2_MUTEX = xSemaphoreCreateMutex();
 	for (;;)
 	{
 		readResults();	
