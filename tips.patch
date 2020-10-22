@@ -1,0 +1,255 @@
+diff --git a/src/i2c_ccs811sensor.c b/src/i2c_ccs811sensor.c
+index e72613c..e3db16b 100644
+--- a/src/i2c_ccs811sensor.c
++++ b/src/i2c_ccs811sensor.c
+@@ -1,11 +1,11 @@
+ #include<stdint.h>
+-#include "CCS811_Basic.h"
+-#include "i2c_ccs811sensor.h"
+-
+-#include "main.h"
+-#include "task.h"
+-#include "wh1602.h"
++#include"CCS811_Basic.h"
++#include"i2c_ccs811sensor.h"
++#include"main.h"
++#include"task.h"
++#include"wh1602.h"
+ 
++// Структура яка містить в собі резльтат вимірів
+ struct co2_tvoc co2_tvoc_t;
+ 
+ I2C_HandleTypeDef  hi2cxc;
+@@ -14,45 +14,61 @@ uint8_t appvalue=0;
+ uint8_t errvalue=0;
+ uint8_t mosetting=0;
+ uint8_t dtvalue =0;	 
+-uint8_t  Mode_CCS811=1;
++
++//Ця змінна визначає період зняття показників
++uint8_t Mode_CCS811=1;
+ 
+ static void MX_GPIO_Init(void)
+ {
+-
+   __HAL_RCC_GPIOH_CLK_ENABLE();
+   __HAL_RCC_GPIOB_CLK_ENABLE();
++}
++
++void HAL_I2C_MspInit(I2C_HandleTypeDef* hi2c)
++{
++  GPIO_InitTypeDef GPIO_InitStruct = {0};
++  if(hi2c->Instance==I2C1)
++  {
++    __HAL_RCC_GPIOB_CLK_ENABLE();
++
++    /**I2C1 GPIO Configuration
++    PB6     ------> I2C1_SCL
++    PB9     ------> I2C1_SDA
++    */
++    GPIO_InitStruct.Pin = GPIO_PIN_6|GPIO_PIN_9;
++    GPIO_InitStruct.Mode = GPIO_MODE_AF_OD;
++    GPIO_InitStruct.Pull = GPIO_PULLUP;
++    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
++    GPIO_InitStruct.Alternate = GPIO_AF4_I2C1;
++    HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
++
++    __HAL_RCC_I2C1_CLK_ENABLE();
++  }
+ 
+ }
+ 
++void HAL_MspInit(void)
++{
++  __HAL_RCC_SYSCFG_CLK_ENABLE();
++  __HAL_RCC_PWR_CLK_ENABLE();
++}
++
+ void Init_I2C_CCS811(void)
+ {
+-	hi2cxc.Instance = I2C1;
+-	hi2cxc.Init.ClockSpeed = 100000;
+-	hi2cxc.Init.OwnAddress1 = 0; 
+-	hi2cxc.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
+-	hi2cxc.Init.DualAddressMode = I2C_DUALADDRESS_DISABLED;
+-	hi2cxc.Init.OwnAddress2 = 0;
+-	hi2cxc.Init.GeneralCallMode = I2C_GENERALCALL_DISABLED;
+-	hi2cxc.Init.NoStretchMode = I2C_NOSTRETCH_DISABLED;
++        hi2cxc.Instance = I2C1;
++        hi2cxc.Init.ClockSpeed = 100000;
++        hi2cxc.Init.OwnAddress1 = 0x5A; 
++        hi2cxc.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
++        hi2cxc.Init.DualAddressMode = I2C_DUALADDRESS_DISABLED;
++        hi2cxc.Init.OwnAddress2 = 0;
++        hi2cxc.Init.GeneralCallMode = I2C_GENERALCALL_DISABLED;
++        hi2cxc.Init.NoStretchMode = I2C_NOSTRETCH_DISABLED;
+ 
+ 	if (HAL_I2C_Init(&hi2cxc) != HAL_OK)
+ 	{
+ 		lcd_print_string("Error: TODO");
+ 		while(1);
+ 	}
+-#if 0
+-	if (HAL_I2CEx_ConfigAnalogFilter(&hi2cxc, I2C_ANALOGFILTER_ENABLE) != HAL_OK)
+-	{
+-		lcd_print_string("Error: TODO");
+-		while(1); 
+-	}
+-	if (HAL_I2CEx_ConfigDigitalFilter(&hi2cxc, 0) != HAL_OK)
+-	{
+-		lcd_print_string("Error: TODO");
+-		while(1); 
+-	}
+-#endif
+-
+ }	
+ 
+ /*
+@@ -62,9 +78,11 @@ void Init_I2C_CCS811(void)
+  */	
+ void readResults()
+ {
+-	uint8_t data_rq[8];
+-    uint8_t status_sensor = readRegister(0x0);
+-	HAL_I2C_Mem_Read( &hi2cxc, CCS811_ADDR<<1, ( uint8_t )CSS811_ALG_RESULT_DATA, I2C_MEMADD_SIZE_8BIT, data_rq, 8, 100 );
++
++	uint8_t data_rq[4];
++
++	// Зчитуємо результат
++	HAL_I2C_Mem_Read( &hi2cxc, CCS811_ADDR, ( uint8_t )CSS811_ALG_RESULT_DATA, I2C_MEMADD_SIZE_8BIT, data_rq, 4, 100 );
+ 
+ 	uint8_t co2MSB = data_rq[0];
+ 	uint8_t co2LSB = data_rq[1];
+@@ -86,28 +104,34 @@ void configureCCS811()
+ {
+ 	HAL_Delay(69);
+ 
+-	//Verify the hardware ID is what we expect
+-	uint8_t hwID = readRegister(0x20); //Hardware ID should be 0x81
++	// Зчитуємо ідентифікатор пристрою з регістру який знаходиться за ажресою 0ч20
++	uint8_t hwID = readRegister(0x20);
++
++	// Якщо айді не дорівнює 0х81, то є яксь помилкао
+ 	if (hwID != 0x81)
+ 	{
+-		lcd_print_string("Error: TODO");
++		lcd_print_string("Error: Invalid hw id(CCS811 = 0x81)");
+ 		while (1); //Freeze!
+ 	}
+ 
+-	uint8_t lodata[1];
+-
+-    HAL_I2C_Mem_Write(&hi2cxc, CCS811_ADDR<<1, CSS811_APP_START, I2C_MEMADD_SIZE_8BIT, (uint8_t *) &lodata, 0, 300);
++	// Посилаємо команду на старт
++	uint8_t    lodata[1];
++	lodata[0]= CSS811_APP_START;
++	HAL_I2C_Master_Transmit(&hi2cxc, 0xB6, lodata, 1, 100);
+ 
+ 	HAL_Delay(20);
+-	setDriveMode(Mode_CCS811); //Read every second
+-	HAL_Delay(10);	
+ 
++	// Посилаємо датчику команду зчитавати показники кожну секунду
++	setDriveMode(Mode_CCS811); 
++
++	HAL_Delay(10);	
++	
++	//Перевіряємо чи сталися помилки аід час конфігурації
+ 	if (checkForError() == 1)
+ 	{
+-		lcd_print_string("Error: TODO");
++		lcd_print_string("Error: Check for error failed for CSS811");
+ 		while (1); //Freeze!
+ 	}
+-	//Set Drive Mode
+ }
+ 
+ //Checks to see if error bit is set
+@@ -118,6 +142,8 @@ int checkForError()
+ 	return (errvalue & 1 << 0);
+ }
+ 
++
++
+ //Checks to see if DATA_READ flag is set in the status register
+ int dataAvailable()
+ {   // dtvalue = readRegister(CSS811_ERROR_ID);
+@@ -164,12 +190,11 @@ void setDriveMode(uint8_t mode)
+ 
+ 	mosetting = readRegister(CSS811_MEAS_MODE); //Read what's currently there
+ 
+-	mosetting &=~(7<<4); //Clear DRIVE_MODE bits
++	mosetting &= ~(7<<4); //Clear DRIVE_MODE bits
+ 	mosetting |= (mode << 4); //Mask in mode
+ 
+ 	writeRegister(CSS811_MEAS_MODE, mosetting);
+ 	mosetting = readRegister(CSS811_MEAS_MODE); //Read what's currently there
+-
+ }
+ 
+ /*
+@@ -197,6 +222,7 @@ void softRest() {
+ 
+ }	
+ 
++
+ /*
+  * @brief  sleep
+  * @param  NONE.
+@@ -208,6 +234,8 @@ void sleep()
+ 	writeRegister(CSS811_MEAS_MODE, 0);
+ }
+ 
++
++
+ /*
+  * @brief  Reads from a give location from the CSS811
+  * @param  addr  ADDRESS.
+@@ -216,8 +244,12 @@ void sleep()
+ uint8_t readRegister(uint8_t addr)
+ {
+ 	uint8_t dt;
+-	HAL_StatusTypeDef res;
+-	res = HAL_I2C_Mem_Read(&hi2cxc, CCS811_ADDR<<1, ( uint8_t )addr,1, &dt, 1, 300 );
++
++	HAL_I2C_Mem_Read( &hi2cxc, CCS811_ADDR, ( uint8_t )addr,1, &dt, 1,
++			300 );
++	while (HAL_I2C_GetState(&hi2cxc) != HAL_I2C_STATE_READY);
++
++
+ 	return dt;
+ }
+ 
+@@ -230,10 +262,17 @@ uint8_t readRegister(uint8_t addr)
+  */
+ void writeRegister(uint8_t addr, uint8_t val)
+ {
+-	HAL_I2C_Mem_Write( &hi2cxc, CCS811_ADDR<<1, ( uint8_t )addr, I2C_MEMADD_SIZE_8BIT, &val, 1,300);
++	HAL_I2C_Mem_Write( &hi2cxc, CCS811_ADDWR, ( uint8_t )addr, I2C_MEMADD_SIZE_8BIT, &val, 1,300);
++	while (HAL_I2C_GetState(&hi2cxc) != HAL_I2C_STATE_READY)
++	{
++	} 
++	while (HAL_I2C_IsDeviceReady(&hi2cxc, CCS811_ADDR, 10, 300) == HAL_TIMEOUT);
++	while(HAL_I2C_GetState(&hi2cxc) != HAL_I2C_STATE_READY)
++	{
++	}
+ }
+ 
+-
++//Повертає резульат дата колектору
+ struct co2_tvoc get_co2_tvoc(void)
+ {
+ 	return co2_tvoc_t;
+@@ -245,10 +284,12 @@ void i2c_ccs811sensor(void *pvParameters)
+ 	Init_I2C_CCS811();
+ 	configureCCS811();
+ 
++	// Кажемл системі, що наша таска готова до роботи	
+ 	xEventGroupSetBits(eg_task_started, EG_I2C_CCS811_STARTED);
+ 
+ 	for (;;)
+ 	{
++		// зчитуємо дані з датчику
+ 		readResults();	
+ 		vTaskDelay(1000);
+ 	}

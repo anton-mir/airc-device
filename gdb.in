@@ -1,0 +1,4 @@
+file build/src/airc_dev.elf
+target extended-remote localhost:3333
+load
+monitor reset halt 
