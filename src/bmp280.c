@@ -2,6 +2,7 @@
 #include "main.h"
 #include "task.h"
 #include "wh1602.h"
+#include "semphr.h"
 
 #define BMP280_REG_TEMP_XLSB   0xFC /* bits: 7-4 */
 #define BMP280_REG_TEMP_LSB    0xFB
@@ -24,10 +25,17 @@
 
 I2C_HandleTypeDef hi2cxc;
 BMP280_HandleTypedef bmp280;
+SemaphoreHandle_t BME_mutex = NULL;
 
-float temperature;
-float humidity;
-float pressure;
+double temperature;
+double humidity;
+double pressure;
+
+typedef enum {
+	BME_T_HUM,
+	BME_T_PRESS,
+	BME_T_TEMP
+}BME_TYPES;
 
 static void MX_GPIO_Init(void)
 {
@@ -67,6 +75,40 @@ HAL_StatusTypeDef MX_I2C1_Init(void)
     return i2c_init_status;
 }
 
+
+static double get_bme_value(SemaphoreHandle_t mutex, BME_TYPES type){
+	double res = 0;
+	if((mutex != NULL) && 
+	(xSemaphoreTake(mutex,portMAX_DELAY) == pdTRUE))
+	{
+		switch(type){
+			case BME_T_HUM:
+				res =  humidity;
+				break;
+			case BME_T_PRESS:
+				res = pressure;
+				break;
+			case BME_T_TEMP:
+				res = temperature;
+				break;
+			default:
+				break;
+		}
+		xSemaphoreGive(mutex);
+	}
+	return res;
+}
+double get_humidity_bme280() {
+   return get_bme_value(BME_mutex, BME_T_HUM);
+}
+
+double get_pressure_bme280() {
+    return get_bme_value(BME_mutex, BME_T_PRESS);
+}
+
+double get_temperature_bme280(){
+	return get_bme_value(BME_mutex, BME_T_TEMP);
+}
 
 void bmp280_init_default_params(bmp280_params_t *params) {
 	params->mode = BMP280_MODE_NORMAL;
@@ -392,7 +434,7 @@ void bme280_sensor() {
     bmp280.addr = BMP280_I2C_ADDRESS_0;
     bmp280.i2c = &hi2cxc;
     const bool bmp_initialization_status = bmp280_init(&bmp280, &bmp280.params);
-
+	BME_mutex = xSemaphoreCreateMutex();
     if (bmp_initialization_status == false)
     {
         BME_sensor_error_handler();
@@ -400,7 +442,11 @@ void bme280_sensor() {
 
 
     while (1) {
-        bmp280_read_float(&bmp280, &temperature, &pressure, &humidity);
+		if(xSemaphoreTake(BME_mutex,portMAX_DELAY) == pdTRUE){
+			bmp280_read_float(&bmp280, &temperature, &pressure, &humidity);
+			xSemaphoreGive(BME_mutex);
+		}
+        
         vTaskDelay(1000);
     }
 }
