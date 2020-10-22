@@ -76,7 +76,7 @@ HAL_StatusTypeDef MX_I2C1_Init(void)
 }
 
 
-static double get_bmes_valus(SemaphoreHandle_t mutex,BME_TYPES type){
+static double get_bme_value(SemaphoreHandle_t mutex, BME_TYPES type){
 	double res = 0;
 	if((mutex != NULL) && 
 	(xSemaphoreTake(mutex,portMAX_DELAY) == pdTRUE))
@@ -99,15 +99,15 @@ static double get_bmes_valus(SemaphoreHandle_t mutex,BME_TYPES type){
 	return res;
 }
 double get_humidity_bme280() {
-   return get_bmes_valus(BME_mutex,BME_T_HUM);
+   return get_bme_value(BME_mutex, BME_T_HUM);
 }
 
 double get_pressure_bme280() {
-    return get_bmes_valus(BME_mutex,BME_T_PRESS);
+    return get_bme_value(BME_mutex, BME_T_PRESS);
 }
 
 double get_temperature_bme280(){
-	return get_bmes_valus(BME_mutex,BME_T_TEMP);
+	return get_bme_value(BME_mutex, BME_T_TEMP);
 }
 
 void bmp280_init_default_params(bmp280_params_t *params) {
