@@ -33,6 +33,19 @@ const long long int SPEC_NO2_SN = 31120010317;
 const long long int SPEC_CO_SN = 60619020451;
 const long long int SPEC_O3_SN = 22620010208;
 
+typedef enum{
+    SPEC_T_SO2,
+    SPEC_T_NO2,
+    SPEC_T_CO,
+    SPEC_T_O3
+}SPEC_TYPES;
+
+typedef enum{
+    HCHO_T,
+    PM10_T,
+    PM2_5_T,
+}PM_HCHO_TYPES;
+
 static void USART3_UART_Init(void)
 {
     huart3.Instance = USART3;
@@ -131,81 +144,84 @@ static void activate_multiplexer_channel(uint8_t channel){
     HAL_GPIO_WritePin(GPIOD, GPIO_PIN_6, chan_table[channel][3]);
 }
 
-struct SPEC_values* get_SO2(void){
-    if((SPECS_mutex != NULL) && 
-    (xSemaphoreTake(SPECS_mutex,portMAX_DELAY) == pdTRUE))
-    {
-        struct SPEC_values* tmp_SPEC_SO2_values = &SPEC_SO2_values;
-        xSemaphoreGive(SPECS_mutex);
-        return tmp_SPEC_SO2_values;
-    }
-    return 0;
+
+
+static unsigned long int get_spec_values(SemaphoreHandle_t mutex,SPEC_TYPES type){
+	unsigned long  int res_specPPB= 0;
+	if((mutex != NULL) && 
+	(xSemaphoreTake(mutex,portMAX_DELAY) == pdTRUE))
+	{
+		switch(type){
+            case SPEC_T_SO2:
+                res_specPPB = SPEC_SO2_values.specPPB;
+                break;
+            case SPEC_T_NO2:
+                res_specPPB = SPEC_NO2_values.specPPB;
+                break;
+            case SPEC_T_CO:
+                res_specPPB = SPEC_CO_values.specPPB;
+                break;
+            case SPEC_T_O3: 
+                res_specPPB = SPEC_O3_values.specPPB;
+                break;
+            default: 
+                break;
+        }
+		
+		xSemaphoreGive(mutex);
+	}
+	return res_specPPB;
 }
 
-struct SPEC_values* get_NO2(void){
-    if(( SPECS_mutex != NULL) &&
-       (xSemaphoreTake(SPECS_mutex,portMAX_DELAY) == pdTRUE))
-    {
-        struct SPEC_values* tmp_SPEC_NO2_values= &SPEC_NO2_values;
-        xSemaphoreGive(SPECS_mutex);
-        return tmp_SPEC_NO2_values;
-    }
-    return 0;
+static double get_pm_hcho_values(SemaphoreHandle_t mutex,PM_HCHO_TYPES type){
+	double res = 0;
+	if((mutex != NULL) && 
+	(xSemaphoreTake(mutex,portMAX_DELAY) == pdTRUE))
+	{
+		switch(type){
+			case HCHO_T:
+				res =  HCHO_val;
+				break;
+			case PM10_T:
+				res = pm10_val;
+				break;
+			case PM2_5_T:
+				res = pm2_5_val;
+				break;
+			default:
+				break;
+		}
+		xSemaphoreGive(mutex);
+	}
+	return res;
+}
+unsigned long int get_SO2(void){
+    return get_spec_values(SPECS_mutex,SPEC_T_SO2);
 }
 
-struct SPEC_values* get_CO(void){   
-    if((SPECS_mutex != NULL) &&
-       (xSemaphoreTake(SPECS_mutex,portMAX_DELAY) == pdTRUE))
-    {
-        struct SPEC_values* tmp_SPEC_CO_values = &SPEC_CO_values;
-        xSemaphoreGive(SPECS_mutex);
-        return tmp_SPEC_CO_values;
-    }
-    return 0;
+unsigned long int get_NO2(void){
+    return get_spec_values(SPECS_mutex,SPEC_T_NO2);
 }
 
-struct SPEC_values* get_O3(void){
-    if((SPECS_mutex != NULL) &&
-       (xSemaphoreTake(SPECS_mutex,portMAX_DELAY) == pdTRUE))
-    {
-        struct SPEC_values *tmp_SPEC_O3_values = &SPEC_O3_values;
-        xSemaphoreGive(SPECS_mutex);
-        return tmp_SPEC_O3_values;
-    }
-    return 0;
+unsigned long int get_CO(void){
+    return get_spec_values(SPECS_mutex,SPEC_T_CO);
 }
+
+unsigned long int get_O3(void){
+    return get_spec_values(SPECS_mutex,SPEC_T_O3);
+}
+
 
 double get_pm2_5(void){
-    if((PMS_mutex != NULL) &&
-       (xSemaphoreTake(PMS_mutex,portMAX_DELAY) == pdTRUE))
-    {
-        double tmp_pm2_5_val = pm2_5_val;   
-        xSemaphoreGive(PMS_mutex);
-        return tmp_pm2_5_val;
-    }
-    return 0;
+    return get_pm_hcho_values(PMS_mutex,PM2_5_T);
 }
 
 double get_pm10(void){
-    if((PMS_mutex != NULL) &&
-       (xSemaphoreTake(PMS_mutex,portMAX_DELAY) == pdTRUE))
-    {
-        double tmp_pm10_val = pm10_val;     
-        xSemaphoreGive(PMS_mutex);
-        return tmp_pm10_val;
-    }
-    return 0;
+    return get_pm_hcho_values(PMS_mutex,PM10_T);
 }
 
 double get_HCHO(void){
-    if((HCHO_mutex != NULL) &&
-       (xSemaphoreTake(HCHO_mutex,portMAX_DELAY) == pdTRUE))
-    {
-        double tmp_hcho_val = HCHO_val;
-        xSemaphoreGive(HCHO_mutex);
-        return tmp_hcho_val;
-    }
-    return 0;
+   return get_pm_hcho_values(HCHO_mutex,HCHO_T);
 }
 void multiplexerSetState(uint8_t state)
 {

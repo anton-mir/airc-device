@@ -43,10 +43,10 @@ struct SPEC_values
     unsigned long int specPPB, specTemp, specRH, specDay, specHour, specMinute, specSecond;
 };
 
-struct SPEC_values* get_SO2(void);
-struct SPEC_values* get_NO2(void);
-struct SPEC_values* get_CO(void);
-struct SPEC_values* get_O3(void);
+unsigned long int get_SO2(void);
+unsigned long int get_NO2(void);
+unsigned long int get_CO(void);
+unsigned long int get_O3(void);
 
 double get_pm2_5(void);
 double get_pm10(void);

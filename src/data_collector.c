@@ -42,11 +42,11 @@ void data_collector(void *pvParameters)
             // vTaskDelay(FANS_WORKING_TIME);
             // fans_off();
         }
-        dataPacets_buffer[current_packet].co     = get_CO()->specPPB;
-        dataPacets_buffer[current_packet].so2    = get_SO2()->specPPB;
-        dataPacets_buffer[current_packet].no2    = get_NO2()->specPPB;
-        dataPacets_buffer[current_packet].o3     = get_O3()->specPPB;
-        dataPacets_buffer[current_packet].temp   = get_analog_temp(); 
+        dataPacets_buffer[current_packet].co     = get_CO();
+        dataPacets_buffer[current_packet].so2    = get_SO2();
+        dataPacets_buffer[current_packet].no2    = get_NO2();
+        dataPacets_buffer[current_packet].o3     = get_O3();
+        dataPacets_buffer[current_packet].temp   = get_temperature_bme280(); 
         dataPacets_buffer[current_packet].hcho   = get_HCHO(); 
         dataPacets_buffer[current_packet].pm10   = get_pm10();
         dataPacets_buffer[current_packet].pm2_5  = get_pm2_5();
