@@ -27,9 +27,9 @@ I2C_HandleTypeDef hi2cxc;
 BMP280_HandleTypedef bmp280;
 SemaphoreHandle_t BME_mutex = NULL;
 
-double temperature;
-double humidity;
-double pressure;
+float temperature;
+float humidity;
+float pressure;
 
 typedef enum {
 	BME_T_HUM,
@@ -76,8 +76,8 @@ HAL_StatusTypeDef MX_I2C1_Init(void)
 }
 
 
-static double get_bme_value(SemaphoreHandle_t mutex, BME_TYPES type){
-	double res = 0;
+static float get_bme_value(SemaphoreHandle_t mutex, BME_TYPES type){
+	float res = 0;
 	if((mutex != NULL) && 
 	(xSemaphoreTake(mutex,portMAX_DELAY) == pdTRUE))
 	{
@@ -99,15 +99,15 @@ static double get_bme_value(SemaphoreHandle_t mutex, BME_TYPES type){
 	return res;
 }
 double get_humidity_bme280() {
-   return get_bme_value(BME_mutex, BME_T_HUM);
+   return (double)get_bme_value(BME_mutex, BME_T_HUM);
 }
 
 double get_pressure_bme280() {
-    return get_bme_value(BME_mutex, BME_T_PRESS);
+    return (double)get_bme_value(BME_mutex, BME_T_PRESS);
 }
 
 double get_temperature_bme280(){
-	return get_bme_value(BME_mutex, BME_T_TEMP);
+	return (double)get_bme_value(BME_mutex, BME_T_TEMP);
 }
 
 void bmp280_init_default_params(bmp280_params_t *params) {
@@ -402,20 +402,19 @@ bool bmp280_read_fixed(BMP280_HandleTypedef *dev, int32_t *temperature, uint32_t
 	return true;
 }
 
-bool bmp280_read_float(BMP280_HandleTypedef *dev, float *temperature, float *pressure,
-		float *humidity) {
+bool bmp280_read_float(BMP280_HandleTypedef *dev, float *temperature, float *pressure, float *humidity)
+{
 	int32_t fixed_temperature;
 	uint32_t fixed_pressure;
 	uint32_t fixed_humidity;
-	if (bmp280_read_fixed(dev, &fixed_temperature, &fixed_pressure,
-			humidity ? &fixed_humidity : NULL)) {
+
+	if (bmp280_read_fixed(dev, &fixed_temperature, &fixed_pressure,humidity ? &fixed_humidity : NULL))
+	{
 		*temperature = (float) fixed_temperature / 100;
 		*pressure = (float) fixed_pressure / 256;
-		if (humidity)
-			*humidity = (float) fixed_humidity / 1024;
+		if (humidity) *humidity = (float) fixed_humidity / 1024;
 		return true;
 	}
-
 	return false;
 }
 
