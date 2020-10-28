@@ -54,11 +54,16 @@ void reed_switch_task(void *pvParams)
             vTaskDelay(reedSwitchHoldInterval);
             if(HAL_GPIO_ReadPin(GPIOB,REED_SWITCH) == GPIO_PIN_RESET)
             {
-                change_led(WIFI_MODE);
                 if (esp_server_mode == 1)
+                {
                     esp_server_mode = 0;
+                    change_led(WIFI_MODE);
+                }
                 else
+                {
                     esp_server_mode = 1;
+                    change_led(WORKING_MODE);
+                }
             }
         }
     }
