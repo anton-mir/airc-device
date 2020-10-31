@@ -509,11 +509,21 @@ static uint32_t esp_start(void)
 
 static uint32_t esp_connect_wifi()
 {
-    if (!check_ascii(esp_module.sta_ssid, esp_module.sta_ssid_size)) return 0;
-    if (!check_ascii(esp_module.sta_pass, esp_module.sta_pass_size)) return 0;
+    uint return_value = 0;
+
+    if (!check_ascii(esp_module.sta_ssid, esp_module.sta_ssid_size)) return_value = 0;
+
+    if (!check_ascii(esp_module.sta_pass, esp_module.sta_pass_size)) return_value = 0;
+
     sprintf((char *)uart_buffer, "AT+CWJAP_DEF=\"%.*s\",\"%.*s\"\r\n", (int)esp_module.sta_ssid_size, esp_module.sta_ssid, (int)esp_module.sta_pass_size, esp_module.sta_pass);
-    if (esp_send_data(uart_buffer, 20 + esp_module.sta_ssid_size + esp_module.sta_pass_size) == ESP_OK) return 1;
-    else return 0;
+    if (esp_send_data(uart_buffer, 20 + esp_module.sta_ssid_size + esp_module.sta_pass_size) == ESP_OK) return_value = 1;
+    else return_value = 0;
+
+    sprintf((char *)uart_buffer, "AT+CIFSR\r\n");
+    if (esp_send_data(uart_buffer, 20 + esp_module.sta_ssid_size + esp_module.sta_pass_size) == ESP_OK) return_value = 1;
+    else return_value = 0;
+
+    return return_value;
 }
 
 static int check_ascii(char *str, size_t str_size)
