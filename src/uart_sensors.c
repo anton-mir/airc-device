@@ -9,17 +9,16 @@
 #include "string.h"
 #include "semphr.h"
 
-
-
 uint8_t spec_wake = '\n';
 uint8_t spec_get_data = '\r';
 uint8_t spec_sleep = 's';
 uint8_t spec_continuous = 'c';
 
-xTimerHandle timer_SPEC_ISR;
 SemaphoreHandle_t HCHO_mutex = NULL;
 SemaphoreHandle_t PMS_mutex = NULL;
-SemaphoreHandle_t SPECS_mutex = NULL;
+SemaphoreHandle_t SPEC_mutex = NULL;
+
+xTimerHandle timer_SPEC_ISR;
 
 volatile char uart3IncomingDataBuffer[MAX_SPEC_BUF_LEN];
 double pm2_5_val = 0;
@@ -144,33 +143,67 @@ static void activate_multiplexer_channel(uint8_t channel){
     HAL_GPIO_WritePin(GPIOD, GPIO_PIN_6, chan_table[channel][3]);
 }
 
-
-
-static unsigned long int get_spec_values(SemaphoreHandle_t mutex,SPEC_TYPES type){
-	unsigned long  int res_specPPB= 0;
-	if((mutex != NULL) && 
-	(xSemaphoreTake(mutex,portMAX_DELAY) == pdTRUE))
+static void get_spec_values(dataPacket_S *spec_struct, SemaphoreHandle_t mutex)
+{
+	if((mutex != NULL) && (xSemaphoreTake(mutex,portMAX_DELAY) == pdTRUE))
 	{
-		switch(type){
-            case SPEC_T_SO2:
-                res_specPPB = SPEC_SO2_values.specPPB;
-                break;
-            case SPEC_T_NO2:
-                res_specPPB = SPEC_NO2_values.specPPB;
-                break;
-            case SPEC_T_CO:
-                res_specPPB = SPEC_CO_values.specPPB;
-                break;
-            case SPEC_T_O3: 
-                res_specPPB = SPEC_O3_values.specPPB;
-                break;
-            default: 
-                break;
+        if (!SPEC_SO2_values.error_reason)
+        {
+            spec_struct->so2 = (double)SPEC_SO2_values.specPPB;
+            spec_struct->so2_temp = (double)SPEC_SO2_values.specTemp;
+            spec_struct->so2_hum = (double)SPEC_SO2_values.specRH;
         }
-		
-		xSemaphoreGive(mutex);
-	}
-	return res_specPPB;
+        else
+        {
+            spec_struct->so2 =
+                    spec_struct->so2_temp =
+                            spec_struct->so2_hum =
+                                    (double)SPEC_SO2_values.error_reason;
+        }
+
+        if (!SPEC_NO2_values.error_reason)
+        {
+            spec_struct->no2 = (double) SPEC_NO2_values.specPPB;
+            spec_struct->no2_temp = (double) SPEC_NO2_values.specTemp;
+            spec_struct->no2_hum = (double) SPEC_NO2_values.specRH;
+        }
+        else
+        {
+            spec_struct->no2 =
+                    spec_struct->no2_temp =
+                            spec_struct->no2_hum =
+                                    (double) SPEC_NO2_values.error_reason;
+        }
+
+        if (!SPEC_CO_values.error_reason)
+        {
+            spec_struct->co = (double) SPEC_CO_values.specPPB;
+            spec_struct->co_temp = (double) SPEC_CO_values.specTemp;
+            spec_struct->co_hum = (double) SPEC_CO_values.specRH;
+        }
+        else
+        {
+            spec_struct->co =
+                    spec_struct->co_temp =
+                            spec_struct->co_hum =
+                                    (double) SPEC_CO_values.error_reason;
+        }
+
+        if (!SPEC_O3_values.error_reason)
+        {
+            spec_struct->o3 = (double) SPEC_O3_values.specPPB;
+            spec_struct->o3_temp = (double) SPEC_O3_values.specTemp;
+            spec_struct->o3_hum = (double) SPEC_O3_values.specRH;
+        }
+        else
+        {
+            spec_struct->o3 =
+                    spec_struct->o3_temp =
+                            spec_struct->o3_hum =
+                                    (double) SPEC_O3_values.error_reason;
+        }
+    }
+    xSemaphoreGive(mutex);
 }
 
 static double get_pm_hcho_values(SemaphoreHandle_t mutex,PM_HCHO_TYPES type){
@@ -195,22 +228,11 @@ static double get_pm_hcho_values(SemaphoreHandle_t mutex,PM_HCHO_TYPES type){
 	}
 	return res;
 }
-unsigned long int get_SO2(void){
-    return get_spec_values(SPECS_mutex,SPEC_T_SO2);
-}
 
-unsigned long int get_NO2(void){
-    return get_spec_values(SPECS_mutex,SPEC_T_NO2);
+void get_spec_sensors_data(dataPacket_S *spec_struct)
+{
+    get_spec_values(spec_struct, SPEC_mutex);
 }
-
-unsigned long int get_CO(void){
-    return get_spec_values(SPECS_mutex,SPEC_T_CO);
-}
-
-unsigned long int get_O3(void){
-    return get_spec_values(SPECS_mutex,SPEC_T_O3);
-}
-
 
 double get_pm2_5(void){
     return get_pm_hcho_values(PMS_mutex,PM2_5_T);
@@ -236,7 +258,7 @@ void multiplexerSetState(uint8_t state)
 }
 
 static void vTimerCallback_SPEC_ISR(xTimerHandle pxTimer) {
-    BaseType_t uart_rx_task_woken = pdFALSE;
+    BaseType_t *uart_rx_task_woken = pdFALSE;
 
     uint8_t data_left_in_dma_buffer = __HAL_DMA_GET_COUNTER(huart3.hdmarx);
     uint8_t dma_data_length = MAX_SPEC_BUF_LEN - data_left_in_dma_buffer;
@@ -395,6 +417,7 @@ HAL_StatusTypeDef getSPEC(uint8_t tx, uint8_t rx, struct SPEC_values *SPEC_gas_v
     if (HAL_UART_Transmit_IT(&huart3, &spec_wake, 1) != HAL_OK)
     {
         return_value = HAL_ERROR;
+        SPEC_gas_values->error_reason = -1;
     }
 
     vTaskDelay((TickType_t)SPEC_RESPONSE_TIME);
@@ -402,6 +425,7 @@ HAL_StatusTypeDef getSPEC(uint8_t tx, uint8_t rx, struct SPEC_values *SPEC_gas_v
     if (HAL_UART_Transmit_IT(&huart3, &spec_get_data, 1) != HAL_OK)
     {
         return_value = HAL_ERROR;
+        SPEC_gas_values->error_reason = -2;
     }
 
     vTaskDelay((TickType_t)1);
@@ -421,56 +445,69 @@ HAL_StatusTypeDef getSPEC(uint8_t tx, uint8_t rx, struct SPEC_values *SPEC_gas_v
     if (HAL_UART_DMAStop(&huart3) == HAL_ERROR)
     {
         return_value = HAL_ERROR;
+        SPEC_gas_values->error_reason = -3;
     }
     // Disable UART
     USART3->CR1 &= ~USART_CR1_UE;
 
     multiplexerSetState(0);
 
-    // Check received data and its size
-    if (uart_receive_return == HAL_OK && dmaBufferLength >= MIN_SPEC_BUF_LEN)
+    // Check whether data was received
+    if (uart_receive_return == HAL_OK)
     {
-        char *pToNextValue;
-        char *firstDeviderPtr;
-        const char devider[] = ", ";
-
-        // Check if SPEC sensor eeprom is not corrupted
-        firstDeviderPtr = strstr((const char*)uart3IncomingDataBuffer, devider);
-        int firstDeviderIndex = (int)(firstDeviderPtr - uart3IncomingDataBuffer);
-        uint8_t specEepromCorrupted = firstDeviderIndex < 9; // Means there is no proper sensor ID in packet
-
-        if (specEepromCorrupted)
+        // Check received data size
+        if (dmaBufferLength >= MIN_SPEC_BUF_LEN)
         {
-            return_value = HAL_ERROR;
-        }
-        else
-        {
-            SPEC_gas_values->specSN = strtoull((const char *) uart3IncomingDataBuffer, &pToNextValue, 10);
+            char *pToNextValue;
+            char *firstDeviderPtr;
+            const char devider[] = ", ";
 
-            if (SPEC_gas_values->specSN == spec_sensor_sn)
+            // Check if SPEC sensor eeprom is not corrupted
+            firstDeviderPtr = strstr((const char*)uart3IncomingDataBuffer, devider);
+            int firstDeviderIndex = (int)(firstDeviderPtr - uart3IncomingDataBuffer);
+            uint8_t specEepromCorrupted = firstDeviderIndex < 9; // Means there is no proper sensor ID in packet
+
+            if (specEepromCorrupted)
             {
-                if(xSemaphoreTake(SPECS_mutex,portMAX_DELAY) == pdTRUE){
-                    SPEC_gas_values->specPPB = strtoul(pToNextValue + 2, &pToNextValue, 10);
-                    xSemaphoreGive(SPECS_mutex);
-                }
-                SPEC_gas_values->specTemp = strtoul(pToNextValue + 2, &pToNextValue, 10);
-                SPEC_gas_values->specRH = strtoul(pToNextValue + 2, &pToNextValue, 10);
-                pToNextValue = strstr(pToNextValue + 2, ", ");
-                pToNextValue = strstr(pToNextValue + 2, ", ");
-                pToNextValue = strstr(pToNextValue + 2, ", ");
-                SPEC_gas_values->specDay = strtoul(pToNextValue + 2, &pToNextValue, 10);
-                SPEC_gas_values->specHour = strtoul(pToNextValue + 2, &pToNextValue, 10);
-                SPEC_gas_values->specMinute = strtoul(pToNextValue + 2, &pToNextValue, 10);
-                SPEC_gas_values->specSecond = strtoul(pToNextValue + 2, NULL, 10);
+                return_value = HAL_ERROR;
+                SPEC_gas_values->error_reason = -4;
             }
             else
             {
-                return_value = HAL_ERROR;
+                SPEC_gas_values->specSN = strtoull((const char *) uart3IncomingDataBuffer, &pToNextValue, 10);
+
+                if (SPEC_gas_values->specSN == spec_sensor_sn)
+                {
+                    if(xSemaphoreTake(SPEC_mutex, portMAX_DELAY) == pdTRUE){
+                        SPEC_gas_values->specPPB = strtoul(pToNextValue + 2, &pToNextValue, 10);
+                        xSemaphoreGive(SPEC_mutex);
+                    }
+                    SPEC_gas_values->specTemp = strtoul(pToNextValue + 2, &pToNextValue, 10);
+                    SPEC_gas_values->specRH = strtoul(pToNextValue + 2, &pToNextValue, 10);
+                    pToNextValue = strstr(pToNextValue + 2, ", ");
+                    pToNextValue = strstr(pToNextValue + 2, ", ");
+                    pToNextValue = strstr(pToNextValue + 2, ", ");
+                    SPEC_gas_values->specDay = strtoul(pToNextValue + 2, &pToNextValue, 10);
+                    SPEC_gas_values->specHour = strtoul(pToNextValue + 2, &pToNextValue, 10);
+                    SPEC_gas_values->specMinute = strtoul(pToNextValue + 2, &pToNextValue, 10);
+                    SPEC_gas_values->specSecond = strtoul(pToNextValue + 2, NULL, 10);
+                }
+                else
+                {
+                    return_value = HAL_ERROR;
+                    SPEC_gas_values->error_reason = -5;
+                }
             }
+        }
+        else
+        {
+            return_value = HAL_ERROR;
+            SPEC_gas_values->error_reason = -6;
         }
     }
     else {
         return_value = HAL_ERROR;
+        SPEC_gas_values->error_reason = -7;
     }
 
     memset((void*)uart3IncomingDataBuffer, '\0', MAX_SPEC_BUF_LEN);
@@ -478,7 +515,9 @@ HAL_StatusTypeDef getSPEC(uint8_t tx, uint8_t rx, struct SPEC_values *SPEC_gas_v
     return return_value;
 }
 
-static void UART_sensors_error_handler(){};
+static void UART_sensors_error_handler()
+{
+};
 
 void uart_sensors(void * const arg) {
 
@@ -490,7 +529,7 @@ void uart_sensors(void * const arg) {
     USART3_DMA_Init();
     HCHO_mutex = xSemaphoreCreateMutex();
     PMS_mutex = xSemaphoreCreateMutex();
-    SPECS_mutex = xSemaphoreCreateMutex();
+    SPEC_mutex = xSemaphoreCreateMutex();
     timer_SPEC_ISR = xTimerCreate( "timer_SPEC_ISR",
                                    (TickType_t)SPEC_NOTIFY_DELAY, pdFALSE,
                                    (void*)0, vTimerCallback_SPEC_ISR);

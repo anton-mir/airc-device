@@ -2,6 +2,7 @@
 #define AIRC_DEVICE_UART_SENSORS_H
 
 #include "stm32f4xx_hal.h"
+#include "data_structure.h"
 
 #define  MAX_SPEC_BUF_LEN 70
 #define  MIN_SPEC_BUF_LEN 44
@@ -29,25 +30,21 @@
 #define HCHO_HEADER2 0X17 //23
 #define HCHO_UNIT_PPB 0X04
 
-
 UART_HandleTypeDef huart3;
 DMA_HandleTypeDef huart3_dma_rx;
 
 void UART_SENSORS_IRQHandler(UART_HandleTypeDef *huart);
 
-void uart_sensors(void * const arg);
+void uart_sensors(void * arg);
 
 struct SPEC_values
 {
     unsigned long long int specSN;
     unsigned long int specPPB, specTemp, specRH, specDay, specHour, specMinute, specSecond;
+    int8_t error_reason;
 };
 
-unsigned long int get_SO2(void);
-unsigned long int get_NO2(void);
-unsigned long int get_CO(void);
-unsigned long int get_O3(void);
-
+void get_spec_sensors_data(dataPacket_S *spec_struct);
 double get_pm2_5(void);
 double get_pm10(void);
 double get_HCHO(void);

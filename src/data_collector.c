@@ -1,4 +1,4 @@
-#include<stdio.h>
+#include <stdio.h>
 #include "main.h"
 #include "data_collector.h"
 #include "display_data.h"
@@ -11,10 +11,10 @@
 
 #include "bmp280.h"
 
+dataPacket_S dataPacets_buffer[DATA_PACKET_BUFFER_SIZE] = {0};
 
 void data_collector(void *pvParameters)
 {
-    const portTickType xTicksToWait = 0;
     //TODO: Add waiting for other sensors.
     xEventGroupWaitBits(
             eg_task_started,
@@ -26,7 +26,7 @@ void data_collector(void *pvParameters)
             portMAX_DELAY);
     xEventGroupSetBits(eg_task_started, EG_DATA_COLLECTOR_STARTED);
     //if something isn't working try change the stack size of  this task
-    dataPacket_S dataPacets_buffer[DATA_PACKET_BUFFER_SIZE] = {0};
+
     for( ;; )
     {
         static int current_packet = 0;
@@ -42,10 +42,7 @@ void data_collector(void *pvParameters)
             // vTaskDelay(FANS_WORKING_TIME);
             // fans_off();
         }
-        dataPacets_buffer[current_packet].co     = get_CO();
-        dataPacets_buffer[current_packet].so2    = get_SO2();
-        dataPacets_buffer[current_packet].no2    = get_NO2();
-        dataPacets_buffer[current_packet].o3     = get_O3();
+        get_spec_sensors_data(&dataPacets_buffer[current_packet]);
         dataPacets_buffer[current_packet].temp   = get_temperature_bme280(); 
         dataPacets_buffer[current_packet].hcho   = get_HCHO(); 
         dataPacets_buffer[current_packet].pm10   = get_pm10();
@@ -61,13 +58,62 @@ void data_collector(void *pvParameters)
     }
 }
 
-
 void avrg_data_packets(dataPacket_S *buffer, int buf_size, dataPacket_S *result_packet){
-    for(int i = 0; i < buf_size; i++){
-        result_packet->co       += (buffer[i].co); 
-        result_packet->so2      += (buffer[i].so2); 
-        result_packet->o3       += (buffer[i].o3);
-        result_packet->no2      += (buffer[i].no2);
+    
+    for (int i = 0; i < buf_size; i++)
+    {
+        if (buffer[i].co < 0) // Has spec error code
+        {
+            result_packet->co = buffer[i].co;
+            result_packet->co_hum = buffer[i].co_hum;
+            result_packet->co_temp = buffer[i].co_temp;
+        }
+        else
+        {
+            result_packet->co += (buffer[i].co);
+            result_packet->co_hum += (buffer[i].co_hum);
+            result_packet->co_temp += (buffer[i].co_temp);
+        }
+
+        if (buffer[i].so2 < 0) // Has spec error code
+        {
+            result_packet->so2 = buffer[i].so2;
+            result_packet->so2_hum = buffer[i].so2_hum;
+            result_packet->so2_temp = buffer[i].so2_temp;
+        }
+        else
+        {
+            result_packet->so2 += (buffer[i].so2);
+            result_packet->so2_hum += (buffer[i].so2_hum);
+            result_packet->so2_temp += (buffer[i].so2_temp);
+        }
+
+        if (buffer[i].o3 < 0) // Has spec error code
+        {
+            result_packet->o3 = buffer[i].o3;
+            result_packet->o3_hum = buffer[i].o3_hum;
+            result_packet->o3_temp = buffer[i].o3_temp;
+        }
+        else
+        {
+            result_packet->o3 += (buffer[i].o3);
+            result_packet->o3_hum += (buffer[i].o3_hum);
+            result_packet->o3_temp += (buffer[i].o3_temp);
+        }
+        
+        if (buffer[i].no2 < 0) // Has spec error code
+        {
+            result_packet->no2 = buffer[i].no2;
+            result_packet->no2_hum = buffer[i].no2_hum;
+            result_packet->no2_temp = buffer[i].no2_temp;
+        }
+        else
+        {
+            result_packet->no2 += (buffer[i].no2);
+            result_packet->no2_hum += (buffer[i].no2_hum);
+            result_packet->no2_temp += (buffer[i].no2_temp);
+        }
+
         result_packet->temp     += (buffer[i].temp); 
         result_packet->hcho     += (buffer[i].hcho); 
         result_packet->pm10     += (buffer[i].pm10); 
@@ -77,16 +123,16 @@ void avrg_data_packets(dataPacket_S *buffer, int buf_size, dataPacket_S *result_
         result_packet->tvoc     += (buffer[i].tvoc); 
         result_packet->co2      += (buffer[i].co2);
     }
-        result_packet->co   != 0 ? result_packet->co /= buf_size : 0;
-        result_packet->so2  != 0 ? result_packet->so2 /= buf_size : 0;
-        result_packet->o3   != 0 ? result_packet->o3 /= buf_size : 0;
-        result_packet->no2  != 0 ? result_packet->no2 /= buf_size : 0;
-        result_packet->temp != 0 ? result_packet->temp /= buf_size : 0;
-        result_packet->hcho != 0 ? result_packet->hcho /= buf_size : 0;
-        result_packet->pm10 != 0 ? result_packet->pm10 /= buf_size : 0;
-        result_packet->pm2_5 != 0 ? result_packet->pm2_5 /= buf_size : 0;
-        result_packet->humidity != 0 ? result_packet->humidity /= buf_size : 0;
-        result_packet->pressure != 0 ? result_packet->pressure /= buf_size : 0;
-        result_packet->tvoc != 0 ? result_packet->tvoc /= buf_size : 0;
-        result_packet->co2 != 0 ? result_packet->co2 /= buf_size : 0;
+    
+    if (result_packet->co > 0) result_packet->co /= buf_size;
+    if (result_packet->so2 > 0) result_packet->so2 /= buf_size;
+    if (result_packet->o3 > 0) result_packet->o3 /= buf_size;
+    if (result_packet->no2 > 0) result_packet->no2 /= buf_size;
+    if (result_packet->temp > 0) result_packet->temp /= buf_size;
+    if (result_packet->hcho > 0) result_packet->hcho /= buf_size;
+    if (result_packet->pm10 > 0) result_packet->pm10 /= buf_size;
+    if (result_packet->pm2_5 > 0) result_packet->pm2_5 /= buf_size;
+    if (result_packet->humidity > 0) result_packet->humidity /= buf_size;
+    if (result_packet->tvoc > 0) result_packet->tvoc /= buf_size;
+    if (result_packet->co2 > 0) result_packet->co2 /= buf_size;
 }
