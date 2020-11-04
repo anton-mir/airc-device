@@ -10,45 +10,44 @@
 
 
 xQueueHandle displayQueueHandle = NULL;
-enum sensor_indexes
-{
-    TEMP = 0,
-    HUMIDITY,
-    CO2,
-    TVOC,
-    PRESSURE,
-    CO,
-    NO2,
-    SO2,
-    O3,
-    HCHO,
-    PM2_5,
-    PM10
-};
+typedef struct{
+    uint8_t x;
+    uint8_t y;
+    uint8_t current_line;
+}line_cntrl;
+
+static line_cntrl line = {0};
+
+
+static void change_line(){
+    line.current_line++;
+    if((line.current_line % 2) == 0){
+        vTaskDelay(DISPLAY_TIME_PERIOD);
+        lcd_clear();
+        line.x = 0 ;
+        line.y = 0;
+        line.current_line = 0;
+    }
+    else {
+        line.x = 0;
+        line.y = 1;
+    }
+}
+
+static void print_sensor_data(double data, char* sensor_name){
+    lcd_print_string_at(sensor_name,line.x,line.y);
+    //print value after name
+    char sensor_data[20];
+    line.x = strlen(sensor_name);
+    ftoa(data,sensor_data,5);
+    lcd_print_string_at(sensor_data,line.x,line.y);
+    change_line();
+}
 
 void display_data_task(void *pvParams){
-    char *sensors_names[] = 
-    {
-      "TEMP: ",  
-      "HUMIDITY: ",
-      "CO2: ",
-      "TVOC: ",
-      "PRESSURE: ",
-      "CO: ",
-      "NO2: ",
-      "SO2: ",
-      "O3: ",
-      "HCHO: ",
-      "PM2_5: ",
-      "PM10: "
-    };
     displayQueueHandle = xQueueCreate(1,sizeof(dataPacket_S));
-    
-    size_t sensors_names_size = sizeof(sensors_names)/sizeof(sensors_names[0]);
     for(;;){
-        dataPacket_S current_packet = {0,0,0,0,0,0,0,0,0,0,0,0};
-        //pointer to the first field of the struct
-        double *p_currnet_packet = (double*)&current_packet; 
+        dataPacket_S current_packet = {0};
         /*
             reads an item from ethernet queue, 
             but without removing the item from the queue
@@ -56,35 +55,30 @@ void display_data_task(void *pvParams){
         if((displayQueueHandle != NULL) &&
            (xQueueReceive(displayQueueHandle,&current_packet,portMAX_DELAY) == pdTRUE))
          {
-            uint8_t x = 0;
-            uint8_t y = 0;
-            /*
-                **************************
-                *SENSOR_NAME: VALUE      *
-                *SENSOR_NAME: VALUE      *
-                **************************
-            */
-            for(int i = 0; i < sensors_names_size; i++){
-                if(i != 0 && (i%2) == 0){
-                    vTaskDelay(DISPLAY_TIME_PERIOD);
-                    lcd_clear();
-                    x = 0 ;
-                    y = 0;
-                }
-                else if((i%2) != 0){
-                    x = 0;
-                    y = 1;
-                }
-                //print name
-                lcd_print_string_at(sensors_names[i],x,y);
-                //print value after name
-                char sensor_data[20];
-                x = strlen(sensors_names[i]);
-                double var_value = (double)*(p_currnet_packet+i);
-                ftoa(var_value,sensor_data,5);
-                lcd_print_string_at(sensor_data,x,y);
-            }
+            //     **************************
+            //     *SENSOR_NAME: VALUE      *
+            //     *SENSOR_NAME: VALUE      *
+            //     **************************
+            print_sensor_data(current_packet.temp,"TEMP: " );   
+            print_sensor_data(current_packet.humidity,"HUMIDITY: "); 
+            print_sensor_data(current_packet.co2,"CO2: ");
+            print_sensor_data(current_packet.tvoc,"TVOC: ");
+            print_sensor_data(current_packet.pressure,"PRESSURE: ");
+            print_sensor_data(current_packet.co,"CO: ");
+            print_sensor_data(current_packet.co_temp,"CO_TEMP: ");
+            print_sensor_data(current_packet.co_hum,"CO_HUM: ");
+            print_sensor_data(current_packet.no2,"NO2: ");
+            print_sensor_data(current_packet.no2_temp,"NO2_TEMP: ");
+            print_sensor_data(current_packet.no2_hum,"NO2_HUM: ");
+            print_sensor_data(current_packet.so2,"SO2: ");
+            print_sensor_data(current_packet.so2_temp,"SO2_TEMP: ");
+            print_sensor_data(current_packet.so2_hum,"SO2_HUM: ");
+            print_sensor_data(current_packet.o3,"O3: ");
+            print_sensor_data(current_packet.o3_temp,"O3_TEMP: ");
+            print_sensor_data(current_packet.o3_hum,"O3_HUM: ");
+            print_sensor_data(current_packet.hcho,"HCHO: "); 
+            print_sensor_data(current_packet.pm2_5,"PM2_5: ");
+            print_sensor_data(current_packet.pm10,"PM10: ");
         }
-
     }
 }
