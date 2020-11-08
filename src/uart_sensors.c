@@ -439,7 +439,7 @@ HAL_StatusTypeDef getSPEC(uint8_t tx, uint8_t rx, struct SPEC_values *SPEC_gas_v
     const HAL_StatusTypeDef uart_receive_return = HAL_UART_Receive_DMA(&huart3, (unsigned char*)uart3IncomingDataBuffer, MAX_SPEC_BUF_LEN);
 
     // Pause task until all data received
-    uint32_t dmaBufferLength = ulTaskNotifyTake(pdTRUE, (TickType_t)SPEC_RESPONSE_TIME);
+    uint32_t dmaBufferLength = ulTaskNotifyTake(pdTRUE, (TickType_t)SPEC_RESPONSE_TIME*2); // Doubled time to avoid dmaBufferLength < MIN_SPEC_BUF_LEN
 
     // Stop DMA transfer
     if (HAL_UART_DMAStop(&huart3) == HAL_ERROR)
@@ -456,7 +456,12 @@ HAL_StatusTypeDef getSPEC(uint8_t tx, uint8_t rx, struct SPEC_values *SPEC_gas_v
     if (uart_receive_return == HAL_OK)
     {
         // Check received data size
-        if (dmaBufferLength >= MIN_SPEC_BUF_LEN)
+        if (dmaBufferLength < MIN_SPEC_BUF_LEN)
+        {
+            return_value = HAL_ERROR;
+            SPEC_gas_values->error_reason = -4; // Probably need to adjust SPEC_RESPONSE_TIME
+        }
+        else
         {
             char *pToNextValue;
             char *firstDeviderPtr;
@@ -470,7 +475,7 @@ HAL_StatusTypeDef getSPEC(uint8_t tx, uint8_t rx, struct SPEC_values *SPEC_gas_v
             if (specEepromCorrupted)
             {
                 return_value = HAL_ERROR;
-                SPEC_gas_values->error_reason = -4;
+                SPEC_gas_values->error_reason = -5; // Corrupted EEPROM - need to re-flash SPEC sensor EEPROM
             }
             else
             {
@@ -495,19 +500,15 @@ HAL_StatusTypeDef getSPEC(uint8_t tx, uint8_t rx, struct SPEC_values *SPEC_gas_v
                 else
                 {
                     return_value = HAL_ERROR;
-                    SPEC_gas_values->error_reason = -5;
+                    SPEC_gas_values->error_reason = -6; // Got wrong SPEC sensor ID
                 }
             }
         }
-        else
-        {
-            return_value = HAL_ERROR;
-            SPEC_gas_values->error_reason = -6;
-        }
     }
-    else {
+    else
+    {
         return_value = HAL_ERROR;
-        SPEC_gas_values->error_reason = -7;
+        SPEC_gas_values->error_reason = -7; // HAL_UART_Receive_DMA got wrong return code
     }
 
     memset((void*)uart3IncomingDataBuffer, '\0', MAX_SPEC_BUF_LEN);
