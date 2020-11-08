@@ -40,7 +40,8 @@ void uart_sensors(void * arg);
 struct SPEC_values
 {
     unsigned long long int specSN;
-    unsigned long int specPPB, specTemp, specRH, specDay, specHour, specMinute, specSecond;
+    long long specPPB;
+    unsigned long int specTemp, specRH, specDay, specHour, specMinute, specSecond;
     int8_t error_reason;
 };
 

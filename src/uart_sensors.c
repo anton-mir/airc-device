@@ -404,6 +404,7 @@ HAL_StatusTypeDef getSDS011(uint8_t rx) {
 HAL_StatusTypeDef getSPEC(uint8_t tx, uint8_t rx, struct SPEC_values *SPEC_gas_values, const long long int spec_sensor_sn)
 {
     HAL_StatusTypeDef return_value = HAL_OK;
+    SPEC_gas_values->error_reason = 0;
 
     multiplexerSetState(1); // Turn On multiplexer
 
@@ -483,8 +484,9 @@ HAL_StatusTypeDef getSPEC(uint8_t tx, uint8_t rx, struct SPEC_values *SPEC_gas_v
 
                 if (SPEC_gas_values->specSN == spec_sensor_sn)
                 {
-                    if(xSemaphoreTake(SPEC_mutex, portMAX_DELAY) == pdTRUE){
-                        SPEC_gas_values->specPPB = strtoul(pToNextValue + 2, &pToNextValue, 10);
+                    if(xSemaphoreTake(SPEC_mutex, portMAX_DELAY) == pdTRUE)
+                    {
+                        SPEC_gas_values->specPPB = strtol(pToNextValue + 2, &pToNextValue, 10);
                         xSemaphoreGive(SPEC_mutex);
                     }
                     SPEC_gas_values->specTemp = strtoul(pToNextValue + 2, &pToNextValue, 10);

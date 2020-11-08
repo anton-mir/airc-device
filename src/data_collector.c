@@ -30,7 +30,9 @@ void data_collector(void *pvParameters)
     for( ;; )
     {
         static int current_packet = 0;
-        if(current_packet == DATA_PACKET_BUFFER_SIZE){
+
+        if(current_packet == DATA_PACKET_BUFFER_SIZE)
+        {
             dataPacket_S packet={0,0,0,0,0,0,0,0,0,0,0,0};
             current_packet = 0;
             avrg_data_packets(dataPacets_buffer,DATA_PACKET_BUFFER_SIZE,&packet);
