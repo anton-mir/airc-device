@@ -504,6 +504,11 @@ static uint32_t esp_start(void)
 
     esp_connect_wifi();
 
+    // Set SNTP time zone
+    memcpy(uart_buffer, "AT+CIPSNTPCFG=1,2\r\n", 19);
+    if (esp_send_data(uart_buffer, 19) == ESP_OK);
+    else return 0;
+
     return 1;
 }
 

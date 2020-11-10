@@ -8,6 +8,8 @@
 #include "uart_sensors.h"
 #include "fans.h"
 #include "i2c_ccs811sensor.h"
+#include "config_board.h"
+#include <string.h>
 
 #include "bmp280.h"
 
@@ -33,13 +35,31 @@ void data_collector(void *pvParameters)
 
         if(current_packet == DATA_PACKET_BUFFER_SIZE)
         {
-            dataPacket_S packet={0,0,0,0,0,0,0,0,0,0,0,0};
+            dataPacket_S packet={0};
             current_packet = 0;
+            extern boxConfig_S device_config;
+            static long message_counter = 0;
+
+            ReadConfig(&device_config);
+
+            packet.device_id = device_config.id;
+            packet.device_message_counter = message_counter++;
+            strncpy(packet.message_date_time, "Thu Aug 04 14:48:05 2016", 24); // TODO: get date time from ESP with AT+CIPSNTPTIME?
+            packet.device_working_status = device_config.working_status;
+            strncpy(packet.device_type, device_config.type, 19);
+            strncpy(packet.device_description, device_config.description, 500);
+            packet.latitude = device_config.latitude;
+            packet.longitude = device_config.longitude;
+            packet.altitude = device_config.altitude;
+
             avrg_data_packets(dataPacets_buffer,DATA_PACKET_BUFFER_SIZE,&packet);
+
             //send data to ethernet task
-            xQueueSendToBack(QueueTransmitEthernet, &packet,portMAX_DELAY);
+            xQueueSendToBack(QueueTransmitEthernet, &packet, portMAX_DELAY);
             //send data to display task
-            xQueueSendToBack(displayQueueHandle,&packet,portMAX_DELAY);
+            xQueueSendToBack(displayQueueHandle, &packet, portMAX_DELAY);
+
+            // Circulate the air
             // fans_on();
             // vTaskDelay(FANS_WORKING_TIME);
             // fans_off();

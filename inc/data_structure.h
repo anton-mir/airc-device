@@ -5,6 +5,15 @@
 
 typedef struct dataPacket
 {
+    uint8_t device_id;
+    uint8_t device_working_status;
+    uint32_t device_message_counter;
+    char device_type[19];
+    char device_description[500];
+    char message_date_time[24];
+    double latitude;
+    double longitude;
+    double altitude;
     double temp;
     double humidity;
     double co2;
