@@ -14,6 +14,7 @@ typedef struct dataPacket
     double latitude;
     double longitude;
     double altitude;
+    double temp_internal;
     double temp;
     double humidity;
     double co2;

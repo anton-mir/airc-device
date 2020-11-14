@@ -37,6 +37,7 @@ void data_collector(void *pvParameters)
         for (int8_t current_packet = 0; current_packet < DATA_PACKET_BUFFER_SIZE; current_packet++)
         {
             get_spec_sensors_data(&dataPacets_buffer[current_packet]);
+            dataPacets_buffer[current_packet].temp_internal   = get_analog_temp();
             dataPacets_buffer[current_packet].temp   = get_temperature_bme280();
             dataPacets_buffer[current_packet].hcho   = get_HCHO();
             dataPacets_buffer[current_packet].pm10   = get_pm10();
@@ -141,7 +142,8 @@ void avrg_data_packets(dataPacket_S *buffer, int buf_size, dataPacket_S *result_
             result_packet->no2_temp += (buffer[i].no2_temp);
         }
 
-        result_packet->temp     += (buffer[i].temp); 
+        result_packet->temp_internal += (buffer[i].temp_internal);
+        result_packet->temp     += (buffer[i].temp);
         result_packet->hcho     += (buffer[i].hcho); 
         result_packet->pm10     += (buffer[i].pm10); 
         result_packet->pm2_5    += (buffer[i].pm2_5); 
@@ -196,6 +198,7 @@ void avrg_data_packets(dataPacket_S *buffer, int buf_size, dataPacket_S *result_
         result_packet->no2 = result_packet->no2_hum = result_packet->no2_temp = no2_error;
     }
 
+    if (result_packet->temp_internal > 0) result_packet->temp_internal /= buf_size;
     if (result_packet->temp > 0) result_packet->temp /= buf_size;
     if (result_packet->hcho > 0) result_packet->hcho /= buf_size;
     if (result_packet->pm10 > 0) result_packet->pm10 /= buf_size;
