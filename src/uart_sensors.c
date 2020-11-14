@@ -286,7 +286,7 @@ HAL_StatusTypeDef getHCHO(uint8_t rx) {
     const HAL_StatusTypeDef uart_receive_return = HAL_UART_Receive_DMA(&huart3, (unsigned char*)uart3IncomingDataBuffer, MAX_SPEC_BUF_LEN);
 
     // Pause task until all data received
-    uint32_t dmaBufferLength = ulTaskNotifyTake(pdTRUE, (TickType_t) SPEC_RESPONSE_TIME);
+        uint32_t dmaBufferLength = ulTaskNotifyTake(pdTRUE, (TickType_t) SDS011_RESPONSE_TIME);
 
     // Stop DMA transfer
     if (HAL_UART_DMAStop(&huart3) == HAL_ERROR)
@@ -440,7 +440,7 @@ HAL_StatusTypeDef getSPEC(uint8_t tx, uint8_t rx, struct SPEC_values *SPEC_gas_v
     const HAL_StatusTypeDef uart_receive_return = HAL_UART_Receive_DMA(&huart3, (unsigned char*)uart3IncomingDataBuffer, MAX_SPEC_BUF_LEN);
 
     // Pause task until all data received
-    uint32_t dmaBufferLength = ulTaskNotifyTake(pdTRUE, (TickType_t)SPEC_RESPONSE_TIME*2); // Doubled time to avoid dmaBufferLength < MIN_SPEC_BUF_LEN
+    uint32_t dmaBufferLength = ulTaskNotifyTake(pdTRUE, (TickType_t)SPEC_RESPONSE_TIME);
 
     // Stop DMA transfer
     if (HAL_UART_DMAStop(&huart3) == HAL_ERROR)
@@ -460,7 +460,7 @@ HAL_StatusTypeDef getSPEC(uint8_t tx, uint8_t rx, struct SPEC_values *SPEC_gas_v
         if (dmaBufferLength < MIN_SPEC_BUF_LEN)
         {
             return_value = HAL_ERROR;
-            SPEC_gas_values->error_reason = -4; // Probably need to adjust SPEC_RESPONSE_TIME
+            SPEC_gas_values->error_reason = -4; // Probably need to adjust SPEC_NOTIFY_DELAY
         }
         else
         {
