@@ -8,5 +8,5 @@
 */
 
 void data_collector(void *pvParameters);
-void avrg_data_packets(dataPacket_S *buffer, int buf_size, dataPacket_S *result_packet);
+
 #endif

@@ -457,7 +457,7 @@ HAL_StatusTypeDef getSPEC(uint8_t tx, uint8_t rx, struct SPEC_values *SPEC_gas_v
     if (uart_receive_return == HAL_OK)
     {
         // Check received data size
-        if (dmaBufferLength < MIN_SPEC_BUF_LEN)
+        if (dmaBufferLength < MIN_SPEC_BUF_LEN && uart3IncomingDataBuffer[0] == 0)
         {
             return_value = HAL_ERROR;
             SPEC_gas_values->error_reason = -4; // Probably need to adjust SPEC_NOTIFY_DELAY
