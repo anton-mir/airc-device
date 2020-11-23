@@ -8,6 +8,8 @@
 #include "wh1602.h"
 #include "string.h"
 
+dataPacket_S current_packet = {0};
+UBaseType_t messages_in_queue = 0;
 
 xQueueHandle displayQueueHandle = NULL;
 typedef struct{
@@ -46,19 +48,16 @@ static void print_sensor_data(double data, char* sensor_name){
 
 void display_data_task(void *pvParams){
     displayQueueHandle = xQueueCreate(1,sizeof(dataPacket_S));
-    for(;;){
-        dataPacket_S current_packet = {0};
-        /*
-            reads an item from ethernet queue, 
-            but without removing the item from the queue
-        */
-        if((displayQueueHandle != NULL) &&
-           (xQueueReceive(displayQueueHandle,&current_packet,portMAX_DELAY) == pdTRUE))
-         {
-            //     **************************
-            //     *SENSOR_NAME: VALUE      *
-            //     *SENSOR_NAME: VALUE      *
-            //     **************************
+    for(;;)
+    {
+        messages_in_queue = uxQueueMessagesWaiting(displayQueueHandle);
+
+        if (displayQueueHandle != NULL && messages_in_queue > 0)
+        {
+             xQueueReceive(displayQueueHandle,&current_packet,portMAX_DELAY);
+        }
+        else
+        {
             print_sensor_data(current_packet.temp,"TEMP: " );
             print_sensor_data(current_packet.humidity,"HUMIDITY: ");
             print_sensor_data(current_packet.co2,"CO2: ");

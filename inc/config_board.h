@@ -24,6 +24,7 @@ typedef struct boxConfig
     char fb_email[32];
     char type[19];
     char ip[15];
+    unsigned long long int sent_packet_counter;
 }boxConfig_S;
 
 typedef struct boxConfig_CRC16_CCITT

@@ -148,61 +148,25 @@ static void get_spec_values(dataPacket_S *spec_struct, SemaphoreHandle_t mutex)
 {
 	if((mutex != NULL) && (xSemaphoreTake(mutex,portMAX_DELAY) == pdTRUE))
 	{
-        if (!SPEC_SO2_values.error_reason)
-        {
-            spec_struct->so2 = (double)SPEC_SO2_values.specPPB;
-            spec_struct->so2_temp = (double)SPEC_SO2_values.specTemp;
-            spec_struct->so2_hum = (double)SPEC_SO2_values.specRH;
-        }
-        else
-        {
-            spec_struct->so2 =
-                    spec_struct->so2_temp =
-                            spec_struct->so2_hum =
-                                    (double)SPEC_SO2_values.error_reason;
-        }
+        spec_struct->so2 = (double)SPEC_SO2_values.specPPB;
+        spec_struct->so2_temp = (double)SPEC_SO2_values.specTemp;
+        spec_struct->so2_hum = (double)SPEC_SO2_values.specRH;
+        spec_struct->so2_err = (double)SPEC_SO2_values.error_reason;
 
-        if (!SPEC_NO2_values.error_reason)
-        {
-            spec_struct->no2 = (double) SPEC_NO2_values.specPPB;
-            spec_struct->no2_temp = (double) SPEC_NO2_values.specTemp;
-            spec_struct->no2_hum = (double) SPEC_NO2_values.specRH;
-        }
-        else
-        {
-            spec_struct->no2 =
-                    spec_struct->no2_temp =
-                            spec_struct->no2_hum =
-                                    (double) SPEC_NO2_values.error_reason;
-        }
+        spec_struct->no2 = (double) SPEC_NO2_values.specPPB;
+        spec_struct->no2_temp = (double) SPEC_NO2_values.specTemp;
+        spec_struct->no2_hum = (double) SPEC_NO2_values.specRH;
+        spec_struct->no2_err = (double)SPEC_NO2_values.error_reason;
 
-        if (!SPEC_CO_values.error_reason)
-        {
-            spec_struct->co = (double) SPEC_CO_values.specPPB;
-            spec_struct->co_temp = (double) SPEC_CO_values.specTemp;
-            spec_struct->co_hum = (double) SPEC_CO_values.specRH;
-        }
-        else
-        {
-            spec_struct->co =
-                    spec_struct->co_temp =
-                            spec_struct->co_hum =
-                                    (double) SPEC_CO_values.error_reason;
-        }
+        spec_struct->co = (double) SPEC_CO_values.specPPB;
+        spec_struct->co_temp = (double) SPEC_CO_values.specTemp;
+        spec_struct->co_hum = (double) SPEC_CO_values.specRH;
+        spec_struct->co_err = (double)SPEC_CO_values.error_reason;
 
-        if (!SPEC_O3_values.error_reason)
-        {
-            spec_struct->o3 = (double) SPEC_O3_values.specPPB;
-            spec_struct->o3_temp = (double) SPEC_O3_values.specTemp;
-            spec_struct->o3_hum = (double) SPEC_O3_values.specRH;
-        }
-        else
-        {
-            spec_struct->o3 =
-                    spec_struct->o3_temp =
-                            spec_struct->o3_hum =
-                                    (double) SPEC_O3_values.error_reason;
-        }
+        spec_struct->o3 = (double) SPEC_O3_values.specPPB;
+        spec_struct->o3_temp = (double) SPEC_O3_values.specTemp;
+        spec_struct->o3_hum = (double) SPEC_O3_values.specRH;
+        spec_struct->o3_err = (double)SPEC_O3_values.error_reason;
     }
     xSemaphoreGive(mutex);
 }
@@ -257,19 +221,6 @@ void multiplexerSetState(uint8_t state)
         HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_SET);
     }
 }
-
-//static void vTimerCallback_SPEC_ISR(xTimerHandle pxTimer) {
-//    BaseType_t *uart_rx_task_woken = pdFALSE;
-//
-//    uint8_t data_left_in_dma_buffer = __HAL_DMA_GET_COUNTER(huart3.hdmarx);
-//    uint8_t dma_data_length = MAX_SPEC_BUF_LEN - data_left_in_dma_buffer;
-//
-//    xTaskNotifyAndQueryFromISR(uart_sensors_handle, dma_data_length,
-//                               eSetValueWithOverwrite, NULL, &uart_rx_task_woken);
-//
-//    xTimerStopFromISR( timer_SPEC_ISR, uart_rx_task_woken);
-//    portYIELD_FROM_ISR(uart_rx_task_woken);
-//}
 
 static void vTimerCallback_SPEC_ISR(xTimerHandle pxTimer) {
 //    BaseType_t *uart_rx_task_woken = pdFALSE;

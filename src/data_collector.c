@@ -15,7 +15,6 @@
 extern boxConfig_S device_config;
 dataPacket_S result_packet={0};
 dataPacket_S dataPackets_buffer[DATA_PACKET_BUFFER_SIZE] = {0};
-long message_counter = 0;
 double last_correct_co_value, last_correct_no2_value, last_correct_so2_value, last_correct_o3_value = 0;
 double last_correct_co_hum_value, last_correct_no2_hum_value, last_correct_so2_hum_value, last_correct_o3_hum_value = 0;
 double last_correct_co_temp_value, last_correct_no2_temp_value, last_correct_so2_temp_value, last_correct_o3_temp_value = 0;
@@ -36,8 +35,6 @@ void data_collector(void *pvParameters)
 
     for( ;; )
     {
-        int no2_error, co_error, so2_error, o3_error = 0; // To track SPEC errors in current packet
-
         for (int8_t current_packet = 0; current_packet < DATA_PACKET_BUFFER_SIZE; current_packet++)
         {
             get_spec_sensors_data(&dataPackets_buffer[current_packet]);
@@ -51,18 +48,16 @@ void data_collector(void *pvParameters)
             dataPackets_buffer[current_packet].tvoc = get_co2_tvoc().tvoc;
             dataPackets_buffer[current_packet].co2 = get_co2_tvoc().co2;
 
-            vTaskDelay(10000); // To ensure sensors data being updated
+            vTaskDelay(1000); // To ensure sensors data being updated
         }
 
         for (int8_t i = 0; i < DATA_PACKET_BUFFER_SIZE; i++)
         {
-            if (dataPackets_buffer[i].co < 0) // Has spec error code
+            if (dataPackets_buffer[i].co_err < 0) // Has spec error code
             {
                 result_packet.co += (last_correct_co_value);
                 result_packet.co_hum += (last_correct_co_hum_value);
                 result_packet.co_temp += (last_correct_co_temp_value);
-                
-                co_error = (int)dataPackets_buffer[i].co;
             }
             else
             {
@@ -75,13 +70,11 @@ void data_collector(void *pvParameters)
                 last_correct_co_temp_value = (dataPackets_buffer[i].co_temp);
             }
 
-            if (dataPackets_buffer[i].so2 < 0) // Has spec error code
+            if (dataPackets_buffer[i].so2_err < 0) // Has spec error code
             {
-                result_packet.so2 = last_correct_so2_value;
-                result_packet.so2_hum = last_correct_so2_hum_value;
-                result_packet.so2_temp = last_correct_so2_temp_value;
-                
-                so2_error = (int)dataPackets_buffer[i].so2;
+                result_packet.so2 += last_correct_so2_value;
+                result_packet.so2_hum += last_correct_so2_hum_value;
+                result_packet.so2_temp += last_correct_so2_temp_value;
             }
             else
             {
@@ -94,13 +87,11 @@ void data_collector(void *pvParameters)
                 last_correct_so2_temp_value = (dataPackets_buffer[i].so2_temp);
             }
 
-            if (dataPackets_buffer[i].o3 < 0) // Has spec error code
+            if (dataPackets_buffer[i].o3_err < 0) // Has spec error code
             {
-                result_packet.o3 = last_correct_o3_value;
-                result_packet.o3_hum = last_correct_o3_hum_value;
-                result_packet.o3_temp = last_correct_o3_temp_value;
-                
-                o3_error = (int)dataPackets_buffer[i].o3;
+                result_packet.o3 += last_correct_o3_value;
+                result_packet.o3_hum += last_correct_o3_hum_value;
+                result_packet.o3_temp += last_correct_o3_temp_value;
             }
             else
             {
@@ -113,13 +104,11 @@ void data_collector(void *pvParameters)
                 last_correct_o3_temp_value = (dataPackets_buffer[i].o3_temp);
             }
 
-            if (dataPackets_buffer[i].no2 < 0) // Has spec error code
+            if (dataPackets_buffer[i].no2_err < 0) // Has spec error code
             {
-                result_packet.no2 = last_correct_no2_value;
-                result_packet.no2_hum = last_correct_no2_hum_value;
-                result_packet.no2_temp = last_correct_no2_temp_value;
-                
-                no2_error = (int)dataPackets_buffer[i].no2;
+                result_packet.no2 += last_correct_no2_value;
+                result_packet.no2_hum += last_correct_no2_hum_value;
+                result_packet.no2_temp += last_correct_no2_temp_value;
             }
             else
             {
@@ -173,7 +162,7 @@ void data_collector(void *pvParameters)
         ReadConfig(&device_config);
 
         result_packet.device_id = device_config.id;
-        result_packet.device_message_counter = message_counter++;
+        result_packet.device_message_counter = device_config.sent_packet_counter;
         strncpy(result_packet.message_date_time, "Thu Aug 04 14:48:05 2016", 24); // TODO: get date time from ESP with AT+CIPSNTPTIME?
         result_packet.device_working_status = device_config.working_status;
         strncpy(result_packet.device_type, device_config.type, 19);
@@ -193,8 +182,10 @@ void data_collector(void *pvParameters)
         // vTaskDelay(FANS_WORKING_TIME);
         // fans_off();
 
+        device_config.sent_packet_counter = result_packet.device_message_counter + 1;
+        WriteConfig(device_config);
+
         memset(&dataPackets_buffer, 0, sizeof(dataPacket_S)*DATA_PACKET_BUFFER_SIZE);
         memset(&result_packet, 0, sizeof(dataPacket_S));
-        no2_error = co_error = so2_error = o3_error = 0;
     }
 }
