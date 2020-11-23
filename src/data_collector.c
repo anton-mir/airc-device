@@ -15,7 +15,10 @@
 extern boxConfig_S device_config;
 dataPacket_S result_packet={0};
 dataPacket_S dataPackets_buffer[DATA_PACKET_BUFFER_SIZE] = {0};
-int no2_error, co_error, so2_error, o3_error = 0;
+long message_counter = 0;
+double last_correct_co_value, last_correct_no2_value, last_correct_so2_value, last_correct_o3_value = 0;
+double last_correct_co_hum_value, last_correct_no2_hum_value, last_correct_so2_hum_value, last_correct_o3_hum_value = 0;
+double last_correct_co_temp_value, last_correct_no2_temp_value, last_correct_so2_temp_value, last_correct_o3_temp_value = 0;
 
 void data_collector(void *pvParameters)
 {
@@ -33,7 +36,7 @@ void data_collector(void *pvParameters)
 
     for( ;; )
     {
-        static long message_counter = 0;
+        int no2_error, co_error, so2_error, o3_error = 0; // To track SPEC errors in current packet
 
         for (int8_t current_packet = 0; current_packet < DATA_PACKET_BUFFER_SIZE; current_packet++)
         {
@@ -48,16 +51,17 @@ void data_collector(void *pvParameters)
             dataPackets_buffer[current_packet].tvoc = get_co2_tvoc().tvoc;
             dataPackets_buffer[current_packet].co2 = get_co2_tvoc().co2;
 
-            vTaskDelay(1000);
+            vTaskDelay(10000); // To ensure sensors data being updated
         }
 
         for (int8_t i = 0; i < DATA_PACKET_BUFFER_SIZE; i++)
         {
             if (dataPackets_buffer[i].co < 0) // Has spec error code
             {
-                result_packet.co = i == 0 ? 0 : dataPackets_buffer[i - 1].co; // Take previous correct value
-                result_packet.co_hum = dataPackets_buffer[i].co_hum;
-                result_packet.co_temp = dataPackets_buffer[i].co_temp;
+                result_packet.co += (last_correct_co_value);
+                result_packet.co_hum += (last_correct_co_hum_value);
+                result_packet.co_temp += (last_correct_co_temp_value);
+                
                 co_error = (int)dataPackets_buffer[i].co;
             }
             else
@@ -65,13 +69,18 @@ void data_collector(void *pvParameters)
                 result_packet.co += (dataPackets_buffer[i].co);
                 result_packet.co_hum += (dataPackets_buffer[i].co_hum);
                 result_packet.co_temp += (dataPackets_buffer[i].co_temp);
+                
+                last_correct_co_value = (dataPackets_buffer[i].co);
+                last_correct_co_hum_value = (dataPackets_buffer[i].co_hum);
+                last_correct_co_temp_value = (dataPackets_buffer[i].co_temp);
             }
 
             if (dataPackets_buffer[i].so2 < 0) // Has spec error code
             {
-                result_packet.so2 = i == 0 ? 0 : dataPackets_buffer[i - 1].so2; // Take previous correct value
-                result_packet.so2_hum = dataPackets_buffer[i].so2_hum;
-                result_packet.so2_temp = dataPackets_buffer[i].so2_temp;
+                result_packet.so2 = last_correct_so2_value;
+                result_packet.so2_hum = last_correct_so2_hum_value;
+                result_packet.so2_temp = last_correct_so2_temp_value;
+                
                 so2_error = (int)dataPackets_buffer[i].so2;
             }
             else
@@ -79,13 +88,18 @@ void data_collector(void *pvParameters)
                 result_packet.so2 += (dataPackets_buffer[i].so2);
                 result_packet.so2_hum += (dataPackets_buffer[i].so2_hum);
                 result_packet.so2_temp += (dataPackets_buffer[i].so2_temp);
+
+                last_correct_so2_value = (dataPackets_buffer[i].so2);
+                last_correct_so2_hum_value = (dataPackets_buffer[i].so2_hum);
+                last_correct_so2_temp_value = (dataPackets_buffer[i].so2_temp);
             }
 
             if (dataPackets_buffer[i].o3 < 0) // Has spec error code
             {
-                result_packet.o3 = i == 0 ? 0 : dataPackets_buffer[i - 1].o3; // Take previous correct value
-                result_packet.o3_hum = dataPackets_buffer[i].o3_hum;
-                result_packet.o3_temp = dataPackets_buffer[i].o3_temp;
+                result_packet.o3 = last_correct_o3_value;
+                result_packet.o3_hum = last_correct_o3_hum_value;
+                result_packet.o3_temp = last_correct_o3_temp_value;
+                
                 o3_error = (int)dataPackets_buffer[i].o3;
             }
             else
@@ -93,13 +107,18 @@ void data_collector(void *pvParameters)
                 result_packet.o3 += (dataPackets_buffer[i].o3);
                 result_packet.o3_hum += (dataPackets_buffer[i].o3_hum);
                 result_packet.o3_temp += (dataPackets_buffer[i].o3_temp);
+
+                last_correct_o3_value = (dataPackets_buffer[i].o3);
+                last_correct_o3_hum_value = (dataPackets_buffer[i].o3_hum);
+                last_correct_o3_temp_value = (dataPackets_buffer[i].o3_temp);
             }
 
             if (dataPackets_buffer[i].no2 < 0) // Has spec error code
             {
-                result_packet.no2 = i == 0 ? 0 : dataPackets_buffer[i - 1].no2; // Take previous correct value
-                result_packet.no2_hum = dataPackets_buffer[i].no2_hum;
-                result_packet.no2_temp = dataPackets_buffer[i].no2_temp;
+                result_packet.no2 = last_correct_no2_value;
+                result_packet.no2_hum = last_correct_no2_hum_value;
+                result_packet.no2_temp = last_correct_no2_temp_value;
+                
                 no2_error = (int)dataPackets_buffer[i].no2;
             }
             else
@@ -107,6 +126,10 @@ void data_collector(void *pvParameters)
                 result_packet.no2 += (dataPackets_buffer[i].no2);
                 result_packet.no2_hum += (dataPackets_buffer[i].no2_hum);
                 result_packet.no2_temp += (dataPackets_buffer[i].no2_temp);
+
+                last_correct_no2_value = (dataPackets_buffer[i].no2);
+                last_correct_no2_hum_value = (dataPackets_buffer[i].no2_hum);
+                last_correct_no2_temp_value = (dataPackets_buffer[i].no2_temp);
             }
 
             result_packet.temp_internal += (dataPackets_buffer[i].temp_internal);
@@ -120,54 +143,23 @@ void data_collector(void *pvParameters)
             result_packet.co2      += (dataPackets_buffer[i].co2);
         }
 
-        // NOTE: Might get negative SPEC values when have either error code or sensor is not calibrated
-        if (co_error == 0)
-        {
-            result_packet.co /= DATA_PACKET_BUFFER_SIZE;
-            result_packet.co_hum /= DATA_PACKET_BUFFER_SIZE;
-            result_packet.co_temp /= DATA_PACKET_BUFFER_SIZE;
-        }
-        else
-        {
-            result_packet.co = dataPackets_buffer[DATA_PACKET_BUFFER_SIZE-1].co; // Get last valid value
-            result_packet.co_hum = result_packet.co_temp = (double)co_error; // Pass error code here
-        }
+        // NOTE: SPEC might send negative values when have either error code or sensor is not calibrated
 
-        if (so2_error == 0)
-        {
-            result_packet.so2 /= DATA_PACKET_BUFFER_SIZE;
-            result_packet.so2_hum /= DATA_PACKET_BUFFER_SIZE;
-            result_packet.so2_temp /= DATA_PACKET_BUFFER_SIZE;
-        }
-        else
-        {
-            result_packet.so2 = dataPackets_buffer[DATA_PACKET_BUFFER_SIZE-1].so2; // Get last valid value
-            result_packet.so2_hum = result_packet.so2_temp = (double)so2_error; // Pass error code here
-        }
+        if (result_packet.co > 0) result_packet.co /= DATA_PACKET_BUFFER_SIZE;
+        if (result_packet.co_hum > 0) result_packet.co_hum /= DATA_PACKET_BUFFER_SIZE;
+        if (result_packet.co_temp > 0) result_packet.co_temp /= DATA_PACKET_BUFFER_SIZE;
 
-        if (o3_error == 0)
-        {
-            result_packet.o3 /= DATA_PACKET_BUFFER_SIZE;
-            result_packet.o3_hum /= DATA_PACKET_BUFFER_SIZE;
-            result_packet.o3_temp /= DATA_PACKET_BUFFER_SIZE;
-        }
-        else
-        {
-            result_packet.o3 = dataPackets_buffer[DATA_PACKET_BUFFER_SIZE-1].o3; // Get last valid value
-            result_packet.o3_hum = result_packet.o3_temp = (double)o3_error; // Pass error code here
-        }
+        if (result_packet.so2 > 0) result_packet.so2 /= DATA_PACKET_BUFFER_SIZE;
+        if (result_packet.so2_hum > 0) result_packet.so2_hum /= DATA_PACKET_BUFFER_SIZE;
+        if (result_packet.so2_temp > 0) result_packet.so2_temp /= DATA_PACKET_BUFFER_SIZE;
 
-        if (no2_error == 0)
-        {
-            result_packet.no2 /= DATA_PACKET_BUFFER_SIZE;
-            result_packet.no2_hum /= DATA_PACKET_BUFFER_SIZE;
-            result_packet.no2_temp /= DATA_PACKET_BUFFER_SIZE;
-        }
-        else
-        {
-            result_packet.no2 = dataPackets_buffer[DATA_PACKET_BUFFER_SIZE-1].no2; // Get last valid value
-            result_packet.no2_hum = result_packet.no2_temp = (double)no2_error; // Pass error code here
-        }
+        if (result_packet.o3 > 0) result_packet.o3 /= DATA_PACKET_BUFFER_SIZE;
+        if (result_packet.o3_hum > 0) result_packet.o3_hum /= DATA_PACKET_BUFFER_SIZE;
+        if (result_packet.o3_temp > 0) result_packet.o3_temp /= DATA_PACKET_BUFFER_SIZE;
+
+        if (result_packet.no2 > 0) result_packet.no2 /= DATA_PACKET_BUFFER_SIZE;
+        if (result_packet.no2_hum > 0) result_packet.no2_hum /= DATA_PACKET_BUFFER_SIZE;
+        if (result_packet.no2_temp > 0) result_packet.no2_temp /= DATA_PACKET_BUFFER_SIZE;
 
         if (result_packet.temp_internal > 0) result_packet.temp_internal /= DATA_PACKET_BUFFER_SIZE;
         if (result_packet.temp > 0) result_packet.temp /= DATA_PACKET_BUFFER_SIZE;

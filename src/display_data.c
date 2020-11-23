@@ -59,8 +59,8 @@ void display_data_task(void *pvParams){
             //     *SENSOR_NAME: VALUE      *
             //     *SENSOR_NAME: VALUE      *
             //     **************************
-            print_sensor_data(current_packet.temp,"TEMP: " );   
-            print_sensor_data(current_packet.humidity,"HUMIDITY: "); 
+            print_sensor_data(current_packet.temp,"TEMP: " );
+            print_sensor_data(current_packet.humidity,"HUMIDITY: ");
             print_sensor_data(current_packet.co2,"CO2: ");
             print_sensor_data(current_packet.tvoc,"TVOC: ");
             print_sensor_data(current_packet.pressure,"PRESSURE: ");
@@ -76,7 +76,7 @@ void display_data_task(void *pvParams){
             print_sensor_data(current_packet.o3,"O3: ");
             print_sensor_data(current_packet.o3_temp,"O3_TEMP: ");
             print_sensor_data(current_packet.o3_hum,"O3_HUM: ");
-            print_sensor_data(current_packet.hcho,"HCHO: "); 
+            print_sensor_data(current_packet.hcho,"HCHO: ");
             print_sensor_data(current_packet.pm2_5,"PM2_5: ");
             print_sensor_data(current_packet.pm10,"PM10: ");
         }
