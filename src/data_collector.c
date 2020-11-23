@@ -48,7 +48,7 @@ void data_collector(void *pvParameters)
             dataPackets_buffer[current_packet].tvoc = get_co2_tvoc().tvoc;
             dataPackets_buffer[current_packet].co2 = get_co2_tvoc().co2;
 
-            vTaskDelay(1000); // To ensure sensors data being updated
+            vTaskDelay(5000); // To ensure sensors data being updated
         }
 
         for (int8_t i = 0; i < DATA_PACKET_BUFFER_SIZE; i++)

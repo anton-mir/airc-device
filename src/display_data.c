@@ -23,14 +23,16 @@ static line_cntrl line = {0};
 
 static void change_line(){
     line.current_line++;
-    if((line.current_line % 2) == 0){
+    if ((line.current_line % 2) == 0)
+    {
         vTaskDelay(DISPLAY_TIME_PERIOD);
         lcd_clear();
         line.x = 0 ;
         line.y = 0;
         line.current_line = 0;
     }
-    else {
+    else
+        {
         line.x = 0;
         line.y = 1;
     }
@@ -54,7 +56,13 @@ void display_data_task(void *pvParams){
 
         if (displayQueueHandle != NULL && messages_in_queue > 0)
         {
-             xQueueReceive(displayQueueHandle,&current_packet,portMAX_DELAY);
+            xQueueReceive(displayQueueHandle,&current_packet,portMAX_DELAY);
+            lcd_print_string_at("Data packet N",line.x,line.y);
+            change_line();
+            char converted_number[20];
+            ftoa(current_packet.device_message_counter,converted_number,0);
+            lcd_print_string_at(converted_number,line.x,line.y);
+            change_line();
         }
         else
         {
@@ -79,5 +87,6 @@ void display_data_task(void *pvParams){
             print_sensor_data(current_packet.pm2_5,"PM2_5: ");
             print_sensor_data(current_packet.pm10,"PM10: ");
         }
+        vTaskDelay(100);
     }
 }
