@@ -66,23 +66,27 @@ void display_data_task(void *pvParams){
         }
         else
         {
-            print_sensor_data(current_packet.temp,"TEMP: " );
-            print_sensor_data(current_packet.humidity,"HUMIDITY: ");
-            print_sensor_data(current_packet.co2,"CO2: ");
-            print_sensor_data(current_packet.tvoc,"TVOC: ");
-            print_sensor_data(current_packet.pressure,"PRESSURE: ");
             print_sensor_data(current_packet.co,"CO: ");
+            print_sensor_data(current_packet.co_err,"CO_ERR: ");
             print_sensor_data(current_packet.co_temp,"CO_TEMP: ");
             print_sensor_data(current_packet.co_hum,"CO_HUM: ");
             print_sensor_data(current_packet.no2,"NO2: ");
+            print_sensor_data(current_packet.no2_err,"NO2_ERR: ");
             print_sensor_data(current_packet.no2_temp,"NO2_TEMP: ");
             print_sensor_data(current_packet.no2_hum,"NO2_HUM: ");
             print_sensor_data(current_packet.so2,"SO2: ");
+            print_sensor_data(current_packet.so2_err,"SO2_ERR: ");
             print_sensor_data(current_packet.so2_temp,"SO2_TEMP: ");
             print_sensor_data(current_packet.so2_hum,"SO2_HUM: ");
             print_sensor_data(current_packet.o3,"O3: ");
+            print_sensor_data(current_packet.o3_err,"O3_ERR: ");
             print_sensor_data(current_packet.o3_temp,"O3_TEMP: ");
             print_sensor_data(current_packet.o3_hum,"O3_HUM: ");
+            print_sensor_data(current_packet.temp,"TEMP: " );
+            print_sensor_data(current_packet.humidity,"HUMIDITY: ");
+            print_sensor_data(current_packet.pressure,"PRESSURE: ");
+            print_sensor_data(current_packet.co2,"CO2: ");
+            print_sensor_data(current_packet.tvoc,"TVOC: ");
             print_sensor_data(current_packet.hcho,"HCHO: ");
             print_sensor_data(current_packet.pm2_5,"PM2_5: ");
             print_sensor_data(current_packet.pm10,"PM10: ");
