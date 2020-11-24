@@ -58,6 +58,7 @@ void data_collector(void *pvParameters)
                 result_packet.co += (last_correct_co_value);
                 result_packet.co_hum += (last_correct_co_hum_value);
                 result_packet.co_temp += (last_correct_co_temp_value);
+                result_packet.co_err = (dataPackets_buffer[i].co_err);
             }
             else
             {
@@ -75,6 +76,7 @@ void data_collector(void *pvParameters)
                 result_packet.so2 += last_correct_so2_value;
                 result_packet.so2_hum += last_correct_so2_hum_value;
                 result_packet.so2_temp += last_correct_so2_temp_value;
+                result_packet.so2_err = (dataPackets_buffer[i].so2_err);
             }
             else
             {
@@ -92,6 +94,7 @@ void data_collector(void *pvParameters)
                 result_packet.o3 += last_correct_o3_value;
                 result_packet.o3_hum += last_correct_o3_hum_value;
                 result_packet.o3_temp += last_correct_o3_temp_value;
+                result_packet.o3_err = (dataPackets_buffer[i].o3_err);
             }
             else
             {
@@ -109,6 +112,7 @@ void data_collector(void *pvParameters)
                 result_packet.no2 += last_correct_no2_value;
                 result_packet.no2_hum += last_correct_no2_hum_value;
                 result_packet.no2_temp += last_correct_no2_temp_value;
+                result_packet.no2_err = (dataPackets_buffer[i].no2_err);
             }
             else
             {
