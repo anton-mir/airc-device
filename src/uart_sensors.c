@@ -222,16 +222,17 @@ void multiplexerSetState(uint8_t state)
     }
 }
 
-static void vTimerCallback_SPEC_ISR(xTimerHandle pxTimer) {
+static void vTimerCallback_SPEC(xTimerHandle pxTimer) {
 //    BaseType_t *uart_rx_task_woken = pdFALSE;
 
     uint8_t data_left_in_dma_buffer = __HAL_DMA_GET_COUNTER(huart3.hdmarx);
     uint8_t dma_data_length = MAX_SPEC_BUF_LEN - data_left_in_dma_buffer;
 
+    xTimerStop( timer_SPEC_ISR, portMAX_DELAY);
+
     xTaskNotifyAndQuery(uart_sensors_handle, dma_data_length,
                         eSetValueWithOverwrite, NULL);
 
-    xTimerStop( timer_SPEC_ISR, portMAX_DELAY);
 //    portYIELD_FROM_ISR(uart_rx_task_woken);
 }
 
@@ -276,7 +277,8 @@ HAL_StatusTypeDef getHCHO(uint8_t rx) {
             }
             else
             {
-                if(xSemaphoreTake(HCHO_mutex,portMAX_DELAY) == pdTRUE){
+                if (xSemaphoreTake(HCHO_mutex,portMAX_DELAY) == pdTRUE)
+                {
                     HCHO_val = ((double) ((unsigned int) uart3IncomingDataBuffer[4] << 8 | uart3IncomingDataBuffer[5])) / 1000;
                     xSemaphoreGive(HCHO_mutex);
                 }
@@ -346,7 +348,8 @@ HAL_StatusTypeDef getSDS011(uint8_t rx) {
                 }
                 else
                 {
-                    if(xSemaphoreTake(PMS_mutex,portMAX_DELAY) == pdTRUE){
+                    if (xSemaphoreTake(PMS_mutex,portMAX_DELAY) == pdTRUE)
+                    {
                         pm2_5_val = (double) ((int) uart3IncomingDataBuffer[2] | (int) (uart3IncomingDataBuffer[3] << 8)) / 10;
                         pm10_val = (double) ((int) uart3IncomingDataBuffer[4] | (int) (uart3IncomingDataBuffer[5] << 8)) / 10;
                         xSemaphoreGive(PMS_mutex);
@@ -371,14 +374,15 @@ HAL_StatusTypeDef getSPEC(uint8_t tx, uint8_t rx, struct SPEC_values *SPEC_gas_v
     HAL_StatusTypeDef return_value = HAL_OK;
     SPEC_gas_values->error_reason = 0;
     static int8_t spec_so2_sleep, spec_no2_sleep, spec_o3_sleep, spec_co_sleep = 1;
-    static int8_t spec_so2_counter, spec_no2_counter, spec_o3_counter, spec_co_counter = 0;
+    static int8_t spec_co_error_cntr, spec_no2_error_cntr, spec_o3_error_cntr, spec_so2_error_cntr = 0;
 
     HAL_HalfDuplex_EnableTransmitter(&huart3);
     activate_multiplexer_channel(tx);
 
     multiplexerSetState(1); // Turn On multiplexer
-    USART3->CR1 |= USART_CR1_UE; // Enable UART
+    __HAL_UART_ENABLE(&huart3);
 
+    // Wake up sensors
     if ((spec_so2_sleep && sensor_type == SPEC_T_SO2) ||
         (spec_no2_sleep && sensor_type == SPEC_T_NO2) ||
         (spec_o3_sleep && sensor_type == SPEC_T_O3) ||
@@ -413,7 +417,8 @@ HAL_StatusTypeDef getSPEC(uint8_t tx, uint8_t rx, struct SPEC_values *SPEC_gas_v
         }
     }
 
-    if (HAL_UART_Transmit_IT(&huart3, &spec_get_data, 1) != HAL_OK) // Ask SPEC for data
+    // Ask SPEC for data
+    if (HAL_UART_Transmit_IT(&huart3, &spec_get_data, 1) != HAL_OK)
     {
         return_value = HAL_ERROR;
         SPEC_gas_values->error_reason = -2;
@@ -425,9 +430,11 @@ HAL_StatusTypeDef getSPEC(uint8_t tx, uint8_t rx, struct SPEC_values *SPEC_gas_v
 
     // Start DMA transfer and getting data
     const HAL_StatusTypeDef uart_receive_return = HAL_UART_Receive_DMA(&huart3, (unsigned char*)uart3IncomingDataBuffer, MAX_SPEC_BUF_LEN);
+    (void)ulTaskNotifyValueClear(NULL, 0xFFFFFFFF);
 
     // Pause task until all data received
     uint32_t dmaBufferLength = ulTaskNotifyTake(pdTRUE, (TickType_t)SPEC_RESPONSE_TIME);
+    xTimerStop(timer_SPEC_ISR, portMAX_DELAY);
 
     // Stop DMA transfer
     if (HAL_UART_DMAStop(&huart3) == HAL_ERROR)
@@ -436,30 +443,39 @@ HAL_StatusTypeDef getSPEC(uint8_t tx, uint8_t rx, struct SPEC_values *SPEC_gas_v
         SPEC_gas_values->error_reason = -3;
     }
 
-    USART3->CR1 &= ~USART_CR1_UE; // Disable UART
+    __HAL_UART_DISABLE(&huart3);
     multiplexerSetState(0);
 
     // Check whether data was received
     if (uart_receive_return == HAL_OK)
     {
         // Check received data size
-        if (dmaBufferLength < MIN_SPEC_BUF_LEN || uart3IncomingDataBuffer[0] == 0)
+        if (dmaBufferLength < MIN_SPEC_BUF_LEN)
         {
             return_value = HAL_ERROR;
             SPEC_gas_values->error_reason = -4; // Probably need to adjust some timings
+            if (spec_co_error_cntr > 10 || spec_no2_error_cntr > 10 || spec_o3_error_cntr > 10 || spec_so2_error_cntr > 10)
+            {
+                return_value = HAL_ERROR;
+                SPEC_gas_values->error_reason = -10; // Probably need to adjust some timings
+            }
 
             switch (sensor_type) // Maybe rewoke SPEC sensor next cycle
             {
                 case SPEC_T_SO2:
+                    spec_so2_error_cntr++;
                     spec_so2_sleep = 1;
                     break;
                 case SPEC_T_CO:
+                    spec_co_error_cntr++;
                     spec_co_sleep = 1;
                     break;
                 case SPEC_T_NO2:
+                    spec_no2_error_cntr++;
                     spec_no2_sleep = 1;
                     break;
                 case SPEC_T_O3:
+                    spec_o3_error_cntr++;
                     spec_o3_sleep = 1;
                     break;
                 default:
@@ -475,33 +491,36 @@ HAL_StatusTypeDef getSPEC(uint8_t tx, uint8_t rx, struct SPEC_values *SPEC_gas_v
             // Check if SPEC sensor eeprom is not corrupted
             firstDeviderPtr = strstr((const char*)uart3IncomingDataBuffer, devider);
             int firstDeviderIndex = (int)(firstDeviderPtr - uart3IncomingDataBuffer);
-            uint8_t specEepromCorrupted = firstDeviderIndex < 9; // Means there is no proper sensor ID in packet
+            uint8_t specEepromCorrupted = firstDeviderIndex > 0 && firstDeviderIndex < 9; // Means there is no proper sensor ID in packet
 
-            if (specEepromCorrupted)
+            if (firstDeviderPtr == NULL || specEepromCorrupted)
             {
                 return_value = HAL_ERROR;
-                SPEC_gas_values->error_reason = -5; // Corrupted EEPROM - need to re-flash SPEC sensor EEPROM
+                SPEC_gas_values->error_reason = -5; // Corrupted EEPROM (need to re-flash SPEC sensor EEPROM) or empty uart3IncomingDataBuffer
             }
             else
             {
-                SPEC_gas_values->specSN = strtoull((const char *) uart3IncomingDataBuffer, &pToNextValue, 10);
-
+                if(xSemaphoreTake(SPEC_mutex, portMAX_DELAY) == pdTRUE)
+                {
+                    SPEC_gas_values->specSN = strtoull((const char *) uart3IncomingDataBuffer, &pToNextValue, 10);
+                    xSemaphoreGive(SPEC_mutex);
+                }
                 if (SPEC_gas_values->specSN == spec_sensor_sn)
                 {
                     if(xSemaphoreTake(SPEC_mutex, portMAX_DELAY) == pdTRUE)
                     {
                         SPEC_gas_values->specPPB = strtol(pToNextValue + 2, &pToNextValue, 10);
+                        SPEC_gas_values->specTemp = strtoul(pToNextValue + 2, &pToNextValue, 10);
+                        SPEC_gas_values->specRH = strtoul(pToNextValue + 2, &pToNextValue, 10);
+                        pToNextValue = strstr(pToNextValue + 2, ", ");
+                        pToNextValue = strstr(pToNextValue + 2, ", ");
+                        pToNextValue = strstr(pToNextValue + 2, ", ");
+                        SPEC_gas_values->specDay = strtoul(pToNextValue + 2, &pToNextValue, 10);
+                        SPEC_gas_values->specHour = strtoul(pToNextValue + 2, &pToNextValue, 10);
+                        SPEC_gas_values->specMinute = strtoul(pToNextValue + 2, &pToNextValue, 10);
+                        SPEC_gas_values->specSecond = strtoul(pToNextValue + 2, NULL, 10);
                         xSemaphoreGive(SPEC_mutex);
                     }
-                    SPEC_gas_values->specTemp = strtoul(pToNextValue + 2, &pToNextValue, 10);
-                    SPEC_gas_values->specRH = strtoul(pToNextValue + 2, &pToNextValue, 10);
-                    pToNextValue = strstr(pToNextValue + 2, ", ");
-                    pToNextValue = strstr(pToNextValue + 2, ", ");
-                    pToNextValue = strstr(pToNextValue + 2, ", ");
-                    SPEC_gas_values->specDay = strtoul(pToNextValue + 2, &pToNextValue, 10);
-                    SPEC_gas_values->specHour = strtoul(pToNextValue + 2, &pToNextValue, 10);
-                    SPEC_gas_values->specMinute = strtoul(pToNextValue + 2, &pToNextValue, 10);
-                    SPEC_gas_values->specSecond = strtoul(pToNextValue + 2, NULL, 10);
                 }
                 else
                 {
@@ -537,9 +556,9 @@ void uart_sensors(void * const arg) {
     HCHO_mutex = xSemaphoreCreateMutex();
     PMS_mutex = xSemaphoreCreateMutex();
     SPEC_mutex = xSemaphoreCreateMutex();
-    timer_SPEC_ISR = xTimerCreate( "timer_SPEC_ISR",
-                                   (TickType_t)SPEC_NOTIFY_DELAY, pdFALSE,
-                                   (void*)0, vTimerCallback_SPEC_ISR);
+    timer_SPEC_ISR = xTimerCreate("timer_SPEC_ISR",
+                                  (TickType_t) SPEC_NOTIFY_DELAY, pdFALSE,
+                                  (void *) 0, vTimerCallback_SPEC);
 
     while (1) {
 
@@ -557,17 +576,17 @@ void uart_sensors(void * const arg) {
         {
             UART_sensors_error_handler();
         }
-
+        vTaskDelay((TickType_t)500);
         if (getSPEC(MULTIPLEXER_CH4_NO2_TX, MULTIPLEXER_CH5_NO2_RX, &SPEC_NO2_values, SPEC_NO2_SN, SPEC_T_NO2) != HAL_OK)
         {
             UART_sensors_error_handler();
         }
-
+        vTaskDelay((TickType_t)500);
         if (getSPEC(MULTIPLEXER_CH6_CO_TX, MULTIPLEXER_CH7_CO_RX, &SPEC_CO_values, SPEC_CO_SN, SPEC_T_CO) != HAL_OK)
         {
             UART_sensors_error_handler();
         }
-
+        vTaskDelay((TickType_t)500);
         if (getSPEC(MULTIPLEXER_CH8_O3_TX, MULTIPLEXER_CH9_O3_RX, &SPEC_O3_values, SPEC_O3_SN, SPEC_T_O3) != HAL_OK)
         {
             UART_sensors_error_handler();
@@ -607,15 +626,19 @@ void HAL_UART_MspDeInit(UART_HandleTypeDef* huart)
 void UART_SENSORS_IRQHandler(UART_HandleTypeDef *huart) {
     if (USART3 == huart->Instance)
     {
-        configASSERT(uart_sensors_handle != NULL);
+        if(uart_sensors_handle == NULL)
+        {
+            taskDISABLE_INTERRUPTS();
+            for( ;; );
+        }
         // If UART is IDLE - no data at UART, so need to reset timer
         // Only after timer will occur we will count packet as received
         if(__HAL_UART_GET_FLAG(huart, UART_FLAG_IDLE))
         {
             __HAL_UART_CLEAR_IDLEFLAG(huart);
             BaseType_t uart_rx_task_woken = pdFALSE;
-            xTimerResetFromISR( timer_SPEC_ISR, uart_rx_task_woken);
-            xTimerStartFromISR( timer_SPEC_ISR, uart_rx_task_woken);
+            xTimerResetFromISR(timer_SPEC_ISR, uart_rx_task_woken);
+            xTimerStartFromISR(timer_SPEC_ISR, uart_rx_task_woken);
             portYIELD_FROM_ISR(uart_rx_task_woken);
         }
     }
