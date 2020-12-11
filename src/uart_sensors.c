@@ -452,7 +452,6 @@ HAL_StatusTypeDef getSPEC(uint8_t tx, uint8_t rx, struct SPEC_values *SPEC_gas_v
         SPEC_gas_values->error_reason = -3;
     }
 
-    __HAL_UART_DISABLE(&huart3);
     multiplexerSetState(0);
 
     // Check whether data was received
