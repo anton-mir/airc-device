@@ -9,6 +9,9 @@
 #include "string.h"
 #include "semphr.h"
 
+#define NOTIFY_CLEAR_VAL    (0xFFFFFFFF)
+#define HAL_DEFAULT_TIMEOUT (500)
+
 uint8_t spec_wake = '\n';
 uint8_t spec_get_data = '\r';
 uint8_t spec_reset = 'r';
@@ -388,7 +391,7 @@ HAL_StatusTypeDef getSPEC(uint8_t tx, uint8_t rx, struct SPEC_values *SPEC_gas_v
         (spec_o3_sleep && sensor_type == SPEC_T_O3) ||
         (spec_co_sleep && sensor_type == SPEC_T_CO))
     {
-        if (HAL_UART_Transmit_IT(&huart3, &spec_wake, 1) != HAL_OK)  // Wake up SPEC sensor
+        if (HAL_UART_Transmit_IT(&huart3, &spec_wake, HAL_DEFAULT_TIMEOUT) != HAL_OK)  // Wake up SPEC sensor
         {
             return_value = HAL_ERROR;
             SPEC_gas_values->error_reason = -1;
@@ -418,22 +421,28 @@ HAL_StatusTypeDef getSPEC(uint8_t tx, uint8_t rx, struct SPEC_values *SPEC_gas_v
     }
 
     // Ask SPEC for data
-    if (HAL_UART_Transmit_IT(&huart3, &spec_get_data, 1) != HAL_OK)
+    if (HAL_UART_Transmit_IT(&huart3, &spec_get_data, HAL_DEFAULT_TIMEOUT) != HAL_OK)
     {
         return_value = HAL_ERROR;
         SPEC_gas_values->error_reason = -2;
     }
     vTaskDelay((TickType_t)50); // Time for request to SPEC to be processed
 
+    __HAL_UART_DISABLE(&huart3);
     HAL_HalfDuplex_EnableReceiver(&huart3);
     activate_multiplexer_channel(rx); // Activate data receive mode
 
     // Start DMA transfer and getting data
     const HAL_StatusTypeDef uart_receive_return = HAL_UART_Receive_DMA(&huart3, (unsigned char*)uart3IncomingDataBuffer, MAX_SPEC_BUF_LEN);
-    (void)ulTaskNotifyValueClear(NULL, 0xFFFFFFFF);
+    (void)ulTaskNotifyValueClear(NULL, NOTIFY_CLEAR_VAL);
+    __HAL_UART_ENABLE(&huart3);
+//    __HAL_UART_ENABLE_IT(&huart3, UART_IT_IDLE);
 
     // Pause task until all data received
-    uint32_t dmaBufferLength = ulTaskNotifyTake(pdTRUE, (TickType_t)SPEC_RESPONSE_TIME);
+    uint32_t dmaBufferLength = ulTaskNotifyTake(pdTRUE, (TickType_t)SPEC_RESPONSE_TIME + HAL_DEFAULT_TIMEOUT);
+
+    __HAL_UART_DISABLE(&huart3);
+//    __HAL_UART_DISABLE_IT(&huart3, UART_IT_IDLE);
     xTimerStop(timer_SPEC_ISR, portMAX_DELAY);
 
     // Stop DMA transfer
