@@ -290,6 +290,9 @@ static HAL_StatusTypeDef uart_enable_rx(uint8_t chan, uint8_t *buf,
     activate_multiplexer_channel(chan);
     /* turn on mux */
     multiplexerSetState(1);
+
+    // Ensure the over-run flag is clear in case UART over-run
+    __HAL_UART_CLEAR_OREFLAG(&huart3);
     /* enable DMA receiving */
     err = HAL_UART_Receive_DMA(&huart3, buf, buf_len);
     if (err != HAL_OK) {
@@ -528,34 +531,30 @@ HAL_StatusTypeDef getSPEC(uint8_t tx, uint8_t rx, struct SPEC_values *SPEC_gas_v
     HAL_StatusTypeDef err;
     uint32_t rx_len = 0;
     SPEC_gas_values->error_reason = 0;
-    static int8_t spec_co_error_cntr, spec_no2_error_cntr, spec_o3_error_cntr, spec_so2_error_cntr = 0;
+    static long spec_error_cntr = 0;
 
-//    err = uart_spec_wakeup(tx);
-//    if (err != HAL_OK)  // Wake up SPEC sensor
-//    {
-//        retval = HAL_ERROR;
-//        SPEC_gas_values->error_reason = -1;
-//        goto cleanup;
-//    }
     err = uart_spec_get_data(tx, rx, &rx_len);
     if (err != HAL_OK)
     {
         retval = HAL_ERROR;
         /* failed to read data from SPEC */
-        SPEC_gas_values->error_reason = -7;
+        SPEC_gas_values->error_reason = -1;
+//        ++spec_error_cntr;
         goto cleanup;
     }
-
+    uint32_t dma_error;
+    dma_error = HAL_DMA_GetError(&huart3_dma_rx);
     // Check received data size
     if (rx_len < MIN_SPEC_BUF_LEN)
     {
-        retval = HAL_ERROR;
-        SPEC_gas_values->error_reason = -4; // Probably need to adjust some timings
-        if (spec_co_error_cntr > 10 || spec_no2_error_cntr > 10 || spec_o3_error_cntr > 10 || spec_so2_error_cntr > 10)
+        if (dma_error)
         {
-            retval = HAL_ERROR;
-            SPEC_gas_values->error_reason = -10; // Probably need to adjust some timings
+            // Re-int DMA
+            USART3_DMA_Init();
         }
+        retval = HAL_ERROR;
+        SPEC_gas_values->error_reason = -2;
+        ++spec_error_cntr;
         goto cleanup;
     }
 
@@ -571,8 +570,8 @@ HAL_StatusTypeDef getSPEC(uint8_t tx, uint8_t rx, struct SPEC_values *SPEC_gas_v
     if (firstDeviderPtr == NULL || specEepromCorrupted)
     {
         retval = HAL_ERROR;
-        SPEC_gas_values->error_reason = -5; // Corrupted EEPROM (need to re-flash SPEC sensor EEPROM) or empty uart3IncomingDataBuffer
-
+        SPEC_gas_values->error_reason = -3; // Corrupted EEPROM (need to re-flash SPEC sensor EEPROM) or empty uart3IncomingDataBuffer
+//        ++spec_error_cntr;
         goto cleanup;
     }
 
@@ -602,7 +601,8 @@ HAL_StatusTypeDef getSPEC(uint8_t tx, uint8_t rx, struct SPEC_values *SPEC_gas_v
     else
     {
         retval = HAL_ERROR;
-        SPEC_gas_values->error_reason = -6; // Got wrong SPEC sensor ID
+        SPEC_gas_values->error_reason = -4; // Got wrong SPEC sensor ID
+//        ++spec_error_cntr;
     }
 
 cleanup:
