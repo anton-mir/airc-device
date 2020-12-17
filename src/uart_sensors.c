@@ -11,6 +11,9 @@
 
 #define NOTIFY_CLEAR_VAL    (0xFFFFFFFF)
 #define HAL_DEFAULT_TIMEOUT (500)
+/* 5ms will be enough to send 1 byte */
+#define WAKEUP_TIMEOUT      (5)
+#define DATA_REQ_TIMEOUT    (5)
 
 #define UART_DISABLE_RXTX(__HANDLE__)        \
   do{                                                       \
@@ -57,6 +60,13 @@ typedef enum{
 static HAL_StatusTypeDef uart_spec_wakeup(uint8_t chan);
 static HAL_StatusTypeDef uart_spec_get_data(uint8_t tx, uint8_t rx,
                                             uint32_t *rx_len);
+static HAL_StatusTypeDef uart_enable_tx(uint8_t chan);
+static HAL_StatusTypeDef uart_enable_rx(uint8_t chan, uint8_t *buf,
+                                        uint32_t buf_len);
+static HAL_StatusTypeDef uart_send_data(uint8_t *data, uint32_t len,
+                                        uint32_t timeout);
+static uint32_t uart_wait_response(uint32_t timeout);
+static HAL_StatusTypeDef uart_release();
 
 static void USART3_UART_Init(void)
 {
@@ -211,17 +221,21 @@ void get_spec_sensors_data(dataPacket_S *spec_struct)
     get_spec_values(spec_struct, SPEC_mutex);
 }
 
-double get_pm2_5(void){
+double get_pm2_5(void)
+{
     return get_pm_hcho_values(PMS_mutex,PM2_5_T);
 }
 
-double get_pm10(void){
+double get_pm10(void)
+{
     return get_pm_hcho_values(PMS_mutex,PM10_T);
 }
 
-double get_HCHO(void){
+double get_HCHO(void)
+{
    return get_pm_hcho_values(HCHO_mutex,HCHO_T);
 }
+
 void multiplexerSetState(uint8_t state)
 {
     if (state)
@@ -234,9 +248,8 @@ void multiplexerSetState(uint8_t state)
     }
 }
 
-static void vTimerCallback_SPEC(xTimerHandle pxTimer) {
-//    BaseType_t *uart_rx_task_woken = pdFALSE;
-
+static void vTimerCallback_SPEC(xTimerHandle pxTimer)
+{
     uint8_t data_left_in_dma_buffer = __HAL_DMA_GET_COUNTER(huart3.hdmarx);
     uint8_t dma_data_length = MAX_SPEC_BUF_LEN - data_left_in_dma_buffer;
 
@@ -244,146 +257,10 @@ static void vTimerCallback_SPEC(xTimerHandle pxTimer) {
 
     xTaskNotifyAndQuery(uart_sensors_handle, dma_data_length,
                         eSetValueWithOverwrite, NULL);
-
-//    portYIELD_FROM_ISR(uart_rx_task_woken);
 }
 
-HAL_StatusTypeDef getHCHO(uint8_t rx) {
-    HAL_StatusTypeDef return_value = HAL_OK;
-
-    multiplexerSetState(1);
-
-    HAL_HalfDuplex_EnableReceiver(&huart3);
-
-    activate_multiplexer_channel(rx);
-
-    // Enable UART
-    USART3->CR1 |= USART_CR1_UE;
-
-    // Start DMA transfer and getting data
-    const HAL_StatusTypeDef uart_receive_return = HAL_UART_Receive_DMA(&huart3, (unsigned char*)uart3IncomingDataBuffer, MAX_SPEC_BUF_LEN);
-
-    // Pause task until all data received
-        uint32_t dmaBufferLength = ulTaskNotifyTake(pdTRUE, (TickType_t) SDS011_RESPONSE_TIME);
-
-    // Stop DMA transfer
-    if (HAL_UART_DMAStop(&huart3) == HAL_ERROR)
-    {
-        return_value = HAL_ERROR;
-    }
-
-    // Disable UART
-    USART3->CR1 &= ~USART_CR1_UE;
-
-    multiplexerSetState(0);
-
-    if (uart_receive_return == HAL_OK)
-    {
-        if (dmaBufferLength >= MIN_HCHO_BUF_LEN)
-        {
-            if (uart3IncomingDataBuffer[0] != HCHO_HEADER1 ||
-                uart3IncomingDataBuffer[1] != HCHO_HEADER2 ||
-                uart3IncomingDataBuffer[2] != HCHO_UNIT_PPB)
-            {
-                return_value = HAL_ERROR; // Got wrong data packet
-            }
-            else
-            {
-                if (xSemaphoreTake(HCHO_mutex,portMAX_DELAY) == pdTRUE)
-                {
-                    HCHO_val = ((double) ((unsigned int) uart3IncomingDataBuffer[4] << 8 | uart3IncomingDataBuffer[5])) / 1000;
-                    xSemaphoreGive(HCHO_mutex);
-                }
-            }
-        }
-    }
-    else
-    {
-        return_value = HAL_ERROR;
-    }
-
-    memset((void*)uart3IncomingDataBuffer, '\0', MAX_SPEC_BUF_LEN);
-
-    return return_value;
-}
-
-HAL_StatusTypeDef getSDS011(uint8_t rx) {
-    HAL_StatusTypeDef return_value = HAL_OK;
-
-    multiplexerSetState(1);
-
-    HAL_HalfDuplex_EnableReceiver(&huart3);
-
-    activate_multiplexer_channel(rx);
-
-    // Enable UART
-    USART3->CR1 |= USART_CR1_UE;
-
-    // Start DMA transfer and getting data
-    const HAL_StatusTypeDef uart_receive_return = HAL_UART_Receive_DMA(&huart3, (unsigned char*)uart3IncomingDataBuffer, MAX_SPEC_BUF_LEN);
-
-    // Pause task until all data received
-    uint32_t dmaBufferLength = ulTaskNotifyTake(pdTRUE, (TickType_t)SPEC_RESPONSE_TIME);
-
-    // Stop DMA transfer
-    if (HAL_UART_DMAStop(&huart3) == HAL_ERROR)
-    {
-        return_value = HAL_ERROR;
-    }
-
-    // Disable UART
-    USART3->CR1 &= ~USART_CR1_UE;
-
-    multiplexerSetState(0);
-
-    if (uart_receive_return == HAL_OK)
-    {
-        if (dmaBufferLength >= MIN_SDS_BUF_LEN)
-        {
-            // packet format: AA C0 PM25_Low PM25_High PM10_Low PM10_High 0 0 CRC AB
-            if (uart3IncomingDataBuffer[0] != SDS_HEADER1 ||
-            uart3IncomingDataBuffer[1] != SDS_HEADER2 ||
-            uart3IncomingDataBuffer[9] != SDS_TAIL)
-            {
-                return_value = HAL_ERROR; // error with packet
-            }
-            else
-            {
-                uint8_t crc_SDS = 0;
-                for (int i = 0; i < 6; ++i)
-                {
-                    crc_SDS += uart3IncomingDataBuffer[i + 2];
-                }
-                if (crc_SDS != uart3IncomingDataBuffer[8])
-                {
-                    return_value = HAL_ERROR; //error with checksum
-                }
-                else
-                {
-                    if (xSemaphoreTake(PMS_mutex,portMAX_DELAY) == pdTRUE)
-                    {
-                        pm2_5_val = (double) ((int) uart3IncomingDataBuffer[2] | (int) (uart3IncomingDataBuffer[3] << 8)) / 10;
-                        pm10_val = (double) ((int) uart3IncomingDataBuffer[4] | (int) (uart3IncomingDataBuffer[5] << 8)) / 10;
-                        xSemaphoreGive(PMS_mutex);
-                    }
-                }
-            }
-        }
-    }
-    else
-    {
-        return_value = HAL_ERROR;
-    }
-
-    memset((void*)uart3IncomingDataBuffer, '\0', MAX_SPEC_BUF_LEN);
-
-    return return_value;
-}
-
-static HAL_StatusTypeDef uart_spec_wakeup(uint8_t chan)
+static HAL_StatusTypeDef uart_enable_tx(uint8_t chan)
 {
-    HAL_StatusTypeDef retval;
-
     /* disable both - transmitter and receiver */
     UART_DISABLE_RXTX(&huart3);
     activate_multiplexer_channel(chan);
@@ -392,55 +269,31 @@ static HAL_StatusTypeDef uart_spec_wakeup(uint8_t chan)
     /* EnableTransmitter(..) returns HAL_OK only */
     HAL_HalfDuplex_EnableTransmitter(&huart3);
 
-    retval = HAL_UART_Transmit(&huart3, &spec_wake, 1, HAL_DEFAULT_TIMEOUT);
-
-    /* disable both - transmitter and receiver */
-    UART_DISABLE_RXTX(&huart3);
-    /* turn off mux */
-    multiplexerSetState(0);
-
-    return retval;
+    return HAL_OK;
 }
 
-static HAL_StatusTypeDef uart_spec_get_data(uint8_t tx, uint8_t rx,
-                                            uint32_t *rx_len)
+static HAL_StatusTypeDef uart_enable_rx(uint8_t chan, uint8_t *buf,
+                                        uint32_t buf_len)
 {
     HAL_StatusTypeDef err;
 
-    if (!rx_len)
+    if (!buf || !buf_len)
         return HAL_ERROR;
 
     /* disable both - transmitter and receiver */
     UART_DISABLE_RXTX(&huart3);
-    /* enable TX mux channel */
-    activate_multiplexer_channel(tx);
+    /* enable RX mux channel */
+    activate_multiplexer_channel(chan);
     /* turn on mux */
     multiplexerSetState(1);
-    /* EnableTransmitter(..) returns HAL_OK only */
-    HAL_HalfDuplex_EnableTransmitter(&huart3);
 
-    /* after sending a request for reading SPEC data we need quickly switch
-     * to receiving so we need to block scheduler switching */
-    vTaskSuspendAll();
-    /* ask SPEC for data */
-    err = HAL_UART_Transmit(&huart3, &spec_get_data, 1, HAL_DEFAULT_TIMEOUT);
-    if (err != HAL_OK) {
-        /* unblock scheduler switching */
-        xTaskResumeAll();
-        goto release_uart;
-    }
-
-    /* disable both - transmitter and receiver */
-    UART_DISABLE_RXTX(&huart3);
-    /* enable RX mux channel */
-    activate_multiplexer_channel(rx);
+    // Ensure the over-run flag is clear in case UART over-run
+    __HAL_UART_CLEAR_OREFLAG(&huart3);
     /* enable DMA receiving */
-    err = HAL_UART_Receive_DMA(&huart3, uart3IncomingDataBuffer,
-                               MAX_SPEC_BUF_LEN);
+    err = HAL_UART_Receive_DMA(&huart3, buf, buf_len);
     if (err != HAL_OK) {
         /* unblock scheduler switching */
-        xTaskResumeAll();
-        goto release_uart;
+        return err;
     }
 
     ulTaskNotifyValueClear(NULL, NOTIFY_CLEAR_VAL);
@@ -449,13 +302,33 @@ static HAL_StatusTypeDef uart_spec_get_data(uint8_t tx, uint8_t rx,
     __HAL_UART_ENABLE_IT(&huart3, UART_IT_IDLE);
     /* EnableReceiver(..) returns HAL_OK only */
     HAL_HalfDuplex_EnableReceiver(&huart3);
-    /* we switched to receiving - now we can unblock scheduler switching */
-    xTaskResumeAll();
 
-    /* wait for data receiving */
-    *rx_len = ulTaskNotifyTake(pdTRUE, (SPEC_RESPONSE_TIME + HAL_DEFAULT_TIMEOUT));
+    return HAL_OK;
+}
 
-release_uart:
+static HAL_StatusTypeDef uart_send_data(uint8_t *data, uint32_t len,
+                                        uint32_t timeout)
+{
+    if (!data)
+        return HAL_ERROR;
+
+    if (!len)
+        return HAL_OK;
+
+    return HAL_UART_Transmit(&huart3, data, len, timeout);
+}
+
+static uint32_t uart_wait_response(uint32_t timeout)
+{
+    uint32_t rx_len;
+
+    rx_len = ulTaskNotifyTake(pdTRUE, (TickType_t)timeout);
+
+    return rx_len;
+}
+
+static HAL_StatusTypeDef uart_release()
+{
     /* disable both - transmitter and receiver */
     UART_DISABLE_RXTX(&huart3);
     __HAL_UART_DISABLE_IT(&huart3, UART_IT_IDLE);
@@ -467,44 +340,219 @@ release_uart:
 
     multiplexerSetState(0);
 
+    return HAL_OK;
+}
+
+static HAL_StatusTypeDef uart_spec_wakeup(uint8_t chan)
+{
+    HAL_StatusTypeDef err;
+
+    err = uart_enable_tx(chan);
+    if (err != HAL_OK)
+        goto cleanup;
+
+    err = uart_send_data(&spec_wake, 1, WAKEUP_TIMEOUT);
+
+cleanup:
+    uart_release();
+
     return err;
 }
 
-HAL_StatusTypeDef getSPEC(uint8_t tx, uint8_t rx, struct SPEC_values *SPEC_gas_values, const long long int spec_sensor_sn, SPEC_TYPES sensor_type)
+static HAL_StatusTypeDef uart_spec_get_data(uint8_t tx, uint8_t rx,
+                                            uint32_t *rx_len)
 {
-    HAL_StatusTypeDef return_value = HAL_OK;
     HAL_StatusTypeDef err;
-    uint32_t rx_len = 0;
-    SPEC_gas_values->error_reason = 0;
-    static int8_t spec_co_error_cntr, spec_no2_error_cntr, spec_o3_error_cntr, spec_so2_error_cntr = 0;
 
-//    err = uart_spec_wakeup(tx);
-//    if (err != HAL_OK)  // Wake up SPEC sensor
-//    {
-//        return_value = HAL_ERROR;
-//        SPEC_gas_values->error_reason = -1;
-//        goto cleanup;
-//    }
-    err = uart_spec_get_data(tx, rx, &rx_len);
+    if (!rx_len)
+        return HAL_ERROR;
+
+    err = uart_enable_tx(tx);
     if (err != HAL_OK)
-    {
-        return_value = HAL_ERROR;
-        /* failed to read data from SPEC */
-        SPEC_gas_values->error_reason = -7;
+        goto cleanup;
+
+    /* after sending a request for reading SPEC data we need quickly switch
+     * to receiving so we need to block scheduler switching */
+    vTaskSuspendAll();
+    /* ask SPEC for data */
+    err = uart_send_data(&spec_get_data, 1, DATA_REQ_TIMEOUT);
+    if (err != HAL_OK) {
+        /* unblock scheduler switching */
+        xTaskResumeAll();
         goto cleanup;
     }
 
+    err = uart_enable_rx(rx, (uint8_t *)uart3IncomingDataBuffer,
+                         MAX_SPEC_BUF_LEN);
+    if (err != HAL_OK) {
+        /* unblock scheduler switching */
+        xTaskResumeAll();
+        goto cleanup;
+    }
+
+    /* we switched to receiving - now we can unblock scheduler switching */
+    xTaskResumeAll();
+    /* wait for data receiving */
+    *rx_len = uart_wait_response(SPEC_RESPONSE_TIME + HAL_DEFAULT_TIMEOUT);
+
+cleanup:
+    uart_release();
+
+    return err;
+}
+
+static HAL_StatusTypeDef uart_enable_rx_sds_hcho(uint8_t chan, uint8_t *buf,
+                                                 uint32_t buf_len)
+{
+    HAL_StatusTypeDef err;
+
+    if (!buf || !buf_len)
+        return HAL_ERROR;
+
+    /* enable RX mux channel */
+    activate_multiplexer_channel(chan);
+    /* turn on mux */
+    multiplexerSetState(1);
+
+    ulTaskNotifyValueClear(NULL, NOTIFY_CLEAR_VAL);
+    /* just in case clear IDLE flag if it was set before */
+    __HAL_UART_CLEAR_IDLEFLAG(&huart3);
+    __HAL_UART_ENABLE_IT(&huart3, UART_IT_IDLE);
+    /* EnableReceiver(..) returns HAL_OK only */
+    HAL_HalfDuplex_EnableReceiver(&huart3);
+
+    /* enable DMA receiving */
+    err = HAL_UART_Receive_DMA(&huart3, (uint8_t *)uart3IncomingDataBuffer, MAX_SPEC_BUF_LEN);
+
+    if (err != HAL_OK) {
+        /* unblock scheduler switching */
+        return err;
+    }
+    return HAL_OK;
+}
+
+HAL_StatusTypeDef getHCHO(uint8_t rx)
+{
+    HAL_StatusTypeDef retval = HAL_ERROR;
+    HAL_StatusTypeDef err;
+    uint32_t rx_len;
+
+    err = uart_enable_rx_sds_hcho(rx, (uint8_t *) uart3IncomingDataBuffer,
+                                  MAX_SPEC_BUF_LEN);
+    if (err != HAL_OK) {
+        uart_release();
+        goto cleanup;
+    }
+
+    // Pause task until all data received
+    rx_len = uart_wait_response(HCHO_RESPONSE_TIME);
+
+    uart_release();
+
+    if (rx_len < MIN_HCHO_BUF_LEN)
+        goto cleanup;
+
+    if (uart3IncomingDataBuffer[0] != HCHO_HEADER1 ||
+            uart3IncomingDataBuffer[1] != HCHO_HEADER2 ||
+            uart3IncomingDataBuffer[2] != HCHO_UNIT_PPB) {
+        goto cleanup;
+    }
+
+    if (xSemaphoreTake(HCHO_mutex,portMAX_DELAY) == pdTRUE)
+    {
+        HCHO_val = ((double) ((unsigned int) uart3IncomingDataBuffer[4] << 8 | uart3IncomingDataBuffer[5])) / 1000;
+        xSemaphoreGive(HCHO_mutex);
+
+        retval = HAL_OK;
+    }
+
+cleanup:
+    memset((void*)uart3IncomingDataBuffer, '\0', MAX_SPEC_BUF_LEN);
+
+    return retval;
+}
+
+HAL_StatusTypeDef getSDS011(uint8_t rx)
+{
+    HAL_StatusTypeDef retval = HAL_ERROR;
+    HAL_StatusTypeDef err;
+    uint32_t rx_len;
+
+    err = uart_enable_rx_sds_hcho(rx, (uint8_t *) uart3IncomingDataBuffer,
+                                  MAX_SPEC_BUF_LEN);
+    if (err != HAL_OK) {
+        uart_release();
+        goto cleanup;
+    }
+
+    // Pause task until all data received
+    rx_len = uart_wait_response(SDS011_RESPONSE_TIME);
+
+    uart_release();
+
+    if (rx_len < MIN_SDS_BUF_LEN)
+        goto cleanup;
+
+    // packet format: AA C0 PM25_Low PM25_High PM10_Low PM10_High 0 0 CRC AB
+    if (uart3IncomingDataBuffer[0] != SDS_HEADER1 ||
+            uart3IncomingDataBuffer[1] != SDS_HEADER2 ||
+            uart3IncomingDataBuffer[9] != SDS_TAIL) {
+        goto cleanup;
+    }
+
+    uint8_t crc_SDS = 0;
+    for (int i = 0; i < 6; ++i) {
+        crc_SDS += uart3IncomingDataBuffer[i + 2];
+    }
+
+    if (crc_SDS != uart3IncomingDataBuffer[8])
+        goto cleanup;
+
+    if (xSemaphoreTake(PMS_mutex,portMAX_DELAY) == pdTRUE) {
+        pm2_5_val = (double) ((int) uart3IncomingDataBuffer[2] | (int) (uart3IncomingDataBuffer[3] << 8)) / 10;
+        pm10_val = (double) ((int) uart3IncomingDataBuffer[4] | (int) (uart3IncomingDataBuffer[5] << 8)) / 10;
+        xSemaphoreGive(PMS_mutex);
+        retval = HAL_OK;
+    }
+
+cleanup:
+    memset((void*)uart3IncomingDataBuffer, '\0', MAX_SPEC_BUF_LEN);
+
+    return retval;
+}
+
+HAL_StatusTypeDef getSPEC(uint8_t tx, uint8_t rx, struct SPEC_values *SPEC_gas_values,
+        const long long int spec_sensor_sn, SPEC_TYPES sensor_type)
+{
+    HAL_StatusTypeDef retval = HAL_OK;
+    HAL_StatusTypeDef err;
+    uint32_t rx_len = 0;
+    SPEC_gas_values->error_reason = 0;
+    // Count DMA overflow errors
+    uint32_t dma_error;
+    static long spec_error_cntr = 0;
+
+    err = uart_spec_get_data(tx, rx, &rx_len);
+    if (err != HAL_OK)
+    {
+        retval = HAL_ERROR;
+        /* failed to read data from SPEC */
+        SPEC_gas_values->error_reason = -1;
+        goto cleanup;
+    }
+
+    dma_error = HAL_DMA_GetError(&huart3_dma_rx);
     // Check received data size
     if (rx_len < MIN_SPEC_BUF_LEN)
     {
-        return_value = HAL_ERROR;
-        SPEC_gas_values->error_reason = -4; // Probably need to adjust some timings
-        if (spec_co_error_cntr > 10 || spec_no2_error_cntr > 10 || spec_o3_error_cntr > 10 || spec_so2_error_cntr > 10)
+        if (dma_error)
         {
-            return_value = HAL_ERROR;
-            SPEC_gas_values->error_reason = -10; // Probably need to adjust some timings
+            // Re-int DMA
+            USART3_DMA_Init();
         }
-
+        retval = HAL_ERROR;
+        SPEC_gas_values->error_reason = -2;
+        ++spec_error_cntr;
         goto cleanup;
     }
 
@@ -519,9 +567,8 @@ HAL_StatusTypeDef getSPEC(uint8_t tx, uint8_t rx, struct SPEC_values *SPEC_gas_v
 
     if (firstDeviderPtr == NULL || specEepromCorrupted)
     {
-        return_value = HAL_ERROR;
-        SPEC_gas_values->error_reason = -5; // Corrupted EEPROM (need to re-flash SPEC sensor EEPROM) or empty uart3IncomingDataBuffer
-
+        retval = HAL_ERROR;
+        SPEC_gas_values->error_reason = -3; // Corrupted EEPROM (need to re-flash SPEC sensor EEPROM) or empty uart3IncomingDataBuffer
         goto cleanup;
     }
 
@@ -550,14 +597,14 @@ HAL_StatusTypeDef getSPEC(uint8_t tx, uint8_t rx, struct SPEC_values *SPEC_gas_v
     }
     else
     {
-        return_value = HAL_ERROR;
-        SPEC_gas_values->error_reason = -6; // Got wrong SPEC sensor ID
+        retval = HAL_ERROR;
+        SPEC_gas_values->error_reason = -4; // Got wrong SPEC sensor ID
     }
 
 cleanup:
     memset((void*)uart3IncomingDataBuffer, '\0', MAX_SPEC_BUF_LEN);
 
-    return return_value;
+    return retval;
 }
 
 static void UART_sensors_error_handler()
@@ -580,16 +627,15 @@ void uart_sensors(void * const arg) {
                                   (void *) 0, vTimerCallback_SPEC);
 
     while (1) {
+        if (getHCHO(MULTIPLEXER_CH0_HCHO_RX) != HAL_OK)
+        {
+            UART_sensors_error_handler();
+        }
 
-//        if (getHCHO(MULTIPLEXER_CH0_HCHO_RX) != HAL_OK)
-//        {
-//            UART_sensors_error_handler();
-//        }
-//
-//        if (getSDS011(MULTIPLEXER_CH1_SDS011_RX) != HAL_OK)
-//        {
-//            UART_sensors_error_handler();
-//        }
+        if (getSDS011(MULTIPLEXER_CH1_SDS011_RX) != HAL_OK)
+        {
+            UART_sensors_error_handler();
+        }
         if (getSPEC(MULTIPLEXER_CH2_SO2_TX, MULTIPLEXER_CH3_SO2_RX, &SPEC_SO2_values, SPEC_SO2_SN, SPEC_T_SO2) != HAL_OK)
         {
             UART_sensors_error_handler();
