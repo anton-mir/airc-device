@@ -250,8 +250,6 @@ void multiplexerSetState(uint8_t state)
 
 static void vTimerCallback_SPEC(xTimerHandle pxTimer)
 {
-//    BaseType_t *uart_rx_task_woken = pdFALSE;
-
     uint8_t data_left_in_dma_buffer = __HAL_DMA_GET_COUNTER(huart3.hdmarx);
     uint8_t dma_data_length = MAX_SPEC_BUF_LEN - data_left_in_dma_buffer;
 
@@ -259,8 +257,6 @@ static void vTimerCallback_SPEC(xTimerHandle pxTimer)
 
     xTaskNotifyAndQuery(uart_sensors_handle, dma_data_length,
                         eSetValueWithOverwrite, NULL);
-
-//    portYIELD_FROM_ISR(uart_rx_task_woken);
 }
 
 static HAL_StatusTypeDef uart_enable_tx(uint8_t chan)
@@ -405,8 +401,8 @@ cleanup:
     return err;
 }
 
-static HAL_StatusTypeDef uart_enable_rx_(uint8_t chan, uint8_t *buf,
-                                        uint32_t buf_len)
+static HAL_StatusTypeDef uart_enable_rx_sds_hcho(uint8_t chan, uint8_t *buf,
+                                                 uint32_t buf_len)
 {
     HAL_StatusTypeDef err;
 
@@ -441,8 +437,8 @@ HAL_StatusTypeDef getHCHO(uint8_t rx)
     HAL_StatusTypeDef err;
     uint32_t rx_len;
 
-    err = uart_enable_rx_(rx, (uint8_t *)uart3IncomingDataBuffer,
-                         MAX_SPEC_BUF_LEN);
+    err = uart_enable_rx_sds_hcho(rx, (uint8_t *) uart3IncomingDataBuffer,
+                                  MAX_SPEC_BUF_LEN);
     if (err != HAL_OK) {
         uart_release();
         goto cleanup;
@@ -482,8 +478,8 @@ HAL_StatusTypeDef getSDS011(uint8_t rx)
     HAL_StatusTypeDef err;
     uint32_t rx_len;
 
-    err = uart_enable_rx_(rx, (uint8_t *)uart3IncomingDataBuffer,
-                         MAX_SPEC_BUF_LEN);
+    err = uart_enable_rx_sds_hcho(rx, (uint8_t *) uart3IncomingDataBuffer,
+                                  MAX_SPEC_BUF_LEN);
     if (err != HAL_OK) {
         uart_release();
         goto cleanup;
@@ -525,12 +521,15 @@ cleanup:
     return retval;
 }
 
-HAL_StatusTypeDef getSPEC(uint8_t tx, uint8_t rx, struct SPEC_values *SPEC_gas_values, const long long int spec_sensor_sn, SPEC_TYPES sensor_type)
+HAL_StatusTypeDef getSPEC(uint8_t tx, uint8_t rx, struct SPEC_values *SPEC_gas_values,
+        const long long int spec_sensor_sn, SPEC_TYPES sensor_type)
 {
     HAL_StatusTypeDef retval = HAL_OK;
     HAL_StatusTypeDef err;
     uint32_t rx_len = 0;
     SPEC_gas_values->error_reason = 0;
+    // Count DMA overflow errors
+    uint32_t dma_error;
     static long spec_error_cntr = 0;
 
     err = uart_spec_get_data(tx, rx, &rx_len);
@@ -539,10 +538,9 @@ HAL_StatusTypeDef getSPEC(uint8_t tx, uint8_t rx, struct SPEC_values *SPEC_gas_v
         retval = HAL_ERROR;
         /* failed to read data from SPEC */
         SPEC_gas_values->error_reason = -1;
-//        ++spec_error_cntr;
         goto cleanup;
     }
-    uint32_t dma_error;
+
     dma_error = HAL_DMA_GetError(&huart3_dma_rx);
     // Check received data size
     if (rx_len < MIN_SPEC_BUF_LEN)
@@ -571,7 +569,6 @@ HAL_StatusTypeDef getSPEC(uint8_t tx, uint8_t rx, struct SPEC_values *SPEC_gas_v
     {
         retval = HAL_ERROR;
         SPEC_gas_values->error_reason = -3; // Corrupted EEPROM (need to re-flash SPEC sensor EEPROM) or empty uart3IncomingDataBuffer
-//        ++spec_error_cntr;
         goto cleanup;
     }
 
@@ -602,7 +599,6 @@ HAL_StatusTypeDef getSPEC(uint8_t tx, uint8_t rx, struct SPEC_values *SPEC_gas_v
     {
         retval = HAL_ERROR;
         SPEC_gas_values->error_reason = -4; // Got wrong SPEC sensor ID
-//        ++spec_error_cntr;
     }
 
 cleanup:
@@ -631,7 +627,6 @@ void uart_sensors(void * const arg) {
                                   (void *) 0, vTimerCallback_SPEC);
 
     while (1) {
-
         if (getHCHO(MULTIPLEXER_CH0_HCHO_RX) != HAL_OK)
         {
             UART_sensors_error_handler();
