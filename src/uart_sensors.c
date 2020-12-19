@@ -20,6 +20,12 @@
     CLEAR_BIT((__HANDLE__)->Instance->CR1, (USART_CR1_RE | USART_CR1_TE)); \
   } while(0U)
 
+struct dma_base_reg {
+  __IO uint32_t ISR;   /*!< DMA interrupt status register */
+  __IO uint32_t Reserved0;
+  __IO uint32_t IFCR;  /*!< DMA interrupt flag clear register */
+};
+
 uint8_t spec_wake = '\n';
 uint8_t spec_get_data = '\r';
 uint8_t spec_reset = 'r';
@@ -67,6 +73,10 @@ static HAL_StatusTypeDef uart_send_data(uint8_t *data, uint32_t len,
                                         uint32_t timeout);
 static uint32_t uart_wait_response(uint32_t timeout);
 static HAL_StatusTypeDef uart_release();
+static HAL_StatusTypeDef uart_enable_dma_rx(UART_HandleTypeDef *huart,
+                                            uint8_t *data, uint16_t size);
+static HAL_StatusTypeDef uart_disable_dma_rx(UART_HandleTypeDef *huart);
+static void uart_end_rx_transfer(UART_HandleTypeDef *huart);
 
 static void USART3_UART_Init(void)
 {
@@ -290,7 +300,7 @@ static HAL_StatusTypeDef uart_enable_rx(uint8_t chan, uint8_t *buf,
     // Ensure the over-run flag is clear in case UART over-run
     __HAL_UART_CLEAR_OREFLAG(&huart3);
     /* enable DMA receiving */
-    err = HAL_UART_Receive_DMA(&huart3, buf, buf_len);
+    err = uart_enable_dma_rx(&huart3, buf, buf_len);
     if (err != HAL_OK) {
         /* unblock scheduler switching */
         return err;
@@ -336,13 +346,115 @@ static HAL_StatusTypeDef uart_release()
      * ulTaskNotifyTake(..) can return on timeout */
     xTimerStop(timer_SPEC_ISR, portMAX_DELAY);
     /* stop DMA transfer */
-    (void)HAL_UART_DMAStop(&huart3);
+    (void)uart_disable_dma_rx(&huart3);
 
     multiplexerSetState(0);
 
     return HAL_OK;
 }
 
+static HAL_StatusTypeDef uart_enable_dma_rx(UART_HandleTypeDef *huart,
+                                            uint8_t *data, uint16_t size)
+{
+    DMA_HandleTypeDef *hdma;
+    struct dma_base_reg *dmabr;
+    /* timeout is a number of tries to read register value */
+    int32_t timeout = HAL_DEFAULT_TIMEOUT;
+
+    if (!huart || !data || !size)
+        return HAL_ERROR;
+
+    hdma = huart->hdmarx;
+    if (!hdma)
+        return HAL_ERROR;
+
+    /* disable DMA before configuring */
+    __HAL_DMA_DISABLE(hdma);
+    /* check if the DMA Stream is effectively disabled */
+    while((hdma->Instance->CR & DMA_SxCR_EN) != RESET) {
+        if (--timeout < 0)
+            return HAL_TIMEOUT;
+    }
+    // SDS and HCHO sensors transmit data continuously, so there will be such
+    // situation when we start measuring at the end of previous packet.
+    // We reject such packets, but DMA can enter into overrun state when this happens.
+    // In order to exit of DMA overrun state we need to clean following DMA registers.
+    /* Clear DBM bit */
+    hdma->Instance->CR &= (uint32_t)(~DMA_SxCR_DBM);
+    /* Configure DMA Stream data length */
+    hdma->Instance->NDTR = size;
+    /* Configure DMA Stream source address */
+    hdma->Instance->PAR = (uint32_t)&huart->Instance->DR;
+    /* Configure DMA Stream destination address */
+    hdma->Instance->M0AR = (volatile uint32_t) data;
+
+    /* calculate DMA base and stream number */
+    dmabr = (struct dma_base_reg *)hdma->StreamBaseAddress;
+    /* clear all interrupt flags */
+    dmabr->IFCR = 0x3FU << hdma->StreamIndex;
+    /* disable common interrupts */
+    hdma->Instance->CR &= ~(DMA_IT_TC | DMA_IT_TE | DMA_IT_DME);
+    /* clear overrun flag */
+    __HAL_UART_CLEAR_OREFLAG(huart);
+    /* enable DMA */
+    __HAL_DMA_ENABLE(hdma);
+    /* Enable the DMA transfer for the receiver request by setting the DMAR bit
+     * in the UART CR3 register */
+    SET_BIT(huart->Instance->CR3, USART_CR3_DMAR);
+
+    return HAL_OK;
+}
+
+static HAL_StatusTypeDef uart_disable_dma_rx(UART_HandleTypeDef *huart)
+{
+    DMA_HandleTypeDef *hdma;
+    struct dma_base_reg *dmabr;
+    /* timeout is a number of tries to read register value */
+    int32_t timeout = HAL_DEFAULT_TIMEOUT;
+
+    if (!huart)
+        return HAL_ERROR;
+
+    hdma = huart->hdmarx;
+    if (!hdma)
+        return HAL_ERROR;
+
+    /* Disable all the transfer interrupts */
+    hdma->Instance->CR &= ~(DMA_IT_TC | DMA_IT_TE | DMA_IT_DME);
+    hdma->Instance->FCR &= ~(DMA_IT_FE);
+    /* disable DMA */
+    __HAL_DMA_DISABLE(hdma);
+    /* check if the DMA Stream is effectively disabled */
+    while((hdma->Instance->CR & DMA_SxCR_EN) != RESET) {
+        if (--timeout < 0)
+            return HAL_TIMEOUT;
+    }
+
+    /* calculate DMA base and stream number */
+    dmabr = (struct dma_base_reg *)hdma->StreamBaseAddress;
+    /* clear all interrupt flags */
+    dmabr->IFCR = 0x3FU << hdma->StreamIndex;
+
+    CLEAR_BIT(huart->Instance->CR3, USART_CR3_DMAR);
+    uart_end_rx_transfer(huart);
+
+    return HAL_OK;
+}
+
+static void uart_end_rx_transfer(UART_HandleTypeDef *huart)
+{
+    if (!huart)
+        return;
+
+    /* Disable RXNE, PE and ERR (Frame error, noise error, overrun error) interrupts */
+    CLEAR_BIT(huart->Instance->CR1, (USART_CR1_RXNEIE | USART_CR1_PEIE));
+    CLEAR_BIT(huart->Instance->CR3, USART_CR3_EIE);
+
+    /* At end of Rx process, restore huart->RxState to Ready */
+    huart->RxState = HAL_UART_STATE_READY;
+}
+
+// Not used - it appeared that SPEC can be woke up with data request as well
 static HAL_StatusTypeDef uart_spec_wakeup(uint8_t chan)
 {
     HAL_StatusTypeDef err;
@@ -422,7 +534,8 @@ static HAL_StatusTypeDef uart_enable_rx_sds_hcho(uint8_t chan, uint8_t *buf,
     HAL_HalfDuplex_EnableReceiver(&huart3);
 
     /* enable DMA receiving */
-    err = HAL_UART_Receive_DMA(&huart3, (uint8_t *)uart3IncomingDataBuffer, MAX_SPEC_BUF_LEN);
+    err = uart_enable_dma_rx(&huart3, (uint8_t *)uart3IncomingDataBuffer,
+                             MAX_SPEC_BUF_LEN);
 
     if (err != HAL_OK) {
         /* unblock scheduler switching */
@@ -545,6 +658,7 @@ HAL_StatusTypeDef getSPEC(uint8_t tx, uint8_t rx, struct SPEC_values *SPEC_gas_v
     // Check received data size
     if (rx_len < MIN_SPEC_BUF_LEN)
     {
+        // Should newer be used - we clear overrun flags manually in uart_enable_dma_rx()
         if (dma_error)
         {
             // Re-int DMA
