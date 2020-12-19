@@ -8,7 +8,7 @@
 #define SECOND_FAN_PORT GPIOA
 
 
-#define FANS_WORKING_TIME   3000 //ms
+#define FANS_WORKING_TIME   5000 //ms
 void init_fans();
 void fans_on();
 void fans_off();

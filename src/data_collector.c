@@ -182,9 +182,9 @@ void data_collector(void *pvParameters)
         xQueueSendToBack(displayQueueHandle, &result_packet, portMAX_DELAY);
 
         // Circulate the air
-        // fans_on();
-        // vTaskDelay(FANS_WORKING_TIME);
-        // fans_off();
+        fans_on();
+        vTaskDelay(FANS_WORKING_TIME);
+        fans_off();
 
         device_config.sent_packet_counter = result_packet.device_message_counter + 1;
         WriteConfig(device_config);
