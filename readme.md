@@ -25,9 +25,9 @@ Also you might install cubeprogrammer from stm website and use STM32_Programmer_
 ### How to flash and test at remote
 ```
 $ cd ~/src/GL-SMARTCITY/sbc-platform/src/airc-device
-$ scp -P 5025 ./build/src/[firmware_name].elf airc@[IP_ADDRESS]:/home/airc/firmware 
-$ ssh airc@[IP_ADDRESS] -p 5025 
-$ cd firmware 
+$ scp -P 5025 ./build/src/[firmware_name].elf airc@[IP_ADDRESS]:/home/airc/firmware
+$ ssh airc@[IP_ADDRESS] -p 5025
+$ cd firmware
 $ sudo openocd
 ```
 ### How to build test app "stm32eth echo"
@@ -35,7 +35,7 @@ $ sudo openocd
 ```
 $ git checkout dev_test_sockets
 $ source env.src
-$ ./build.sh 
+$ ./build.sh
 ```
 Flash **[firmware_name].elf** file to your STM32F4DISCOVERY as described earlier.
 
@@ -57,7 +57,7 @@ CMake options:
 
 `-DCMAKE_TOOLCHAIN_FILE=/home/[USERNAME]/src/GL-SMARTCITY/sbc-platform/src/airc-device/toolchain.cmake`
 
-Environment: 
+Environment:
 
 `CROSS_COMPILE=/home/[USERNAME]/toolchain/gcc-arm-none-eabi-9-2020-q2-update/bin/arm-none-eabi-`
 
@@ -65,7 +65,7 @@ Environment:
 
 #### Upload firmware
 ```
-$ scp -P 5025 ~/src/GL-SMARTCITY/sbc-platform/src/airc-device/build/src/[firmware_name].elf airc@176.37.42.185:firmware 
+$ scp -P 5025 ~/src/GL-SMARTCITY/sbc-platform/src/airc-device/build/src/[firmware_name].elf airc@176.37.42.185:firmware
 ```
 #### Flash firmware
 ```
@@ -77,12 +77,30 @@ $ ssh airc@176.37.42.185 -p 5025 -L 3333:localhost:3333 openocd -f firmware/open
 ```
 #### Run gdb locally
 ```
-$ sudo apt-get insatll gdb-multiarch
+$ sudo apt-get install gdb-multiarch
 $ gdb-multiarch
 (gdb) file [firmware_name].elf
 (gdb) target extended-remote localhost:3333
 ```
 If needed, kill openocd process with "ssh airc@176.37.42.185 -p 5025 ./firmware/stop_debug.sh"
+
+#### Visual Studio Code Debug configuration
+
+Install Native Debug extention then edit `launch.json`:
+```
+    "configurations": [
+        {
+            "name": "Attach airc",
+            "type": "gdb",
+            "request": "attach",
+            "executable": "${workspaceFolder}/build/src/airc_dev.elf",
+            "target": "localhost:3333",
+            "remote": true,
+            "cwd": "${workspaceRoot}",
+            "gdbpath": "/usr/bin/gdb-multiarch"
+        }
+```
+Restart Studio, then you will be able to connect to remote gdb server.
 
 # WiFi
 
