@@ -22,7 +22,7 @@ include(${LWIP_DIR}/src/Filelists.cmake)
 
 set(LINKER_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/../linker/STM32F407VGTX_FLASH.ld")
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mcpu=cortex-m4 -std=gnu11 -g3 -O0 -ffunction-sections -fdata-sections -Wall -fstack-usage --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mcpu=cortex-m4 -std=gnu11 -g3 -O0 -ffunction-sections -fdata-sections -Wall -fstack-usage --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,-undefined=uxTopUsedPriority")
 
 file(GLOB LOCAL_HDRS "${CMAKE_CURRENT_SOURCE_DIR}/../inc/*.h")
 
@@ -55,6 +55,7 @@ set(LOCAL_SRCS
 		"${HAL_DIR}/src/stm32f4xx_hal_spi.c"
 		"stm32f4xx_hal_msp.c"
 		"number_helper.c"
+		"../lib/FreeRTOS-openocd.c"
 		)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR} "../drivers/CMSIS/core/inc")

@@ -126,7 +126,7 @@ void init_task(void *arg)
     /* Initialize LCD */
     lcd_init();
     lcd_clear();
-    lcd_print_string("Initializing...");
+    lcd_print_string("Init...");
 
     // Init ESP8266
     ESP_InitPins();
@@ -532,6 +532,9 @@ static void netif_setup()
   */
 void Error_Handler(void)
 {
+    lcd_clear();
+    lcd_print_string("Er@Error_Handler");
+    HAL_Delay(1000);
     /* User may add here some code to deal with this error */
     while(1)
     {

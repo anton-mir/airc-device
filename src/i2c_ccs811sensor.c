@@ -39,19 +39,20 @@ void Init_I2C_CCS811(void)
 
 	if (HAL_I2C_Init(&hi2cxc) != HAL_OK)
 	{
-		lcd_print_string("Error: TODO");
-		while(1);
+		lcd_clear();
+		lcd_print_string("Er@HAL_I2C_Init");
+		HAL_Delay(1000);
 	}
 #if 0
 	if (HAL_I2CEx_ConfigAnalogFilter(&hi2cxc, I2C_ANALOGFILTER_ENABLE) != HAL_OK)
 	{
 		lcd_print_string("Error: TODO");
-		while(1); 
+		HAL_Delay(1000);
 	}
 	if (HAL_I2CEx_ConfigDigitalFilter(&hi2cxc, 0) != HAL_OK)
 	{
 		lcd_print_string("Error: TODO");
-		while(1); 
+		HAL_Delay(1000);
 	}
 #endif
 
@@ -95,8 +96,9 @@ void configureCCS811()
 	uint8_t hwID = readRegister(0x20); //Hardware ID should be 0x81
 	if (hwID != 0x81)
 	{
-		lcd_print_string("Error: TODO");
-		while (1); //Freeze!
+		lcd_clear();
+		lcd_print_string("Er:hwID@CCS811");
+		HAL_Delay(1000);
 	}
 
 	uint8_t lodata[1];
@@ -109,8 +111,9 @@ void configureCCS811()
 
 	if (checkForError() == 1)
 	{
-		lcd_print_string("Error: TODO");
-		while (1); //Freeze!
+		lcd_clear();
+		lcd_print_string("Er:checkForError@configureCCS811");
+		HAL_Delay(1000);
 	}
 	//Set Drive Mode
 }

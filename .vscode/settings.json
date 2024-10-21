@@ -1,0 +1,13 @@
+{
+    "cmake.configureSettings": {
+        "ARCH": "arm",
+        "CROSS_COMPILE": "arm-none-eabi-",
+        "PATH": "~/toolchain/gcc-arm-none-eabi-9-2020-q2-update/bin:$PATH",
+        "CMAKE_TOOLCHAIN_FILE": "/home/m/vcpkg/scripts/buildsystems/vcpkg.cmake"
+    },
+    "files.associations": {
+        "*.tcc": "cpp"
+    },
+    "cmake.configureOnOpen": false,
+    "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
+}
