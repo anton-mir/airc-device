@@ -13,9 +13,13 @@
 
 # 1 Check that packet arrives
 
+Connect GL board with Ethernet cable and establish TCP/IP connection:
+
 * _telnet 192.168.1.121 11333_
+or
 * _nc 192.168.1.121 11333_
-* _wireshark_
+
+Try to check packet with running "_wireshark_"
 
 # 2 Connect LED
 
