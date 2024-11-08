@@ -30,5 +30,32 @@
                 }
             ]
         },
+        {
+            "name": "(gdb) Start airc debug on-host",
+            "type": "cppdbg",
+            "cwd": "${workspaceFolder}",
+            "request": "launch",
+            "targetArchitecture": "arm64",
+            "useExtendedRemote": true,
+            "sourceFileMap": { "/home/sbc": "/home/airc" },
+            "program": "/home/airc/firmware/airc_dev.elf",
+            "linux": {
+                "MIMode": "gdb",
+                "miDebuggerPath": "/usr/bin/gdb-multiarch",
+                "miDebuggerServerAddress": "localhost:3333"
+            },
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Set Disassembly Flavor to Intel",
+                    "text": "-gdb-set disassembly-flavor intel",
+                    "ignoreFailures": true
+                }
+            ]
+        }
     ]
 }
